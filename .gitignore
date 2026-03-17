@@ -1,0 +1,10 @@
+
+/backend/node_modules
+/frontend/node_modules
+/backend/.env
+/frontend/.env
+backend/package-lock.json
+frontend/package-lock.json
+backend/bun.lockb
+frontend/bun.lockb
+frontend/.next
