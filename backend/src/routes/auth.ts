@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { query } from '../config/db';
+import { prisma } from '../lib/prisma';
 import { generateToken, hashPassword, verifyPassword, requireAuth } from '../middleware/auth';
 import { AuthTokenPayload, Operator } from '../types';
 
@@ -19,8 +19,11 @@ router.post('/register', async (req: Request, res: Response) => {
   }
 
   try {
-    const existing = await query<Operator>('SELECT * FROM operators WHERE email = $1', [email]);
-    if (existing.rows.length > 0) {
+    const existing = await prisma.operator.findUnique({
+      where: { email }
+    });
+    
+    if (existing) {
       res.status(409).json({ message: 'Operator with this email already exists' });
       return;
     }
@@ -28,12 +31,15 @@ router.post('/register', async (req: Request, res: Response) => {
     const passwordHash = await hashPassword(password);
     const userRole = role === 'admin' ? 'admin' : 'operator';
 
-    const inserted = await query<Operator>(
-      'INSERT INTO operators (email, password_hash, name, role) VALUES ($1, $2, $3, $4) RETURNING *',
-      [email, passwordHash, name, userRole]
-    );
+    const operator = await prisma.operator.create({
+      data: {
+        email,
+        password_hash: passwordHash,
+        name,
+        role: userRole
+      }
+    });
 
-    const operator = inserted.rows[0];
     const payload: AuthTokenPayload = {
       id: operator.id,
       email: operator.email,
@@ -57,8 +63,9 @@ router.post('/login', async (req: Request, res: Response) => {
   }
 
   try {
-    const result = await query<Operator>('SELECT * FROM operators WHERE email = $1', [email]);
-    const operator = result.rows[0];
+    const operator = await prisma.operator.findUnique({
+      where: { email }
+    });
 
     if (!operator) {
       res.status(401).json({ message: 'Invalid credentials' });
@@ -92,10 +99,17 @@ router.get('/me', requireAuth, async (req: Request, res: Response) => {
   }
 
   try {
-    const result = await query<Operator>('SELECT id, email, name, role, created_at FROM operators WHERE id = $1', [
-      req.user.id
-    ]);
-    const operator = result.rows[0];
+    const operator = await prisma.operator.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        created_at: true
+      }
+    });
+
     if (!operator) {
       res.status(404).json({ message: 'Operator not found' });
       return;

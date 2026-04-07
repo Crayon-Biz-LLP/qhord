@@ -5,7 +5,7 @@ import authRoutes from './routes/auth';
 import clientRoutes from './routes/clients';
 import toolRoutes from './routes/tools';
 import executionRoutes from './routes/executions';
-import { pool } from './config/db';
+import { prisma } from './lib/prisma';
 
 dotenv.config();
 
@@ -16,9 +16,10 @@ app.use(express.json({ limit: '1mb' }));
 
 app.get('/api/health', async (_req, res) => {
   try {
-    await pool.query('SELECT 1');
+    await prisma.$queryRaw`SELECT 1`;
     res.json({ status: 'ok' });
-  } catch {
+  } catch (err) {
+    console.error('Health check error', err);
     res.status(500).json({ status: 'error' });
   }
 });

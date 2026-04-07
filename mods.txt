@@ -1,0 +1,17 @@
+﻿backend/package.json
+backend/src/config/db.ts
+backend/src/index.ts
+backend/src/routes/auth.ts
+backend/src/routes/clients.ts
+backend/src/routes/executions.ts
+backend/src/routes/tools.ts
+backend/src/services/execution.engine.ts
+frontend/package.json
+frontend/postcss.config.mjs
+frontend/src/app/layout.tsx
+frontend/src/app/login/page.tsx
+frontend/src/app/page.tsx
+frontend/src/globals.css
+frontend/tailwind.config.ts
+frontend/tailwind.css
+frontend/tsconfig.json

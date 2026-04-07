@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { query } from '../config/db';
+import { prisma } from '../lib/prisma';
 import { requireAuth } from '../middleware/auth';
-import { Client } from '../types';
 
 const router = Router();
 
@@ -9,11 +8,11 @@ router.use(requireAuth);
 
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const result = await query<Client>(
-      'SELECT * FROM clients WHERE created_by_operator_id = $1 ORDER BY created_at DESC',
-      [req.user!.id]
-    );
-    res.json({ clients: result.rows });
+    const clients = await prisma.client.findMany({
+      where: { created_by_operator_id: req.user!.id },
+      orderBy: { created_at: 'desc' }
+    });
+    res.json({ clients });
   } catch (err) {
     console.error('List clients error', err);
     res.status(500).json({ message: 'Failed to fetch clients' });
@@ -28,11 +27,14 @@ router.post('/', async (req: Request, res: Response) => {
   }
 
   try {
-    const result = await query<Client>(
-      'INSERT INTO clients (name, description, created_by_operator_id) VALUES ($1, $2, $3) RETURNING *',
-      [name, description ?? null, req.user!.id]
-    );
-    res.status(201).json({ client: result.rows[0] });
+    const client = await prisma.client.create({
+      data: {
+        name,
+        description: description ?? null,
+        created_by_operator_id: req.user!.id
+      }
+    });
+    res.status(201).json({ client });
   } catch (err) {
     console.error('Create client error', err);
     res.status(500).json({ message: 'Failed to create client' });
@@ -42,11 +44,12 @@ router.post('/', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   const { id } = req.params;
   try {
-    const result = await query<Client>(
-      'SELECT * FROM clients WHERE id = $1 AND created_by_operator_id = $2',
-      [id, req.user!.id]
-    );
-    const client = result.rows[0];
+    const client = await prisma.client.findFirst({
+      where: {
+        id,
+        created_by_operator_id: req.user!.id
+      }
+    });
     if (!client) {
       res.status(404).json({ message: 'Client not found' });
       return;
@@ -63,20 +66,26 @@ router.put('/:id', async (req: Request, res: Response) => {
   const { name, description } = req.body as { name?: string; description?: string };
 
   try {
-    const existing = await query<Client>(
-      'SELECT * FROM clients WHERE id = $1 AND created_by_operator_id = $2',
-      [id, req.user!.id]
-    );
-    if (existing.rows.length === 0) {
+    const existing = await prisma.client.findFirst({
+      where: {
+        id,
+        created_by_operator_id: req.user!.id
+      }
+    });
+    
+    if (!existing) {
       res.status(404).json({ message: 'Client not found' });
       return;
     }
 
-    const updated = await query<Client>(
-      'UPDATE clients SET name = COALESCE($1, name), description = COALESCE($2, description) WHERE id = $3 RETURNING *',
-      [name ?? null, description ?? null, id]
-    );
-    res.json({ client: updated.rows[0] });
+    const client = await prisma.client.update({
+      where: { id },
+      data: {
+        name: name !== undefined ? name : undefined,
+        description: description !== undefined ? description : undefined
+      }
+    });
+    res.json({ client });
   } catch (err) {
     console.error('Update client error', err);
     res.status(500).json({ message: 'Failed to update client' });
@@ -86,14 +95,21 @@ router.put('/:id', async (req: Request, res: Response) => {
 router.delete('/:id', async (req: Request, res: Response) => {
   const { id } = req.params;
   try {
-    const result = await query<Client>(
-      'DELETE FROM clients WHERE id = $1 AND created_by_operator_id = $2 RETURNING id',
-      [id, req.user!.id]
-    );
-    if (result.rows.length === 0) {
+    const existing = await prisma.client.findFirst({
+      where: {
+        id,
+        created_by_operator_id: req.user!.id
+      }
+    });
+    
+    if (!existing) {
       res.status(404).json({ message: 'Client not found' });
       return;
     }
+
+    await prisma.client.delete({
+      where: { id }
+    });
     res.status(204).send();
   } catch (err) {
     console.error('Delete client error', err);

@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Operator {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email         String   @unique
+  password_hash String
+  name          String
+  role          String   @default("operator")
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  clients               Client[]
+  client_tool_accounts  ClientToolAccount[]
+  execution_contexts    ExecutionContext[]
+  executions            Execution[]
+
+  @@map("operators")
+}
+
+model Client {
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                   String
+  description            String?
+  created_by_operator    Operator @relation(fields: [created_by_operator_id], references: [id])
+  created_by_operator_id String   @db.Uuid
+  created_at             DateTime @default(now()) @db.Timestamptz(6)
+
+  tool_accounts      ClientToolAccount[]
+  execution_contexts ExecutionContext[]
+  executions         Execution[]
+
+  @@map("clients")
+}
+
+model ClientToolAccount {
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  client                 Client   @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  client_id              String   @db.Uuid
+  tool_name              String
+  account_label          String
+  api_key_encrypted      String
+  created_by_operator    Operator @relation(fields: [created_by_operator_id], references: [id])
+  created_by_operator_id String   @db.Uuid
+  created_at             DateTime @default(now()) @db.Timestamptz(6)
+
+  executions Execution[]
+
+  @@map("client_tool_accounts")
+}
+
+model Tool {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tool_id     String   @unique // String ID like 'apollo', 'hubspot'
+  name        String
+  category    String
+  description String?
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("tools")
+}
+
+model ExecutionContext {
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  client                 Client   @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  client_id              String   @db.Uuid
+  name                   String
+  description            String?
+  context_data           Json?
+  created_by_operator    Operator @relation(fields: [created_by_operator_id], references: [id])
+  created_by_operator_id String   @db.Uuid
+  created_at             DateTime @default(now()) @db.Timestamptz(6)
+
+  executions Execution[]
+
+  @@map("execution_contexts")
+}
+
+model Execution {
+  id                       String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  client                   Client            @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  client_id                String            @db.Uuid
+  tool_name                String
+  tool_account             ClientToolAccount @relation(fields: [tool_account_id], references: [id])
+  tool_account_id          String            @db.Uuid
+  context                  ExecutionContext? @relation(fields: [context_id], references: [id], onDelete: SetNull)
+  context_id               String?           @db.Uuid
+  action                   String
+  status                   String            @default("pending")
+  request_payload          Json?
+  response_payload         Json?
+  error_message            String?
+  triggered_by_operator    Operator          @relation(fields: [triggered_by_operator_id], references: [id])
+  triggered_by_operator_id String            @db.Uuid
+  created_at               DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime          @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@map("executions")
+}

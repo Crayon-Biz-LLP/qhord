@@ -1,8 +1,6 @@
-import { query } from '../config/db';
+import { prisma } from '../lib/prisma';
 import { decrypt } from '../config/encryption';
 import {
-  ClientToolAccount,
-  Execution,
   ExecutionRequestPayload,
   ToolName,
   ExecutionStatus
@@ -15,43 +13,38 @@ import { SmartLeadService } from './smartlead.service';
 const SUPPORTED_TOOLS: ToolName[] = ['apollo', 'clay', 'heyreach', 'smartlead'];
 
 export class ExecutionEngine {
-  async execute(request: ExecutionRequestPayload, operatorId: string): Promise<Execution> {
+  async execute(request: ExecutionRequestPayload, operatorId: string) {
     const { clientId, tool, toolAccountId, contextId, action, payload } = request;
 
     if (!SUPPORTED_TOOLS.includes(tool)) {
       throw new Error(`Unsupported tool: ${tool}`);
     }
 
-    const accountResult = await query<ClientToolAccount>(
-      'SELECT * FROM client_tool_accounts WHERE id = $1 AND client_id = $2',
-      [toolAccountId, clientId]
-    );
-    const account = accountResult.rows[0];
+    const account = await prisma.clientToolAccount.findFirst({
+      where: {
+        id: toolAccountId,
+        client_id: clientId
+      }
+    });
+
     if (!account) {
       throw new Error('Tool account not found for client');
     }
 
     const apiKey = decrypt(account.api_key_encrypted);
 
-    const executionInsert = await query<Execution>(
-      `INSERT INTO executions (
-        client_id, tool_name, tool_account_id, context_id, action, status,
-        request_payload, response_payload, error_message, triggered_by_operator_id
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-      [
-        clientId,
-        tool,
-        toolAccountId,
-        contextId ?? null,
+    const execution = await prisma.execution.create({
+      data: {
+        client_id: clientId,
+        tool_name: tool,
+        tool_account_id: toolAccountId,
+        context_id: contextId ?? null,
         action,
-        'pending',
-        payload,
-        null,
-        null,
-        operatorId
-      ]
-    );
-    let execution = executionInsert.rows[0];
+        status: 'pending',
+        request_payload: payload ?? undefined,
+        triggered_by_operator_id: operatorId
+      }
+    });
 
     let status: ExecutionStatus = 'success';
     let responsePayload: any = null;
@@ -64,13 +57,16 @@ export class ExecutionEngine {
       errorMessage = err?.message || 'Execution failed';
     }
 
-    const updated = await query<Execution>(
-      'UPDATE executions SET status = $1, response_payload = $2, error_message = $3, updated_at = NOW() WHERE id = $4 RETURNING *',
-      [status, responsePayload, errorMessage, execution.id]
-    );
-    execution = updated.rows[0];
+    const updated = await prisma.execution.update({
+      where: { id: execution.id },
+      data: {
+        status: status,
+        response_payload: responsePayload ?? undefined,
+        error_message: errorMessage
+      }
+    });
 
-    return execution;
+    return updated;
   }
 
   private async dispatchToTool(tool: ToolName, apiKey: string, action: string, payload: any): Promise<any> {

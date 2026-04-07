@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
+import { prisma } from '../lib/prisma';
 import { requireAuth } from '../middleware/auth';
-import { Execution, ExecutionRequestPayload } from '../types';
-import { query } from '../config/db';
+import { ExecutionRequestPayload } from '../types';
 import { ExecutionEngine } from '../services/execution.engine';
 
 const router = Router();
@@ -12,18 +12,15 @@ router.use(requireAuth);
 router.get('/', async (req: Request, res: Response) => {
   const { clientId } = req.query as { clientId?: string };
   try {
-    let sql =
-      'SELECT * FROM executions WHERE triggered_by_operator_id = $1 ORDER BY created_at DESC LIMIT 200';
-    const params: any[] = [req.user!.id];
-
-    if (clientId) {
-      sql =
-        'SELECT * FROM executions WHERE triggered_by_operator_id = $1 AND client_id = $2 ORDER BY created_at DESC LIMIT 200';
-      params.push(clientId);
-    }
-
-    const result = await query<Execution>(sql, params);
-    res.json({ executions: result.rows });
+    const executions = await prisma.execution.findMany({
+      where: {
+        triggered_by_operator_id: req.user!.id,
+        client_id: clientId ? clientId : undefined
+      },
+      orderBy: { created_at: 'desc' },
+      take: 200
+    });
+    res.json({ executions });
   } catch (err) {
     console.error('List executions error', err);
     res.status(500).json({ message: 'Failed to fetch executions' });

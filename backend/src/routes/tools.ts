@@ -1,25 +1,45 @@
 import { Router, Request, Response } from 'express';
-import { query } from '../config/db';
+import { prisma } from '../lib/prisma';
 import { requireAuth } from '../middleware/auth';
-import { ClientToolAccount } from '../types';
 import { encrypt } from '../config/encryption';
 
 const router = Router();
+
+router.get('/', async (_req: Request, res: Response) => {
+  try {
+    const dbTools = await (prisma as any).tool.findMany({
+      orderBy: { name: 'asc' }
+    });
+    // Map tool_id to id for frontend compatibility
+    const tools = dbTools.map((t: any) => ({
+      ...t,
+      id: t.tool_id
+    }));
+    res.json({ tools });
+  } catch (err) {
+    console.error('Fetch tools error', err);
+    res.status(500).json({ message: 'Failed to fetch tools from database' });
+  }
+});
 
 router.use(requireAuth);
 
 router.get('/accounts/:clientId', async (req: Request, res: Response) => {
   const { clientId } = req.params;
   try {
-    const result = await query<ClientToolAccount>(
-      'SELECT * FROM client_tool_accounts WHERE client_id = $1 ORDER BY created_at DESC',
-      [clientId]
-    );
-    const sanitized = result.rows.map((row) => ({
-      ...row,
-      api_key_encrypted: undefined
-    }));
-    res.json({ accounts: sanitized });
+    const accounts = await prisma.clientToolAccount.findMany({
+      where: { client_id: clientId },
+      orderBy: { created_at: 'desc' },
+      select: {
+        id: true,
+        client_id: true,
+        tool_name: true,
+        account_label: true,
+        created_by_operator_id: true,
+        created_at: true
+      }
+    });
+    res.json({ accounts });
   } catch (err) {
     console.error('List tool accounts error', err);
     res.status(500).json({ message: 'Failed to fetch tool accounts' });
@@ -41,17 +61,24 @@ router.post('/accounts', async (req: Request, res: Response) => {
 
   try {
     const encryptedKey = encrypt(apiKey);
-    const result = await query<ClientToolAccount>(
-      'INSERT INTO client_tool_accounts (client_id, tool_name, account_label, api_key_encrypted, created_by_operator_id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [clientId, toolName, accountLabel, encryptedKey, req.user!.id]
-    );
-    const account = result.rows[0];
-    res.status(201).json({
-      account: {
-        ...account,
-        api_key_encrypted: undefined
+    const account = await prisma.clientToolAccount.create({
+      data: {
+        client_id: clientId,
+        tool_name: toolName,
+        account_label: accountLabel,
+        api_key_encrypted: encryptedKey,
+        created_by_operator_id: req.user!.id
+      },
+      select: {
+        id: true,
+        client_id: true,
+        tool_name: true,
+        account_label: true,
+        created_by_operator_id: true,
+        created_at: true
       }
     });
+    res.status(201).json({ account });
   } catch (err) {
     console.error('Create tool account error', err);
     res.status(500).json({ message: 'Failed to create tool account' });
@@ -61,15 +88,15 @@ router.post('/accounts', async (req: Request, res: Response) => {
 router.delete('/accounts/:id', async (req: Request, res: Response) => {
   const { id } = req.params;
   try {
-    const result = await query<ClientToolAccount>('DELETE FROM client_tool_accounts WHERE id = $1 RETURNING id', [
-      id
-    ]);
-    if (result.rows.length === 0) {
-      res.status(404).json({ message: 'Tool account not found' });
-      return;
-    }
+    await prisma.clientToolAccount.delete({
+      where: { id }
+    });
     res.status(204).send();
-  } catch (err) {
+  } catch (err: any) {
+    if (err.code === 'P2025') {
+       res.status(404).json({ message: 'Tool account not found' });
+       return;
+    }
     console.error('Delete tool account error', err);
     res.status(500).json({ message: 'Failed to delete tool account' });
   }
