@@ -19,20 +19,17 @@ export const Footer = () => {
           <div className="lg:col-span-4 flex flex-col items-start gap-8">
             <motion.div
               whileHover={{ scale: 1.02 }}
-              className="flex items-center gap-4 transition-transform"
+              className="flex items-center transition-transform"
             >
-              <div className="relative w-10 h-10 flex items-center justify-center bg-brand-gold rounded-xl shadow-[0_0_20px_rgba(185,155,123,0.3)]">
+              <div className="relative w-52 h-16 flex items-center justify-start">
                 <Image
-                  src="/logo.png"
-                  alt="Logo"
-                  width={28}
-                  height={28}
-                  className="object-contain brightness-0 filter"
+                  src="/logo-footer.png"
+                  alt="Qhord Logo"
+                  width={200}
+                  height={64}
+                  className="object-contain"
                 />
               </div>
-              <span className="text-2xl font-black tracking-tight text-white uppercase italic">
-                Control<span className="text-brand-gold">Tower</span>
-              </span>
             </motion.div>
 
             <p className="text-white/40 text-lg font-medium leading-relaxed max-w-sm font-serif italic border-l-2 border-brand-gold/20 pl-6">
@@ -75,7 +72,7 @@ export const Footer = () => {
           <div className="flex flex-col md:flex-row items-center justify-between gap-8 text-center md:text-left">
             <div className="flex flex-col gap-2">
               <p className="text-white/20 text-xs font-medium uppercase tracking-[0.25em]">
-                © 2026 Control Tower. All rights reserved.
+                © 2026 Qhord. All rights reserved.
               </p>
             </div>
 

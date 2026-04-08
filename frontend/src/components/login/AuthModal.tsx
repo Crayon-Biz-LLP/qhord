@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import { X, Mail, Lock, User, ArrowRight, Zap, ChevronRight, Activity, Globe, Database, Filter, ChevronLeft, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 
@@ -175,10 +176,15 @@ export const AuthModal = ({ isOpen, onClose, initialState = "signin", onSuccess 
 
               <div className="relative z-10 space-y-2 md:space-y-6">
                 <motion.div
-                  whileHover={{ scale: 1.1, rotate: 90 }}
-                  className="hidden md:flex w-10 h-10 md:w-12 md:h-12 bg-[#D4AF37] rounded-xl md:rounded-2xl items-center justify-center shadow-2xl transition-transform duration-500"
+                  className="hidden md:flex items-center justify-start h-16 w-full mb-8"
                 >
-                  <Filter size={20} className="text-[#1a1510]" />
+                  <Image 
+                    src="/logo-footer.png"
+                    alt="Qhord"
+                    width={180}
+                    height={56}
+                    className="object-contain"
+                  />
                 </motion.div>
 
                 <div className="space-y-0.5 md:space-y-1 mt-auto md:mt-0">
