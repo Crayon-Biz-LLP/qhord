@@ -74,7 +74,7 @@ export const Footer = () => {
         <div className="relative pt-10 border-t border-white/5 overflow-hidden">
           <div className="flex flex-col md:flex-row items-center justify-between gap-8 text-center md:text-left">
             <div className="flex flex-col gap-2">
-              <p className="text-white/20 text-xs font-black uppercase tracking-[0.25em]">
+              <p className="text-white/20 text-xs font-medium uppercase tracking-[0.25em]">
                 © 2026 Control Tower. All rights reserved.
               </p>
             </div>

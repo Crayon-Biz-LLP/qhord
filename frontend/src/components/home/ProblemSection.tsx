@@ -67,7 +67,7 @@ export const ProblemSection = ({ onManageNow }: { onManageNow?: () => void }) =>
           {/* <span className="text-[10px] font-black uppercase tracking-[0.3em] text-brand-gold">System Alert: Operational Chaos</span> */}
 
 
-          <h2 className="text-4xl sm:text-6xl md:text-8xl font-black mb-8 tracking-[-0.04em] leading-[0.9] text-[#1a1510]">
+          <h2 className="text-2xl sm:text-4xl md:text-5xl font-black mb-8 tracking-[-0.04em] leading-[0.9] text-[#1a1510]">
             Your GTM Stack is <br />
             <span className="text-brand-beige-dark italic">Siloed & Bleeding.</span>
           </h2>
@@ -87,25 +87,25 @@ export const ProblemSection = ({ onManageNow }: { onManageNow?: () => void }) =>
             {/* Ambient Background Glow */}
             <div className="absolute -inset-4 bg-brand-gold/10 rounded-[4rem] blur-[60px] opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
 
-            <div className="relative p-8 md:p-12 rounded-[3rem] bg-[#0a0a0a] border border-white/10 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.8)] overflow-hidden">
+            <div className="relative p-6 md:p-8 rounded-[2rem] bg-[#0a0a0a] border border-white/10 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.8)] overflow-hidden">
 
               {/* HUD Brackets (Visual Interest) */}
-              <div className="absolute top-0 left-0 w-16 h-16 border-l-2 border-t-2 border-brand-gold/30 rounded-tl-3xl m-4 pointer-events-none" />
-              <div className="absolute bottom-0 right-0 w-16 h-16 border-r-2 border-b-2 border-brand-gold/30 rounded-br-3xl m-4 pointer-events-none" />
+              <div className="absolute top-0 left-0 w-12 h-12 border-l-2 border-t-2 border-brand-gold/30 rounded-tl-2xl m-3 pointer-events-none" />
+              <div className="absolute bottom-0 right-0 w-12 h-12 border-r-2 border-b-2 border-brand-gold/30 rounded-br-2xl m-3 pointer-events-none" />
 
 
               <div className="relative z-10">
-                <div className="flex items-center justify-between mb-12">
-                  <div className="flex items-center gap-5">
+                <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center gap-4">
                     <div className="relative group/icon">
-                      <div className="absolute -inset-2 bg-brand-gold/20 rounded-2xl blur-lg scale-0 group-hover/icon:scale-150 transition-transform duration-500" />
-                      <div className="w-14 h-14 rounded-2xl bg-[#1a1510] border border-white/10 flex items-center justify-center text-brand-gold shadow-2xl relative z-10">
-                        <Cpu size={28} strokeWidth={1.5} />
+                      <div className="absolute -inset-2 bg-brand-gold/20 rounded-xl blur-lg scale-0 group-hover/icon:scale-150 transition-transform duration-500" />
+                      <div className="w-10 h-10 rounded-xl bg-[#1a1510] border border-white/10 flex items-center justify-center text-brand-gold shadow-2xl relative z-10">
+                        <Cpu size={20} strokeWidth={1.5} />
                       </div>
                     </div>
                     <div>
 
-                      <h4 className="text-2xl font-black text-white tracking-tight">Fragmentation Crisis</h4>
+                      <h4 className="text-lg font-black text-white tracking-tight">Fragmentation Crisis</h4>
                     </div>
                   </div>
 
@@ -124,7 +124,7 @@ export const ProblemSection = ({ onManageNow }: { onManageNow?: () => void }) =>
                   </div>
                 </div>
 
-                <div className="space-y-10">
+                <div className="space-y-6">
                   {tools.map((tool, i) => (
                     <div key={i} className="relative group/tool">
                       <div className="flex justify-between items-end mb-4">
@@ -181,15 +181,15 @@ export const ProblemSection = ({ onManageNow }: { onManageNow?: () => void }) =>
                 whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
-                className="group p-10 rounded-[2.5rem] bg-white border border-brand-gold/10 hover:border-brand-gold transition-all duration-500 hover:shadow-[0_40px_80px_-20px_rgba(185,155,123,0.15)] flex-shrink-0 w-[320px] sm:w-auto h-[240px] flex flex-col justify-between relative overflow-hidden"
+                className="group p-8 rounded-[2rem] bg-white border border-brand-gold/10 hover:border-brand-gold transition-all duration-500 hover:shadow-[0_40px_80px_-20px_rgba(185,155,123,0.15)] flex-shrink-0 w-[300px] sm:w-auto h-[200px] flex flex-col justify-between relative overflow-hidden"
               >
                 <div className="absolute top-0 right-0 w-24 h-24 bg-brand-gold/5 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                
+
                 <div className="relative z-10">
-                   <div className="w-14 h-14 rounded-2xl bg-[#1a1510] flex items-center justify-center text-brand-gold mb-6 group-hover:scale-110 transition-transform shadow-xl">
-                     <Zap size={22} fill="currentColor" />
-                   </div>
-                   <h5 className="text-xl font-black text-[#1a1510] uppercase tracking-tight mb-2">{point.title}</h5>
+                  <div className="w-10 h-10 rounded-xl bg-[#1a1510] flex items-center justify-center text-brand-gold mb-4 group-hover:scale-110 transition-transform shadow-xl">
+                    <Zap size={16} fill="currentColor" />
+                  </div>
+                  <h5 className="text-base font-black text-[#1a1510] uppercase tracking-tight mb-1">{point.title}</h5>
                 </div>
                 <p className="text-sm font-medium text-[#1a1510]/40 leading-relaxed font-serif italic relative z-10">
                   {point.desc}
@@ -245,7 +245,7 @@ export const ProblemSection = ({ onManageNow }: { onManageNow?: () => void }) =>
               <span className="text-[10px] font-black uppercase tracking-[0.4em] text-white/40">The Integration Cure</span>
             </div>
           </motion.div>
-          
+
           {/* Action CTA for Solving Fragmentation */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -253,23 +253,22 @@ export const ProblemSection = ({ onManageNow }: { onManageNow?: () => void }) =>
             viewport={{ once: true }}
             className="col-span-1 lg:col-span-2 flex flex-col items-center mt-16 mb-8 text-center"
           >
-            <button 
+            <button
               onClick={onManageNow}
-              className="group relative flex items-center gap-8 px-14 py-8 bg-[#1a1510] rounded-[2.5rem] text-white font-black text-xl hover:scale-[1.05] transition-all duration-500 shadow-[0_40px_80px_-20px_rgba(26,21,16,0.5)] overflow-hidden"
+              className="group relative flex items-center gap-6 px-10 py-4 bg-[#1a1510] rounded-[2rem] text-white font-black text-base hover:scale-[1.05] transition-all duration-500 shadow-[0_40px_80px_-20px_rgba(26,21,16,0.5)] overflow-hidden"
             >
-               <span className="relative z-10 tracking-tight uppercase">Manage Now</span>
-               <div className="w-12 h-12 rounded-full bg-brand-gold text-[#1a1510] flex items-center justify-center relative z-10 group-hover:rotate-[360deg] transition-transform duration-700">
-                  <Zap size={24} fill="currentColor" />
-               </div>
-               
-               {/* Shimmer Effect */}
-               <motion.div 
-                 animate={{ x: ['-200%', '200%'] }}
-                 transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                 className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-[45deg]" 
-               />
+              <span className="relative z-10 tracking-tight uppercase">Manage Now</span>
+              <div className="w-9 h-9 rounded-full bg-brand-gold text-[#1a1510] flex items-center justify-center relative z-10 group-hover:rotate-[360deg] transition-transform duration-700">
+                <Zap size={18} fill="currentColor" />
+              </div>
+
+              {/* Shimmer Effect */}
+              <motion.div
+                animate={{ x: ['-200%', '200%'] }}
+                transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-[45deg]"
+              />
             </button>
-            <p className="mt-6 text-[10px] font-black uppercase tracking-[0.5em] text-[#1a1510]/30 italic">One Hub. Zero Friction.</p>
           </motion.div>
         </div>
       </div>

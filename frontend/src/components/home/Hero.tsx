@@ -78,7 +78,17 @@ export const Hero = ({ onGetStarted }: { onGetStarted: () => void }) => {
 
         {/* Modern Dot Grid with Perspective - Ends before globe */}
         <div className="absolute inset-0 [mask-image:linear-gradient(to_bottom,black_0%,black_30%,transparent_50%)]">
-          <div className="absolute inset-0 border-t border-brand-beige/20 bg-[radial-gradient(#d9bc9b_0.5px,transparent_0.5px)] [background-size:24px_24px] [transform:perspective(1000px)_rotateX(60deg)_scale(2.5)] -top-1/2" />
+          <motion.div 
+            animate={{ 
+              backgroundPosition: ["0px 0px", "24px 24px"],
+            }}
+            transition={{ 
+              duration: 10, 
+              repeat: Infinity, 
+              ease: "linear" 
+            }}
+            className="absolute inset-0 border-t border-brand-beige/20 bg-[radial-gradient(#d9bc9b_0.5px,transparent_0.5px)] [background-size:24px_24px] [transform:perspective(1000px)_rotateX(60deg)_scale(2.5)] -top-1/2" 
+          />
         </div>
       </div>
 
@@ -298,16 +308,16 @@ export const Hero = ({ onGetStarted }: { onGetStarted: () => void }) => {
           <div className="flex flex-col sm:flex-row items-center gap-6">
             <button
               onClick={onGetStarted}
-              className="group relative flex items-center gap-6 px-12 py-7 bg-[#1a1510] rounded-[2rem] text-white font-black text-lg hover:scale-[1.02] transition-all duration-300 shadow-[0_20px_40px_-10px_rgba(26,21,16,0.3)]"
+              className="group relative flex items-center gap-4 px-8 py-4 bg-[#1a1510] rounded-[1.5rem] text-white font-bold text-base hover:scale-[1.02] transition-all duration-300 shadow-[0_20px_40px_-10px_rgba(26,21,16,0.3)]"
             >
               <span className="tracking-tight">Manage Now</span>
-              <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white group-hover:text-[#1a1510] transition-all">
-                <ArrowRight size={20} />
+              <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white group-hover:text-[#1a1510] transition-all">
+                <ArrowRight size={16} />
               </div>
             </button>
 
             <button
-              className="group px-10 py-7 bg-white/40 backdrop-blur-xl border border-brand-beige/20 rounded-[2rem] text-[#1a1510] font-black text-lg hover:bg-white transition-all duration-300 shadow-sm"
+              className="group px-8 py-4 bg-white/40 backdrop-blur-xl border border-brand-beige/20 rounded-[1.5rem] text-[#1a1510] font-bold text-base hover:bg-white transition-all duration-300 shadow-sm"
             >
               Book Demo
             </button>

@@ -14,7 +14,7 @@ const features = [
   },
   {
     title: "Unified Workflow",
-    desc: "Move leads seamlessly between tools: Apollo → Clay → HeyReach → Smartlead. No exports. No manual work.",
+    desc: "Move leads seamlessly between Apollo, Clay, HeyReach & Smartlead. No exports, no manual work.",
     icon: Repeat,
     size: "md:col-span-2",
     delay: 0.2
@@ -28,7 +28,7 @@ const features = [
   },
   {
     title: "Campaign Visibility",
-    desc: "Track outreach activity across platforms in one view. Monitor campaigns, responses, and performance.",
+    desc: "Track outreach across platforms in one view. Monitor campaigns, responses & performance.",
     icon: Eye,
     size: "col-span-1",
   }
@@ -52,7 +52,7 @@ export const KeyFeatures = () => {
       <div className="absolute inset-0 bg-[radial-gradient(#d9bc9b_0.5px,transparent_0.5px)] [background-size:32px_32px] opacity-[0.03] pointer-events-none" />
       <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_10%_20%,rgba(185,155,123,0.05)_0%,transparent_50% )] pointer-events-none" />
       
-      <div className="max-w-7xl mx-auto relative z-10">
+      <div className="max-w-5xl mx-auto relative z-10">
         <div className="flex flex-col lg:flex-row lg:items-end justify-between mb-24 gap-8">
           <div className="max-w-3xl">
             <motion.div
@@ -64,7 +64,7 @@ export const KeyFeatures = () => {
               <div className="w-12 h-[1px] bg-brand-gold/40" />
               <span className="text-[10px] font-black uppercase tracking-[0.5em] text-brand-gold">Infrastructure Core</span>
             </motion.div>
-            <h2 className="text-4xl sm:text-6xl md:text-7xl font-black tracking-tight text-[#1a1510] leading-[0.95]">
+            <h2 className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight text-[#1a1510] leading-[0.95]">
               Everything Your <br />
               <span className="relative inline-block mt-2">
                 <span className="relative z-10 text-brand-gold italic">GTM Team Needs</span>
@@ -116,7 +116,7 @@ export const KeyFeatures = () => {
                 viewport={{ once: true }}
                 whileHover={{ y: -10 }}
                 transition={{ duration: 0.8, delay: i * 0.1, ease: [0.16, 1, 0.3, 1] }}
-                className={`group relative min-h-[340px] rounded-[3.5rem] bg-white/40 backdrop-blur-3xl border border-white/50 shadow-[0_40px_80px_-20px_rgba(185,155,123,0.1)] transition-all duration-700 flex-shrink-0 w-[85vw] sm:w-[450px] md:w-auto snap-center flex flex-col justify-between overflow-hidden ${gridClasses}`}
+                className={`group relative min-h-[260px] rounded-[3.5rem] bg-white/40 backdrop-blur-3xl border border-white/50 shadow-[0_40px_80px_-20px_rgba(185,155,123,0.1)] transition-all duration-700 flex-shrink-0 w-[85vw] sm:w-[450px] md:w-auto snap-center flex flex-col justify-between overflow-hidden ${gridClasses}`}
               >
 
                 {/* 2. BACKGROUND DATA GRID */}
@@ -141,7 +141,7 @@ export const KeyFeatures = () => {
                   </div>
 
                   <div className="space-y-3">
-                    <h3 className="text-2xl font-black text-[#1a1510] tracking-tighter leading-none group-hover:text-brand-gold transition-colors duration-500">
+                    <h3 className="text-2xl font-bold text-[#1a1510] tracking-tighter leading-none group-hover:text-brand-gold transition-colors duration-500">
                       {feat.title}
                     </h3>
                     <p className="text-[#1a1510]/50 text-base font-medium leading-relaxed max-w-[320px]">
@@ -151,7 +151,7 @@ export const KeyFeatures = () => {
                 </div>
 
                 {/* 4. FOOTER: Technical Command */}
-                <div className="relative z-10 px-10 pb-10 flex items-center justify-between">
+                <div className="relative z-10 px-10 pb-10 flex items-center justify-end">
                   <button className="relative w-12 h-12 rounded-2xl bg-white border border-[#1a1510]/5 flex items-center justify-center text-[#1a1510] shadow-sm hover:bg-[#1a1510] hover:text-white transition-all duration-500 group/btn">
                     <ArrowUpRight size={20} className="group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1 transition-transform" />
                   </button>

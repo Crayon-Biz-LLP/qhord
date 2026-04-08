@@ -86,7 +86,7 @@ export const SolutionSection = () => {
                   transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
                   className="relative"
                 >
-                  <span className="text-[#1a1510] font-black text-lg sm:text-3xl lg:text-4xl xl:text-5xl uppercase tracking-wider sm:tracking-[0.3em] lg:tracking-[0.4em] block text-center lg:text-left leading-tight lg:leading-[1.1]">
+                  <span className="text-[#1a1510] font-bold text-base sm:text-2xl lg:text-3xl xl:text-4xl uppercase tracking-wide sm:tracking-[0.1em] lg:tracking-[0.15em] block text-center lg:text-left leading-tight lg:leading-[1.1]">
                     {capabilities[index].text}
                   </span>
 
@@ -121,7 +121,7 @@ export const SolutionSection = () => {
             </div>
             
             {/* STATIC HEADING (Keep Default) */}
-            <h2 className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-black mb-10 tracking-tight leading-[0.9] text-[#1a1510]">
+            <h2 className="text-2xl sm:text-4xl md:text-5xl font-black mb-10 tracking-tight leading-[0.9] text-[#1a1510]">
               Built for <br />
               <span className="text-brand-gold italic">Operational Precision.</span>
             </h2>
@@ -135,7 +135,7 @@ export const SolutionSection = () => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                 >
-                  <p className="text-[#1a1510]/60 text-lg sm:text-xl font-medium leading-[1.6] max-w-xl mx-auto lg:mx-0">
+                  <p className="text-[#1a1510]/60 text-base sm:text-lg font-medium leading-[1.6] max-w-xl mx-auto lg:mx-0">
                     {capabilities[index].description}
                   </p>
                 </motion.div>

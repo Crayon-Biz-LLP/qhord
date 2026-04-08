@@ -6,22 +6,26 @@ import { Link2, Search, BarChart4, Rocket } from "lucide-react";
 
 const steps = [
   {
-    title: "Step 1: Connect",
+    step: "Step 1:",
+    action: "Connect",
     desc: "Sync your enterprise data sources and tracking endpoints in seconds.",
     icon: Link2,
   },
   {
-    title: "Step 2: Track",
+    step: "Step 2:",
+    action: "Track",
     desc: "Deploy micro-trackers that capture engagement and behavior patterns.",
     icon: Search,
   },
   {
-    title: "Step 3: Analyze",
+    step: "Step 3:",
+    action: "Analyze",
     desc: "Our high-performance engines distill raw data into actionable relationship insights.",
     icon: BarChart4,
   },
   {
-    title: "Step 4: Scale",
+    step: "Step 4:",
+    action: "Scale",
     desc: "Execute high-conversion campaigns based on real-time intelligence.",
     icon: Rocket,
   }
@@ -41,7 +45,7 @@ export const ProcessTimeline = () => {
             <div className="w-1 h-1 rounded-full bg-brand-gold" />
             <span className="text-[9px] font-black uppercase tracking-[0.2em] text-brand-gold">Execution Pipeline</span>
           </motion.div>
-          <h2 className="text-3xl sm:text-5xl md:text-6xl font-black text-[#1a1510] tracking-tight leading-none mb-4">
+          <h2 className="text-2xl sm:text-4xl md:text-5xl font-black text-[#1a1510] tracking-tight leading-none mb-4">
             The Command <br />
             <span className="text-brand-gold italic">Flow.</span>
           </h2>
@@ -74,8 +78,9 @@ export const ProcessTimeline = () => {
               </div>
 
               <div className="pt-1">
-                <h3 className="text-xl md:text-2xl font-black text-[#1a1510] mb-2 tracking-tight group-hover:text-brand-gold transition-colors duration-300">
-                   {step.title}
+                <h3 className="text-xl md:text-2xl font-bold mb-2 tracking-tight">
+                   <span className="text-[#1a1510]">{step.step}</span>{" "}
+                   <span className="text-brand-gold">{step.action}</span>
                 </h3>
                 <p className="text-[#1a1510]/40 text-base font-medium leading-relaxed max-w-xl group-hover:text-[#1a1510]/60 transition-colors">
                   {step.desc}

@@ -27,12 +27,12 @@ export const MultiSection = () => {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-brand-gold/30 bg-brand-gold/5 mb-8"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-brand-gold/30 bg-brand-gold/5 mb-8"
             >
-              <div className="w-1.5 h-1.5 rounded-full bg-brand-gold animate-pulse" />
-              <span className="text-[10px] font-black uppercase tracking-[0.4em] text-brand-gold">Architecture Focus</span>
+              <div className="w-1 h-1 rounded-full bg-brand-gold animate-pulse" />
+              <span className="text-[8px] font-black uppercase tracking-[0.4em] text-brand-gold">Architecture Focus</span>
             </motion.div>
-            <h2 className="text-4xl sm:text-6xl md:text-8xl font-black text-[#1a1510] tracking-tighter leading-[0.9] mb-8">
+            <h2 className="text-2xl sm:text-4xl md:text-5xl font-black text-[#1a1510] tracking-tighter leading-[0.9] mb-8">
               Built for <br />
               <span className="text-brand-gold italic">Modern Teams.</span>
             </h2>
@@ -90,7 +90,7 @@ export const MultiSection = () => {
                 {/* Content */}
                 <div className="relative z-10 flex-1 flex flex-col justify-end">
                   <div className="flex items-center justify-between mb-2 group-hover:mb-4 transition-all duration-500">
-                    <h3 className="text-2xl font-black text-white tracking-tight group-hover:text-brand-gold transition-colors duration-500 whitespace-nowrap">
+                    <h3 className="text-2xl font-bold text-white tracking-tight group-hover:text-brand-gold transition-colors duration-500 whitespace-nowrap">
                       {pillar.title}
                     </h3>
                     <ArrowUpRight size={20} className="text-white/20 group-hover:text-brand-gold group-hover:translate-x-1 group-hover:-translate-y-1 transition-all duration-500" />
@@ -142,7 +142,7 @@ export const MultiSection = () => {
               <div className="h-[2px] w-12 bg-brand-gold" />
               <span className="text-[10px] font-black uppercase tracking-[0.4em] text-brand-gold">The Strategic Edge</span>
             </motion.div>
-            <h2 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight text-[#1a1510] leading-[0.95]">
+            <h2 className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight text-[#1a1510] leading-[0.95]">
               Why Teams Use <br />
               <span className="text-brand-gold italic">GTM Control Tower</span>
             </h2>
@@ -208,7 +208,7 @@ export const MultiSection = () => {
                     }`}>
                       <item.icon size={20} />
                     </div>
-                    <h3 className="text-2xl md:text-3xl font-black text-[#1a1510] leading-tight mb-2">
+                    <h3 className="text-xl md:text-2xl font-bold text-[#1a1510] leading-tight mb-2">
                       {item.title}
                     </h3>
                     <p className="text-[#1a1510]/50 text-base font-medium max-w-md mx-auto md:mx-0 font-serif italic leading-relaxed">

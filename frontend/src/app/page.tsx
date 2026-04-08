@@ -12,7 +12,6 @@ import { ProcessTimeline } from "@/components/home/ProcessTimeline";
 import { MultiSection } from "@/components/home/MultiSection";
 import { Footer } from "@/components/home/Footer";
 import { AuthModal } from "@/components/login/AuthModal";
-import { LandscapeShowcase } from "@/components/home/LandscapeShowcase";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -51,7 +50,6 @@ export default function Home() {
         <div className="">
           <GTMMarquee />
           <ProblemSection onManageNow={handleSignIn} />
-          <LandscapeShowcase />
           <SolutionSection />
           <IntegrationCards />
           <KeyFeatures />
@@ -81,7 +79,7 @@ export default function Home() {
               />
 
               <div className="relative z-10 flex flex-col items-center text-center">
-                <h2 className="text-3xl sm:text-4xl md:text-5xl font-black mb-6 leading-tight tracking-tighter text-white max-w-3xl mx-auto">
+                <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-6 leading-tight tracking-tighter text-white max-w-3xl mx-auto">
                   Unify Your Entire <span className="text-brand-gold italic font-serif font-light">GTM Command.</span>
                 </h2>
 
@@ -94,15 +92,15 @@ export default function Home() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={handleSignIn}
-                    className="w-full sm:flex-1 px-8 py-4 bg-brand-gold text-[#1a1510] rounded-xl font-black text-base shadow-lg hover:shadow-brand-gold/20 transition-all cursor-pointer flex items-center justify-center gap-2"
+                    className="w-full sm:flex-1 px-6 py-3 bg-brand-gold text-[#1a1510] rounded-xl font-bold text-sm shadow-lg hover:shadow-brand-gold/20 transition-all cursor-pointer flex items-center justify-center gap-2"
                   >
                     Manage Now
-                    <ArrowRight size={18} />
+                    <ArrowRight size={15} />
                   </motion.button>
                   <motion.button
                     whileHover={{ scale: 1.02, backgroundColor: "rgba(255,255,255,0.05)" }}
                     whileTap={{ scale: 0.98 }}
-                    className="w-full sm:flex-1 px-8 py-4 border border-white/10 text-white rounded-xl font-black text-base backdrop-blur-md transition-all cursor-pointer"
+                    className="w-full sm:flex-1 px-6 py-3 border border-white/10 text-white rounded-xl font-bold text-sm backdrop-blur-md transition-all cursor-pointer"
                   >
                     Book Demo
                   </motion.button>
