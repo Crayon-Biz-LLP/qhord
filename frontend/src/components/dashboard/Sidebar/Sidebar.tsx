@@ -36,17 +36,36 @@ export const Sidebar = ({ onSignOut, activeView }: SidebarProps) => {
             items: [
               { icon: LayoutDashboard, label: "Dashboard", id: 'dashboard', href: '/dashboard' },
               { icon: Users, label: "Clients", id: 'clients', href: '/dashboard/clients' },
+              { icon: Terminal, label: "Command", id: 'command', href: '/dashboard/command' },
+            ]
+          },
+          {
+            title: "ENGAGEMENT",
+            items: [
+              { icon: Target, label: "Campaigns", id: 'campaigns', href: '/dashboard/campaigns' },
+              { icon: Mail, label: "Inbox", id: 'inbox', href: '/dashboard/inbox' },
+            ]
+          },
+          {
+            title: "REVENUE",
+            items: [
+              { icon: BarChart3, label: "Pipeline", id: 'pipeline', href: '/dashboard/pipeline' },
+              { icon: UserIcon, label: "Leads", id: 'leads', href: '/dashboard/leads' },
+              { icon: Building2, label: "Accounts", id: 'accounts', href: '/dashboard/accounts' },
             ]
           },
           {
             title: "DATA",
             items: [
               { icon: Box, label: "Tools", id: 'tools', href: '/dashboard/tools' },
+              { icon: ListTodo, label: "Playbooks", id: 'playbooks', href: '/dashboard/playbooks' },
+              { icon: Cpu, label: "APIs", id: 'apis', href: '/dashboard/apis' },
             ]
           },
           {
             title: "SYSTEM",
             items: [
+              { icon: DollarSign, label: "Pricing", id: 'pricing', href: '/dashboard/pricing' },
               { icon: CreditCard, label: "Billing", id: 'billing', href: '/dashboard/billing' },
               { icon: Settings, label: "Settings", id: 'settings', href: '/dashboard/settings' },
             ]

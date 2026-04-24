@@ -9,8 +9,17 @@ export function Sidebar() {
   const { user, logout } = useAuth(false);
 
   const navItems = [
-    { href: "/dashboard", label: "Clients" },
-    { href: "/dashboard/executions", label: "Executions" },
+    { href: "/dashboard", label: "Dashboard" },
+    { href: "/dashboard/clients", label: "Clients" },
+    { href: "/dashboard/command", label: "Command" },
+    { href: "/dashboard/campaigns", label: "Campaigns" },
+    { href: "/dashboard/inbox", label: "Inbox" },
+    { href: "/dashboard/pipeline", label: "Pipeline" },
+    { href: "/dashboard/leads", label: "Leads" },
+    { href: "/dashboard/accounts", label: "Accounts" },
+    { href: "/dashboard/tools", label: "Tools" },
+    { href: "/dashboard/playbooks", label: "Playbooks" },
+    { href: "/dashboard/apis", label: "APIs" },
     { href: "/dashboard/pricing", label: "Pricing" },
     { href: "/dashboard/settings", label: "Settings" },
   ];
