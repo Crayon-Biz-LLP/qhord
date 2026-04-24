@@ -5,6 +5,7 @@ import authRoutes from './routes/auth';
 import clientRoutes from './routes/clients';
 import toolRoutes from './routes/tools';
 import executionRoutes from './routes/executions';
+import planRoutes from './routes/plans';
 import { prisma } from './lib/prisma';
 
 dotenv.config();
@@ -28,6 +29,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/tools', toolRoutes);
 app.use('/api/executions', executionRoutes);
+app.use('/api/plans', planRoutes);
 
 const port = parseInt(process.env.PORT || '4000', 10);
 

@@ -11,6 +11,8 @@ export function Sidebar() {
   const navItems = [
     { href: "/dashboard", label: "Clients" },
     { href: "/dashboard/executions", label: "Executions" },
+    { href: "/dashboard/pricing", label: "Pricing" },
+    { href: "/dashboard/settings", label: "Settings" },
   ];
 
   return (

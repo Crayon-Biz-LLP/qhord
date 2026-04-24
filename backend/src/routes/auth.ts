@@ -121,5 +121,36 @@ router.get('/me', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-export default router;
+router.put('/profile', requireAuth, async (req: Request, res: Response) => {
+  if (!req.user) {
+    res.status(401).json({ message: 'Not authenticated' });
+    return;
+  }
 
+  const { name, email } = req.body as { name?: string; email?: string };
+
+  try {
+    const data: any = {};
+    if (name !== undefined) data.name = name;
+    if (email !== undefined) data.email = email;
+
+    const operator = await prisma.operator.update({
+      where: { id: req.user.id },
+      data,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        created_at: true
+      }
+    });
+
+    res.json({ message: 'Profile updated successfully', operator });
+  } catch (err) {
+    console.error('Update profile error', err);
+    res.status(500).json({ message: 'Failed to update operator profile' });
+  }
+});
+
+export default router;

@@ -5,7 +5,7 @@ import {
   Zap, Sparkles, Crown, Building2, Check, Minus, ArrowRight,
   Coins, Users, Mail, Target, Bot, ShieldCheck, Globe, Database,
   Key, Settings, Headphones, ChevronDown, X, Star, Rocket,
-  TrendingUp, Shield, Cpu, LayoutDashboard
+  TrendingUp, Shield, Cpu, LayoutDashboard, CreditCard
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";

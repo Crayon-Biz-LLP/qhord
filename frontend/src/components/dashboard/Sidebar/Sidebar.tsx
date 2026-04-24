@@ -43,6 +43,13 @@ export const Sidebar = ({ onSignOut, activeView }: SidebarProps) => {
             items: [
               { icon: Box, label: "Tools", id: 'tools', href: '/dashboard/tools' },
             ]
+          },
+          {
+            title: "SYSTEM",
+            items: [
+              { icon: CreditCard, label: "Billing", id: 'billing', href: '/dashboard/billing' },
+              { icon: Settings, label: "Settings", id: 'settings', href: '/dashboard/settings' },
+            ]
           }
         ].map((section, idx) => (
           <div key={idx} className="space-y-1">
