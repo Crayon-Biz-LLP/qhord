@@ -4,7 +4,7 @@ import {
   Sparkles, Bot, CreditCard, DollarSign, ChevronRight, User as UserIcon, LogOut, Globe
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { Sidebar } from "./Sidebar/Sidebar";
+import { Sidebar, DashboardView } from "./Sidebar/Sidebar";
 import { CommandCenter } from "./CommandCenter/CommandCenter";
 import { Campaigns } from "./Campaigns/Campaigns";
 import { Accounts } from "./Accounts/Accounts";
@@ -17,16 +17,17 @@ import { APIs } from "./APIs/APIs";
 import { Pricing } from "./Pricing/Pricing";
 import { Billing } from "./Billing/Billing";
 import { Settings } from "./Settings/Settings";
+import { Workflows } from "./Workflows/Workflows";
 
 interface DashboardProps {
   onSignOut?: () => void;
   userName?: string;
 }
 
-export const MasterDashboard = ({ onSignOut, userName = "Sarah" }: DashboardProps) => {
+export const Workflow = ({ onSignOut, userName = "Sarah" }: DashboardProps) => {
   const [greeting, setGreeting] = useState("");
   const [currentDate, setCurrentDate] = useState("");
-  const [view, setView] = useState<'dashboard' | 'command' | 'campaigns' | 'inbox' | 'pipeline' | 'leads' | 'accounts' | 'tools' | 'playbooks' | 'apis' | 'pricing' | 'billing' | 'settings'>('dashboard');
+  const [view, setView] = useState<DashboardView>('dashboard');
 
   useEffect(() => {
     const updateTimeContext = () => {
@@ -54,7 +55,7 @@ export const MasterDashboard = ({ onSignOut, userName = "Sarah" }: DashboardProp
       <Sidebar 
         onSignOut={onSignOut} 
         activeView={view}
-        onViewChange={(newView) => setView(newView)}
+        onViewChange={(newView: DashboardView) => setView(newView)}
       />
 
       {/* Main Content Area */}
@@ -63,6 +64,8 @@ export const MasterDashboard = ({ onSignOut, userName = "Sarah" }: DashboardProp
           onBackToDashboard={() => setView('dashboard')} 
           onOpenAccounts={() => setView('accounts')}
         />
+      ) : view === 'workflows' ? (
+        <Workflows onBackToDashboard={() => setView('dashboard')} />
       ) : view === 'campaigns' ? (
         <Campaigns onBackToDashboard={() => setView('dashboard')} />
       ) : view === 'accounts' ? (

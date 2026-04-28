@@ -3,17 +3,41 @@ import Link from "next/link";
 import {
   LayoutDashboard, Users, Activity, Settings, Bell, Search, Plus, Cpu, Zap, ShieldCheck,
   Terminal, BarChart3, Mail, Target, ListTodo, GraduationCap, Box, Computer,
-  Sparkles, Bot, CreditCard, DollarSign, ChevronRight, User as UserIcon, LogOut, Globe, Building2
+  Sparkles, Bot, CreditCard, DollarSign, ChevronRight, User as UserIcon, LogOut, Globe, Building2, Workflow,
+  MessageSquare, TrendingUp
 } from "lucide-react";
+import { motion } from "framer-motion";
 import { useClient } from "../../../contexts/ClientContext";
 import { useAuth } from "../../../hooks/useAuth";
 
+export type DashboardView = 
+  | 'dashboard' 
+  | 'clients' 
+  | 'command' 
+  | 'workflows' 
+  | 'campaigns' 
+  | 'inbox' 
+  | 'pipeline' 
+  | 'leads' 
+  | 'accounts' 
+  | 'tools' 
+  | 'playbooks' 
+  | 'apis' 
+  | 'pricing' 
+  | 'billing' 
+  | 'settings' 
+  | 'analytics' 
+  | 'ai-sdr' 
+  | 'ai-operator' 
+  | 'ai-engine';
+
 interface SidebarProps {
   onSignOut?: () => void;
-  activeView: 'dashboard' | 'command' | 'campaigns' | 'inbox' | 'pipeline' | 'leads' | 'accounts' | 'tools' | 'playbooks' | 'apis' | 'pricing' | 'billing' | 'settings';
+  activeView?: DashboardView;
+  onViewChange?: (view: DashboardView) => void;
 }
 
-export const Sidebar = ({ onSignOut, activeView }: SidebarProps) => {
+export const Sidebar = ({ onSignOut, activeView = 'dashboard', onViewChange }: SidebarProps) => {
   const { clients, selectedClient, setSelectedClient } = useClient();
   const { user } = useAuth();
 
@@ -32,42 +56,30 @@ export const Sidebar = ({ onSignOut, activeView }: SidebarProps) => {
 
         {[
           {
-            title: "CORE",
+            title: "NAVIGATION",
             items: [
-              { icon: LayoutDashboard, label: "Dashboard", id: 'dashboard', href: '/dashboard' },
-              { icon: Users, label: "Clients", id: 'clients', href: '/dashboard/clients' },
-              { icon: Terminal, label: "Command", id: 'command', href: '/dashboard/command' },
+              { icon: Terminal, label: "Command Center", id: 'command', href: '/dashboard/command' },
+              { icon: Building2, label: "Client Accounts", id: 'clients', href: '/dashboard/clients' },
+              { icon: Mail, label: "Unibox", id: 'inbox', href: '/dashboard/inbox' },
+              { icon: Globe, label: "Lead Source", id: 'leads', href: '/dashboard/leads' },
+              { icon: Workflow, label: "Workflows", id: 'workflows', href: '/dashboard/workflows' },
+              { icon: DollarSign, label: "Deals", id: 'pipeline', href: '/dashboard/pipeline' },
+              { icon: BarChart3, label: "Analytics", id: 'analytics', href: '/dashboard/analytics' },
             ]
           },
           {
-            title: "ENGAGEMENT",
+            title: "INTELLIGENCE",
             items: [
-              { icon: Target, label: "Campaigns", id: 'campaigns', href: '/dashboard/campaigns' },
-              { icon: Mail, label: "Inbox", id: 'inbox', href: '/dashboard/inbox' },
-            ]
-          },
-          {
-            title: "REVENUE",
-            items: [
-              { icon: BarChart3, label: "Pipeline", id: 'pipeline', href: '/dashboard/pipeline' },
-              { icon: UserIcon, label: "Leads", id: 'leads', href: '/dashboard/leads' },
-              { icon: Building2, label: "Accounts", id: 'accounts', href: '/dashboard/accounts' },
-            ]
-          },
-          {
-            title: "DATA",
-            items: [
-              { icon: Box, label: "Tools", id: 'tools', href: '/dashboard/tools' },
-              { icon: ListTodo, label: "Playbooks", id: 'playbooks', href: '/dashboard/playbooks' },
-              { icon: Cpu, label: "APIs", id: 'apis', href: '/dashboard/apis' },
+              { icon: Sparkles, label: "AI SDR", id: 'ai-sdr', href: '/dashboard/ai-sdr' },
+              { icon: Bot, label: "AI Operator", id: 'ai-operator', href: '/dashboard/ai-operator' },
+              { icon: Cpu, label: "AI Engine", id: 'ai-engine', href: '/dashboard/ai-engine' },
             ]
           },
           {
             title: "SYSTEM",
             items: [
-              { icon: DollarSign, label: "Pricing", id: 'pricing', href: '/dashboard/pricing' },
-              { icon: CreditCard, label: "Billing", id: 'billing', href: '/dashboard/billing' },
               { icon: Settings, label: "Settings", id: 'settings', href: '/dashboard/settings' },
+              { icon: CreditCard, label: "Billing", id: 'billing', href: '/dashboard/billing' },
             ]
           }
         ].map((section, idx) => (
@@ -83,13 +95,25 @@ export const Sidebar = ({ onSignOut, activeView }: SidebarProps) => {
                   <Link
                     key={i}
                     href={item.href}
+                    onClick={(e) => {
+                      if (onViewChange) {
+                        e.preventDefault();
+                        onViewChange(item.id as DashboardView);
+                      }
+                    }}
                     className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[11px] font-bold tracking-tight transition-all ${isActive
                       ? "bg-brand-gold text-[#1a1510] shadow-[0_10px_20px_-5px_rgba(185,155,123,0.3)]"
                       : "text-white/40 hover:text-white hover:bg-white/5"
                       }`}
                   >
-                    <item.icon size={16} />
+                    <item.icon size={18} className={isActive ? "text-[#1a1510]" : "text-white/20 group-hover:text-white"} />
                     {item.label}
+                    {isActive && (
+                      <motion.div
+                        layoutId="activePill"
+                        className="ml-auto w-1.5 h-1.5 rounded-full bg-[#1a1510]"
+                      />
+                    )}
                   </Link>
                 );
               })}
@@ -98,56 +122,28 @@ export const Sidebar = ({ onSignOut, activeView }: SidebarProps) => {
         ))}
       </div>
 
-      <div className="mt-auto p-6 space-y-6 border-t border-white/5 bg-black/20">
-        <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-brand-gold/10 text-brand-gold">
-              <Zap size={14} />
-            </div>
-            <div>
-              <p className="text-[11px] font-bold text-white">2,847 credits left</p>
-              <button className="text-[9px] font-black uppercase tracking-widest text-brand-gold hover:underline">Buy more →</button>
-            </div>
+      <div className="mt-auto p-6 space-y-4">
+        <div className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">2,847 credits</span>
+            <span className="text-[9px] font-black text-brand-gold uppercase tracking-widest">Upgrade</span>
           </div>
-        </div>
-        {/* Client Selector */}
-        <div className="space-y-2 px-2 pb-2 border-b border-white/5">
-          <label className="text-[9px] font-black uppercase text-white/20 tracking-[0.2em] px-2 flex items-center justify-between">
-            Active Node
-            <Building2 size={10} />
-          </label>
-          <div className="relative group">
-            <select
-              value={selectedClient?.id || ""}
-              onChange={(e) => {
-                const client = clients.find(c => c.id === e.target.value);
-                if (client) setSelectedClient(client);
-              }}
-              className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 pr-10 text-[11px] font-bold text-white outline-none appearance-none focus:border-brand-gold/30 transition-all cursor-pointer group-hover:bg-white/10"
-            >
-              {clients.map(client => (
-                <option key={client.id} value={client.id} className="bg-[#1a1510] text-white">
-                  {client.name}
-                </option>
-              ))}
-            </select>
-            <ChevronRight size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none rotate-90 group-hover:text-brand-gold transition-colors" />
+          <div className="w-full h-1.5 rounded-full bg-white/5 overflow-hidden">
+             <div className="h-full bg-brand-gold rounded-full" style={{ width: '57%' }}></div>
           </div>
         </div>
 
-        {/* User Profile */}
-        <div className="flex items-center gap-4 px-2 group">
-          <div className="w-10 h-10 rounded-full bg-brand-gold/20 border border-brand-gold/30 flex items-center justify-center text-brand-gold font-black text-xs">
-            {user?.name?.split(' ').map(n => n[0]).join('') || 'OP'}
+        <div className="flex items-center gap-3 px-2">
+          <div className="w-10 h-10 rounded-xl bg-brand-gold flex items-center justify-center text-[#1a1510] font-black text-xs shadow-lg shadow-brand-gold/10">
+            {user?.name?.substring(0, 2).toUpperCase() || "SM"}
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[12px] font-bold text-white truncate">{user?.name || 'Operator'}</p>
-            <p className="text-[10px] font-medium text-white/30 truncate">{user?.email || 'N/A'}</p>
+          <div className="flex flex-col min-w-0">
+            <span className="text-xs font-black text-white truncate">{user?.name || "Sarah Mitchell"}</span>
+            <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest truncate">Growth Team</span>
           </div>
-          <button
+          <button 
             onClick={onSignOut}
-            className="p-2 text-brand-gold hover:text-red-400 transition-colors bg-white/5 rounded-lg border border-white/5 hover:border-red-400/20"
-            title="Sign Out"
+            className="ml-auto p-2 text-white/20 hover:text-white transition-colors"
           >
             <LogOut size={16} />
           </button>
@@ -156,4 +152,3 @@ export const Sidebar = ({ onSignOut, activeView }: SidebarProps) => {
     </aside>
   );
 };
-
