@@ -91,7 +91,7 @@ export default function PipelinePage() {
                      <BarChart3 size={18} />
                   </div>
                   <div className="hidden sm:block truncate">
-                     <h2 className="text-sm font-black tracking-tight text-[#1a1510] uppercase truncate">Pipeline</h2>
+                     <h2 className="text-sm font-bold tracking-tight text-[#1a1510] uppercase truncate">Pipeline</h2>
                      <p className="text-[10px] font-bold text-[#1a1510]/30 uppercase tracking-widest mt-0.5 truncate">
                         Real-time GTM deal sync
                      </p>
@@ -100,12 +100,12 @@ export default function PipelinePage() {
             </div>
 
             <div className="flex items-center gap-3 sm:gap-4">
-               <button className="h-10 px-4 sm:px-6 rounded-xl bg-[#1a1510] text-brand-gold text-[10px] font-black uppercase tracking-widest shadow-xl hover:translate-y-[-1px] transition-all flex items-center gap-2">
+               <button className="h-10 px-4 sm:px-6 rounded-xl bg-[#1a1510] text-brand-gold text-[10px] font-bold uppercase tracking-widest shadow-xl hover:translate-y-[-1px] transition-all flex items-center gap-2">
                   <Plus size={14} /> <span className="hidden xs:inline">New Deal</span><span className="xs:hidden">New</span>
                </button>
                <button
                   onClick={() => router.push('/dashboard')}
-                  className="h-10 px-3 sm:px-5 rounded-xl border border-[#1a1510]/10 text-[10px] font-black uppercase tracking-widest text-[#1a1510] flex items-center gap-2 hover:bg-[#f7f8f9] transition-all"
+                  className="h-10 px-3 sm:px-5 rounded-xl border border-[#1a1510]/10 text-[10px] font-bold uppercase tracking-widest text-[#1a1510] flex items-center gap-2 hover:bg-[#f7f8f9] transition-all"
                >
                   <LayoutDashboard size={14} /> <span className="hidden sm:inline">Back</span>
                </button>
@@ -122,17 +122,17 @@ export default function PipelinePage() {
                      initial={{ opacity: 0, y: 10 }}
                      animate={{ opacity: 1, y: 0 }}
                      transition={{ delay: i * 0.05 }}
-                     className={`bg-white p-4 lg:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[#1a1510]/5 flex flex-col justify-between h-28 lg:h-32 group transition-all shadow-sm hover:shadow-md ${i > 3 ? 'hidden lg:flex' : 'flex'}`}
+                     className={`bg-white p-4 lg:p-5 rounded-xl border border-[#1a1510]/5 flex flex-col justify-between h-24 lg:h-28 group transition-all shadow-sm hover:shadow-md ${i > 3 ? 'hidden lg:flex' : 'flex'}`}
                   >
                      <div className="flex justify-between items-start">
-                        <span className="text-[8px] lg:text-[9px] font-black text-[#1a1510]/30 tracking-widest uppercase truncate">{kpi.label}</span>
+                        <span className="text-[8px] lg:text-[9px] font-bold text-[#1a1510]/30 tracking-widest uppercase truncate">{kpi.label}</span>
                         <div className={`p-1.5 rounded-lg ${kpi.bg} ${kpi.color} shadow-sm shrink-0`}>
                            <kpi.icon size={12} />
                         </div>
                      </div>
 
                      <div className="mt-1 lg:mt-2">
-                        <h3 className="text-lg lg:text-2xl font-black text-[#1a1510] tracking-tighter leading-none">{kpi.value}</h3>
+                        <h3 className="text-lg lg:text-2xl font-bold text-[#1a1510] tracking-tighter leading-none">{kpi.value}</h3>
                         <p className="text-[7px] lg:text-[8px] font-bold uppercase tracking-wider text-emerald-500 mt-1 truncate">
                            {kpi.change}
                         </p>
@@ -142,7 +142,7 @@ export default function PipelinePage() {
             </section>
 
             {/* 3. Search & Filter Bar */}
-            <section className="flex flex-col sm:flex-row items-center gap-3 w-full bg-white p-2 rounded-[1.5rem] sm:rounded-3xl border border-[#1a1510]/5 shadow-sm">
+            <section className="flex flex-col sm:flex-row items-center gap-3 w-full bg-white p-2 rounded-xl border border-[#1a1510]/5 shadow-sm">
                <div className="flex-1 relative group w-full">
                   <Search size={16} className="absolute left-5 top-1/2 -translate-y-1/2 text-[#1a1510]/20 group-focus-within:text-brand-gold transition-colors" />
                   <input
@@ -152,10 +152,10 @@ export default function PipelinePage() {
                   />
                </div>
                <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
-                  <button className="flex-1 sm:flex-none h-10 px-5 rounded-xl bg-white border border-[#1a1510]/5 text-[9px] font-black uppercase tracking-widest text-[#1a1510] hover:bg-[#f7f8f9] transition-all flex items-center justify-center gap-2">
+                  <button className="flex-1 sm:flex-none h-10 px-5 rounded-xl bg-white border border-[#1a1510]/5 text-[9px] font-bold uppercase tracking-widest text-[#1a1510] hover:bg-[#f7f8f9] transition-all flex items-center justify-center gap-2">
                      <Filter size={14} /> Filter
                   </button>
-                  <button className="flex-1 sm:flex-none h-10 px-5 rounded-xl bg-[#1a1510] text-brand-gold text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg">
+                  <button className="flex-1 sm:flex-none h-10 px-5 rounded-xl bg-[#1a1510] text-brand-gold text-[9px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg">
                      <RefreshCw size={14} /> Sync
                   </button>
                </div>
@@ -169,10 +169,10 @@ export default function PipelinePage() {
                      <div className="space-y-3 px-1">
                         <div className="flex items-center justify-between">
                            <div className="flex items-center gap-2">
-                              <h4 className="text-[10px] font-black text-[#1a1510] tracking-widest uppercase">{stage.title}</h4>
-                              <span className="px-1.5 py-0.5 rounded bg-[#1a1510]/5 text-[8px] font-black text-[#1a1510]/30">{stage.count}</span>
+                              <h4 className="text-[10px] font-bold text-[#1a1510] tracking-widest uppercase">{stage.title}</h4>
+                              <span className="px-1.5 py-0.5 rounded bg-[#1a1510]/5 text-[8px] font-bold text-[#1a1510]/30">{stage.count}</span>
                            </div>
-                           <span className="text-[10px] font-black text-[#1a1510] tracking-tighter">{stage.value}</span>
+                           <span className="text-[10px] font-bold text-[#1a1510] tracking-tighter">{stage.value}</span>
                         </div>
                         <div className="h-1 w-full bg-[#1a1510]/5 rounded-full overflow-hidden">
                            <motion.div
@@ -190,18 +190,18 @@ export default function PipelinePage() {
                            <motion.div
                               key={deal.id}
                               whileHover={{ y: -4 }}
-                              className="bg-white p-5 rounded-[1.5rem] border border-[#1a1510]/5 shadow-sm hover:shadow-xl transition-all relative group overflow-hidden"
+                              className="bg-white p-4 rounded-xl border border-[#1a1510]/5 shadow-sm hover:shadow-xl transition-all relative group overflow-hidden"
                            >
-                              <div className="absolute top-2 right-2 p-1 px-1.5 rounded bg-brand-gold/10 text-brand-gold text-[7px] font-black uppercase opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="absolute top-2 right-2 p-1 px-1.5 rounded bg-brand-gold/10 text-brand-gold text-[7px] font-semibold uppercase opacity-0 group-hover:opacity-100 transition-opacity">
                                  {deal.health}% Prob
                               </div>
 
                               <div className="flex items-center gap-3 mb-4">
-                                 <div className="w-8 h-8 rounded-xl bg-[#1a1510] text-brand-gold flex items-center justify-center font-black text-[12px] shrink-0">
+                                 <div className="w-8 h-8 rounded-xl bg-[#1a1510] text-brand-gold flex items-center justify-center font-semibold text-[12px] shrink-0">
                                     {deal.avatar}
                                  </div>
                                  <div className="min-w-0">
-                                    <h5 className="text-[12px] font-black text-[#1a1510] truncate">{deal.name}</h5>
+                                    <h5 className="text-[12px] font-bold text-[#1a1510] truncate">{deal.name}</h5>
                                     <div className="flex items-center gap-1.5">
                                        <span className="text-[8px] font-bold text-[#1a1510]/20 uppercase truncate">{deal.contact}</span>
                                        {deal.auto && <Zap size={8} className="text-brand-gold fill-brand-gold" />}
@@ -211,20 +211,20 @@ export default function PipelinePage() {
 
                               <div className="flex items-end justify-between pt-3 border-t border-[#1a1510]/5">
                                  <div>
-                                    <p className="text-[7px] font-black text-[#1a1510]/20 uppercase tracking-widest">Value</p>
-                                    <p className="text-lg font-black text-[#1a1510] tracking-tighter leading-none">{deal.amount}</p>
+                                    <p className="text-[7px] font-bold text-[#1a1510]/20 uppercase tracking-widest">Value</p>
+                                    <p className="text-lg font-bold text-[#1a1510] tracking-tighter leading-none">{deal.amount}</p>
                                  </div>
                                  <div className="text-right">
                                     <div className="flex items-center gap-1 justify-end">
                                        <div className={`w-1 h-1 rounded-full ${deal.health > 80 ? 'bg-emerald-500' : 'bg-brand-gold'}`} />
-                                       <span className="text-[10px] font-black text-[#1a1510]">{deal.health}%</span>
+                                       <span className="text-[10px] font-bold text-[#1a1510]">{deal.health}%</span>
                                     </div>
                                  </div>
                               </div>
                            </motion.div>
                         ))}
 
-                        <button className="w-full h-12 border-2 border-dashed border-[#1a1510]/5 rounded-2xl bg-white/40 text-[8px] font-black uppercase tracking-widest text-[#1a1510]/10 hover:border-brand-gold/30 hover:text-brand-gold transition-all flex items-center justify-center gap-2 group">
+                        <button className="w-full h-12 border-2 border-dashed border-[#1a1510]/5 rounded-2xl bg-white/40 text-[8px] font-bold uppercase tracking-widest text-[#1a1510]/10 hover:border-brand-gold/30 hover:text-brand-gold transition-all flex items-center justify-center gap-2 group">
                            <Plus size={14} className="group-hover:rotate-90 transition-transform" /> Add
                         </button>
                      </div>
