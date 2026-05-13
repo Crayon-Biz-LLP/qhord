@@ -5,7 +5,7 @@ import {
    User, Building2, Users, Plug, Send, Brain, Bell, SlidersHorizontal,
    Database, Workflow, BarChart3, Shield, Monitor, Smartphone, Lock, Fingerprint, Settings,
    RefreshCw, ChevronUp, ChevronRight, Plus, Palette, Upload, Ghost, Layers, Handshake, LayoutGrid, Calendar, Trash2,
-   Search, Mail, MessageSquare, AlertCircle, Linkedin, Sparkles, MoveRight, Check, Zap, AlertTriangle
+   Search, Mail, MessageSquare, AlertCircle, Linkedin, Sparkles, MoveRight, Check, Zap, AlertTriangle, Eye, EyeOff
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
@@ -78,6 +78,49 @@ export default function SettingsPage() {
    const [createDeals, setCreateDeals] = useState(true);
    const [selectedCRM, setSelectedCRM] = useState('hubspot');
    const [isCRMOpen, setIsCRMOpen] = useState(false);
+   
+   const [loadingData, setLoadingData] = useState(true);
+   const [isSaving, setIsSaving] = useState(false);
+   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+   // Workspace State
+   const [workspaceName, setWorkspaceName] = useState("");
+   const [workspaceDomain, setWorkspaceDomain] = useState("");
+   const [workspaceTimezone, setWorkspaceTimezone] = useState("Eastern (EST)");
+
+   // AI State
+   const [aiTone, setAiTone] = useState("Professional");
+   const [aiPersonalization, setAiPersonalization] = useState("Medium");
+
+   // Outreach State
+   const [dailySendLimit, setDailySendLimit] = useState("200");
+   const [inboxRotation, setInboxRotation] = useState("Round Robin");
+   const [autoPauseThreshold, setAutoPauseThreshold] = useState("5% bounce rate");
+   const [dailyConnectionLimit, setDailyConnectionLimit] = useState("25");
+   const [dailyMessageLimit, setDailyMessageLimit] = useState("50");
+   const [linkedinAccount, setLinkedinAccount] = useState("sarah.linkedin");
+
+   // Dynamic Data
+   const [teamMembers, setTeamMembers] = useState<any[]>([]);
+   const [integrations, setIntegrations] = useState<any[]>([]);
+
+   // Change Password State
+   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+   const [currentPassword, setCurrentPassword] = useState("");
+   const [newPassword, setNewPassword] = useState("");
+   const [confirmPassword, setConfirmPassword] = useState("");
+   const [isChangingPassword, setIsChangingPassword] = useState(false);
+   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+   const [showNewPassword, setShowNewPassword] = useState(false);
+   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+   // 2FA State
+   const [is2FAModalOpen, setIs2FAModalOpen] = useState(false);
+   const [twoFAQRCode, setTwoFAQRCode] = useState("");
+   const [twoFAVerificationCode, setTwoFAVerificationCode] = useState("");
+   const [isVerifying2FA, setIsVerifying2FA] = useState(false);
+   const [twoFAStep, setTwoFAStep] = useState<"initial" | "verify">("initial");
+
 
    const crms = [
       { id: 'hubspot', name: 'HubSpot', color: '#ff7a59' },
@@ -87,42 +130,162 @@ export default function SettingsPage() {
 
    const currentCRM = crms.find(c => c.id === selectedCRM) || crms[0];
 
-   const [loadingData, setLoadingData] = useState(true);
-   const [isSaving, setIsSaving] = useState(false);
-   const [toastMessage, setToastMessage] = useState<string | null>(null);
-
    const showToast = (msg: string) => {
       setToastMessage(msg);
       setTimeout(() => setToastMessage(null), 3000);
    };
 
    useEffect(() => {
-      async function fetchProfile() {
+      async function fetchData() {
          try {
-            const res = await api.get('/auth/me');
-            if (res.data && res.data.operator) {
-               setName(res.data.operator.name || "");
-               setEmail(res.data.operator.email || "");
+            setLoadingData(true);
+            const [profileRes, settingsRes] = await Promise.all([
+               api.get('/auth/me'),
+               api.get('/settings')
+            ]);
+
+            if (profileRes.data && profileRes.data.operator) {
+               setName(profileRes.data.operator.name || "");
+               setEmail(profileRes.data.operator.email || "");
+            }
+
+            if (settingsRes.data) {
+               const { workspace, settings, team, integrations: intData } = settingsRes.data;
+               if (workspace) {
+                  setWorkspaceName(workspace.name || "");
+                  setWorkspaceDomain(workspace.domain || "");
+                  setWorkspaceTimezone(workspace.timezone || "Eastern (EST)");
+               }
+               if (settings) {
+                  setAiTone(settings.ai_tone || "Professional");
+                  setAiPersonalization(settings.ai_personalization || "Medium");
+                  setAutoReply(settings.auto_reply);
+                  setAutoPause(settings.auto_pause);
+                  setAutoOptimize(settings.auto_optimize);
+                  setAutoScore(settings.auto_score);
+                  setDailySendLimit(settings.daily_send_limit?.toString() || "200");
+                  setInboxRotation(settings.inbox_rotation || "Round Robin");
+                  setAutoPauseThreshold(settings.auto_pause_threshold || "5% bounce rate");
+                  setSafetyMode(settings.safety_mode);
+                  setDailyConnectionLimit(settings.daily_connection_limit?.toString() || "25");
+                  setDailyMessageLimit(settings.daily_message_limit?.toString() || "50");
+                  setLinkedinAccount(settings.linkedin_account || "sarah.linkedin");
+                  setSelectedCRM(settings.default_crm || "hubspot");
+                  setTwoFA(settings.two_factor_enabled || false);
+                  if (settings.notifications && Array.isArray(settings.notifications) && settings.notifications.length > 0) {
+                     setNotificationEvents(settings.notifications);
+                  }
+               }
+               if (team) setTeamMembers(team);
+               if (intData) setIntegrations(intData);
             }
          } catch (error) {
-            console.error("Failed to fetch profile", error);
+            console.error("Failed to fetch settings", error);
          } finally {
             setLoadingData(false);
          }
       }
-      fetchProfile();
+      fetchData();
    }, []);
 
    const handleSave = async () => {
       setIsSaving(true);
       try {
-         await api.put('/auth/profile', { name, email });
+         await Promise.all([
+            api.put('/auth/profile', { name, email }),
+            api.put('/settings', {
+               workspace: {
+                  name: workspaceName,
+                  domain: workspaceDomain,
+                  timezone: workspaceTimezone
+               },
+               settings: {
+                  ai_tone: aiTone,
+                  ai_personalization: aiPersonalization,
+                  auto_reply: autoReply,
+                  auto_pause: autoPause,
+                  auto_optimize: autoOptimize,
+                  auto_score: autoScore,
+                  daily_send_limit: dailySendLimit,
+                  inbox_rotation: inboxRotation,
+                  auto_pause_threshold: autoPauseThreshold,
+                  safety_mode: safetyMode,
+                  notifications: notificationEvents,
+                  daily_connection_limit: dailyConnectionLimit,
+                  daily_message_limit: dailyMessageLimit,
+                  linkedin_account: linkedinAccount,
+                  default_crm: selectedCRM,
+                   two_factor_enabled: twoFA
+               }
+            })
+         ]);
          showToast("Changes saved successfully!");
       } catch (error) {
          console.error("Failed to save changes", error);
          showToast("Error saving changes.");
       } finally {
          setIsSaving(false);
+      }
+   };
+
+   const handlePasswordChange = async () => {
+      if (newPassword !== confirmPassword) {
+         showToast("Passwords do not match.");
+         return;
+      }
+      if (newPassword.length < 6) {
+         showToast("Password must be at least 6 characters.");
+         return;
+      }
+
+      setIsChangingPassword(true);
+      try {
+         await api.put('/auth/change-password', {
+            currentPassword,
+            newPassword
+         });
+         showToast("Password changed successfully!");
+         setIsPasswordModalOpen(false);
+         setCurrentPassword("");
+         setNewPassword("");
+         setConfirmPassword("");
+      } catch (error: any) {
+         console.error("Failed to change password", error);
+         showToast(error.response?.data?.message || "Error changing password.");
+      } finally {
+         setIsChangingPassword(false);
+      }
+   };
+
+   const handle2FASetup = async () => {
+      try {
+         const res = await api.post('/auth/2fa/setup');
+         setTwoFAQRCode(res.data.qrCodeUrl);
+         setTwoFAStep("verify");
+         setIs2FAModalOpen(true);
+      } catch (error) {
+         console.error("Failed to setup 2FA", error);
+         showToast("Error setting up 2FA.");
+      }
+   };
+
+   const handle2FAVerify = async () => {
+      if (!twoFAVerificationCode) {
+         showToast("Please enter verification code.");
+         return;
+      }
+      setIsVerifying2FA(true);
+      try {
+         await api.post('/auth/2fa/verify', { token: twoFAVerificationCode });
+         showToast("2FA enabled successfully!");
+         setTwoFA(true);
+         setIs2FAModalOpen(false);
+         setTwoFAVerificationCode("");
+      } catch (error: any) {
+         console.error("Failed to verify 2FA", error);
+         showToast(error.response?.data?.message || "Invalid code.");
+      } finally {
+         setIsVerifying2FA(false);
       }
    };
 
@@ -221,7 +384,10 @@ export default function SettingsPage() {
                                        <p className="text-[9px] font-bold text-[#1a1510]/30 uppercase tracking-widest mt-0.5">Last changed 30 days ago</p>
                                     </div>
                                  </div>
-                                 <button className="mt-3 sm:mt-0 px-4 h-8 bg-[#f7f8f9] text-[8px] font-bold uppercase tracking-widest rounded-lg hover:bg-[#1a1510] hover:text-white transition-all text-[#1a1510]">
+                                 <button 
+                                    onClick={() => setIsPasswordModalOpen(true)}
+                                    className="mt-3 sm:mt-0 px-4 h-8 bg-[#f7f8f9] text-[8px] font-bold uppercase tracking-widest rounded-lg hover:bg-[#1a1510] hover:text-white transition-all text-[#1a1510]"
+                                 >
                                     Change Password
                                  </button>
                               </div>
@@ -235,8 +401,14 @@ export default function SettingsPage() {
                                        <p className="text-[9px] font-bold text-[#1a1510]/30 uppercase tracking-widest mt-0.5 hidden sm:block">Add an extra layer of security</p>
                                     </div>
                                  </div>
-                                 <div className="mt-3 sm:mt-0">
-                                    <GoldToggle enabled={twoFA} onToggle={() => setTwoFA(!twoFA)} />
+                                  <div className="mt-3 sm:mt-0">
+                                    <GoldToggle enabled={twoFA} onToggle={() => {
+                                       if (!twoFA) {
+                                          handle2FASetup();
+                                       } else {
+                                          setTwoFA(false); // Simplistic off, can add confirm later
+                                       }
+                                    }} />
                                  </div>
                               </div>
 
@@ -310,11 +482,11 @@ export default function SettingsPage() {
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                  <div className="space-y-1.5">
                                     <label className="text-[9px] font-bold uppercase text-[#1a1510]/30 tracking-widest">Workspace Name</label>
-                                    <input type="text" defaultValue="Growth Team" className="w-full h-10 px-4 bg-[#f7f8f9] rounded-lg border border-transparent focus:bg-white focus:border-[#1a1510]/5 focus:outline-none transition-all text-[13px] font-medium text-[#1a1510]" />
+                                    <input type="text" value={workspaceName} onChange={(e) => setWorkspaceName(e.target.value)} className="w-full h-10 px-4 bg-[#f7f8f9] rounded-lg border border-transparent focus:bg-white focus:border-[#1a1510]/5 focus:outline-none transition-all text-[13px] font-medium text-[#1a1510]" />
                                  </div>
                                  <div className="space-y-1.5">
                                     <label className="text-[9px] font-bold uppercase text-[#1a1510]/30 tracking-widest">Domain</label>
-                                    <input type="text" defaultValue="company.com" className="w-full h-10 px-4 bg-[#f7f8f9] rounded-lg border border-transparent focus:bg-white focus:border-[#1a1510]/5 focus:outline-none transition-all text-[13px] font-medium text-[#1a1510]" />
+                                    <input type="text" value={workspaceDomain} onChange={(e) => setWorkspaceDomain(e.target.value)} className="w-full h-10 px-4 bg-[#f7f8f9] rounded-lg border border-transparent focus:bg-white focus:border-[#1a1510]/5 focus:outline-none transition-all text-[13px] font-medium text-[#1a1510]" />
                                  </div>
                               </div>
 
@@ -323,9 +495,14 @@ export default function SettingsPage() {
                                  <div className="space-y-1.5">
                                     <label className="text-[9px] font-bold uppercase text-[#1a1510]/30 tracking-widest">Timezone</label>
                                     <div className="relative">
-                                       <select className="w-full h-10 px-4 bg-[#f7f8f9] rounded-lg border border-transparent focus:bg-white focus:border-[#1a1510]/5 focus:outline-none transition-all text-[13px] font-medium text-[#1a1510] appearance-none">
-                                          <option>Eastern (EST)</option>
-                                          <option>Pacific (PST)</option>
+                                       <select 
+                                          value={workspaceTimezone} 
+                                          onChange={(e) => setWorkspaceTimezone(e.target.value)}
+                                          className="w-full h-10 px-4 bg-[#f7f8f9] rounded-lg border border-transparent focus:bg-white focus:border-[#1a1510]/5 focus:outline-none transition-all text-[13px] font-medium text-[#1a1510] appearance-none"
+                                       >
+                                          <option value="Eastern (EST)">Eastern (EST)</option>
+                                          <option value="Pacific (PST)">Pacific (PST)</option>
+                                          <option value="UTC">UTC</option>
                                        </select>
                                        <ChevronRight size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#1a1510]/20 rotate-90" />
                                     </div>
@@ -397,64 +574,55 @@ export default function SettingsPage() {
                                     </tr>
                                  </thead>
                                  <tbody className="divide-y divide-[#1a1510]/5">
-                                    {[
-                                       { name: "Sarah Mitchell", email: "sarah@company.com", role: "Admin", permissions: ["Full Access"], status: "active", current: true },
-                                       { name: "Mike Thompson", email: "mike@company.com", role: "SDR", permissions: ["Campaigns"], status: "active" },
-                                       { name: "Lisa Kim", email: "lisa@company.com", role: "AE", permissions: ["Campaigns", "Analytics"], status: "active" },
-                                       { name: "David Chen", email: "david@company.com", role: "RevOps", permissions: ["Campaigns", "Analytics", "Workflows"], status: "invited" },
-                                    ].map((member, i) => (
-                                       <tr key={i} className="hover:bg-[#fafbfc]/40 transition-colors">
-                                          <td className="px-6 py-4">
-                                             <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 rounded-full bg-[#1a1510]/5 border border-[#1a1510]/5 flex items-center justify-center text-[#1a1510] font-bold text-[11px] shadow-sm">
-                                                   {member.name.split(" ").map(n => n[0]).join("")}
-                                                </div>
-                                                <div>
-                                                   <h4 className="text-[13px] font-bold text-[#1a1510] leading-tight">{member.name}</h4>
-                                                   <p className="text-[11px] font-medium text-[#1a1510]/30">{member.email}</p>
-                                                </div>
-                                             </div>
-                                          </td>
-                                          <td className="px-6 py-4">
-                                             <div className="relative min-w-[120px]">
-                                                <select
-                                                   defaultValue={member.role}
-                                                   className="w-full h-9 bg-[#f7f8f9] border border-[#1a1510]/5 rounded-lg px-3 pr-8 text-[11px] font-bold text-[#1a1510] outline-none appearance-none focus:border-[#b99b7b]/30 transition-all"
-                                                >
-                                                   <option>Admin</option>
-                                                   <option>SDR</option>
-                                                   <option>AE</option>
-                                                   <option>RevOps</option>
-                                                </select>
-                                                <ChevronRight size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#1a1510]/20 rotate-90" />
-                                             </div>
-                                          </td>
-                                          <td className="px-6 py-4">
-                                             <div className="flex flex-wrap gap-1.5">
-                                                {member.permissions.map((perm, idx) => (
-                                                   <span key={idx} className="px-3 py-1 bg-[#1a1510]/5 border border-[#1a1510]/5 rounded-full text-[10px] font-bold text-[#1a1510]/60 whitespace-nowrap">
-                                                      {perm}
-                                                   </span>
-                                                ))}
-                                             </div>
-                                          </td>
-                                          <td className="px-6 py-4">
-                                             <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${member.status === "active"
-                                                ? "bg-emerald-50 text-emerald-600 border border-emerald-100/60"
-                                                : "bg-amber-50 text-amber-600 border border-amber-100/60"
-                                             }`}>
-                                                {member.status}
-                                             </span>
-                                          </td>
-                                          <td className="px-6 py-4 text-right">
-                                             {!member.current && (
-                                                <button className="p-2 text-red-500/30 hover:text-red-500 transition-colors">
-                                                   <Trash2 size={16} />
-                                                </button>
-                                             )}
-                                          </td>
-                                       </tr>
-                                    ))}
+                                     {teamMembers.map((member, i) => (
+                                        <tr key={i} className="hover:bg-[#fafbfc]/40 transition-colors">
+                                           <td className="px-6 py-4">
+                                              <div className="flex items-center gap-3">
+                                                 <div className="w-9 h-9 rounded-full bg-[#1a1510]/5 border border-[#1a1510]/5 flex items-center justify-center text-[#1a1510] font-bold text-[11px] shadow-sm">
+                                                    {member.name ? member.name.split(" ").map((n: any) => n[0]).join("") : "??"}
+                                                 </div>
+                                                 <div>
+                                                    <h4 className="text-[13px] font-bold text-[#1a1510] leading-tight">{member.name}</h4>
+                                                    <p className="text-[11px] font-medium text-[#1a1510]/30">{member.email}</p>
+                                                 </div>
+                                              </div>
+                                           </td>
+                                           <td className="px-6 py-4">
+                                              <div className="relative min-w-[120px]">
+                                                 <select
+                                                    defaultValue={member.role}
+                                                    className="w-full h-9 bg-[#f7f8f9] border border-[#1a1510]/5 rounded-lg px-3 pr-8 text-[11px] font-bold text-[#1a1510] outline-none appearance-none focus:border-[#b99b7b]/30 transition-all"
+                                                 >
+                                                    <option value="operator">Operator</option>
+                                                    <option value="admin">Admin</option>
+                                                    <option value="sdr">SDR</option>
+                                                 </select>
+                                                 <ChevronRight size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#1a1510]/20 rotate-90" />
+                                              </div>
+                                           </td>
+                                           <td className="px-6 py-4">
+                                              <div className="flex flex-wrap gap-1.5">
+                                                 {["Campaigns", member.role === "admin" ? "Full Access" : "Standard"].map((perm, idx) => (
+                                                    <span key={idx} className="px-3 py-1 bg-[#1a1510]/5 border border-[#1a1510]/5 rounded-full text-[10px] font-bold text-[#1a1510]/60 whitespace-nowrap">
+                                                       {perm}
+                                                    </span>
+                                                 ))}
+                                              </div>
+                                           </td>
+                                           <td className="px-6 py-4">
+                                              <span className={`px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100/60`}>
+                                                 active
+                                              </span>
+                                           </td>
+                                           <td className="px-6 py-4 text-right">
+                                              {member.email !== email && (
+                                                 <button className="p-2 text-red-500/30 hover:text-red-500 transition-colors">
+                                                    <Trash2 size={16} />
+                                                 </button>
+                                              )}
+                                           </td>
+                                        </tr>
+                                     ))}
                                  </tbody>
                               </table>
                            </div>
@@ -474,91 +642,52 @@ export default function SettingsPage() {
                               <div className="flex items-center gap-3">
                                  <p className="text-[10px] font-bold text-[#1a1510]/30 uppercase tracking-widest">Manage API keys and sync status</p>
                                  <div className="flex items-center gap-1.5 ml-2">
-                                    <span className="px-2 py-0.5 bg-[#1a1510]/5 border border-[#1a1510]/5 rounded-full text-[9px] font-bold text-[#1a1510]/60">6 connected</span>
-                                    <span className="px-2 py-0.5 bg-amber-50 border border-amber-100 text-amber-600 rounded-full text-[9px] font-bold">1 warning</span>
+                                    <span className="px-2 py-0.5 bg-[#1a1510]/5 border border-[#1a1510]/5 rounded-full text-[9px] font-bold text-[#1a1510]/60">{integrations.length} connected</span>
                                  </div>
                               </div>
                            </div>
                         </div>
 
                         <div className="space-y-3">
-                           {[
-                              { name: "Apollo", status: "connected", sync: "2m ago", key: "sk_apollo_3f8a", icon: Search, color: "text-blue-500", bg: "bg-blue-50" },
-                              { name: "Clay", status: "connected", sync: "8m ago", key: "clay_key_9b2c", icon: Layers, color: "text-emerald-600", bg: "bg-emerald-50" },
-                              { name: "Smartlead", status: "connected", sync: "15m ago", key: "s1_api_7d4e", icon: Mail, color: "text-indigo-600", bg: "bg-indigo-50" },
-                              { name: "HeyReach", status: "warning", sync: "1h ago", key: "hr_key_2f1a", icon: Handshake, color: "text-amber-600", bg: "bg-amber-50" },
-                              { name: "HubSpot", status: "connected", sync: "3h ago", key: "hs_pat_8c5b", icon: LayoutGrid, color: "text-orange-600", bg: "bg-orange-50" },
-                              { name: "Salesforce", status: "disconnected", sync: "Never", key: null, icon: Database, color: "text-blue-400", bg: "bg-blue-50" },
-                              { name: "Slack", status: "connected", sync: "1m ago", key: "xoxb_slack_4a7d", icon: MessageSquare, color: "text-purple-600", bg: "bg-purple-50" },
-                              { name: "Calendly", status: "connected", sync: "5m ago", key: "cal_key_6e3f", icon: Calendar, color: "text-blue-600", bg: "bg-blue-50" },
-                           ].map((int, i) => (
-                              <motion.div
-                                 key={i}
-                                 initial={{ opacity: 0, y: 8 }}
-                                 animate={{ opacity: 1, y: 0 }}
-                                 transition={{ delay: i * 0.05 }}
-                                 className={`group flex items-center gap-5 p-4 bg-white border rounded-2xl transition-all shadow-sm ${
-                                    int.status === "warning" ? "border-amber-200 bg-amber-50/20" : "border-[#1a1510]/5 hover:border-[#b99b7b]/20"
-                                 }`}
-                              >
-                                 <div className={`w-11 h-11 ${int.bg} rounded-xl flex items-center justify-center ${int.color} shrink-0 shadow-sm border border-black/5`}>
-                                    <int.icon size={20} />
-                                 </div>
+                            {integrations.map((int, i) => (
+                               <motion.div
+                                  key={i}
+                                  initial={{ opacity: 0, y: 8 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ delay: i * 0.05 }}
+                                  className={`group flex items-center gap-5 p-4 bg-white border rounded-2xl transition-all shadow-sm border-[#1a1510]/5 hover:border-[#b99b7b]/20`}
+                               >
+                                  <div className={`w-11 h-11 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 shrink-0 shadow-sm border border-black/5`}>
+                                     <Layers size={20} />
+                                  </div>
 
-                                 <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2.5 mb-0.5">
-                                       <h4 className="text-[14px] font-bold text-[#1a1510] tracking-tight">{int.name}</h4>
-                                       <span className={`flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full border ${
-                                          int.status === "connected" ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
-                                          int.status === "warning" ? "bg-amber-50 text-amber-600 border-amber-100" :
-                                          "bg-red-50 text-red-500 border-red-100"
-                                       }`}>
-                                          {int.status === "connected" && <span className="w-1 h-1 rounded-full bg-emerald-600" />}
-                                          {int.status === "warning" && <AlertCircle size={10} />}
-                                          {int.status}
-                                       </span>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                       <p className="text-[11px] font-medium text-[#1a1510]/30 whitespace-nowrap">Last sync: {int.sync}</p>
-                                       {int.key && (
-                                          <p className="text-[11px] font-mono font-medium text-[#1a1510]/20 tracking-tighter">
-                                             <span className="hidden sm:inline">••••••••</span>{int.key}
-                                          </p>
-                                       )}
-                                    </div>
-                                 </div>
+                                  <div className="flex-1 min-w-0">
+                                     <div className="flex items-center gap-2.5 mb-0.5">
+                                        <h4 className="text-[14px] font-bold text-[#1a1510] tracking-tight">{int.tool_name}</h4>
+                                        <span className={`flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-600 border-emerald-100`}>
+                                           <span className="w-1 h-1 rounded-full bg-emerald-600" />
+                                           connected
+                                        </span>
+                                     </div>
+                                     <div className="flex items-center gap-3">
+                                        <p className="text-[11px] font-medium text-[#1a1510]/30 whitespace-nowrap">Account: {int.account_label}</p>
+                                        <p className="text-[11px] font-medium text-[#1a1510]/30 whitespace-nowrap">Client: {int.client?.name}</p>
+                                     </div>
+                                  </div>
 
-                                 <div className="flex items-center gap-2">
-                                    <div className="relative">
-                                       <select className="h-9 bg-[#f7f8f9] border border-[#1a1510]/5 rounded-lg px-3 pr-8 text-[11px] font-bold text-[#1a1510] outline-none appearance-none focus:border-[#b99b7b]/30 transition-all cursor-pointer">
-                                          <option>Real-time</option>
-                                          <option>Every 1h</option>
-                                          <option>Daily</option>
-                                       </select>
-                                       <ChevronRight size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#1a1510]/20 rotate-90" />
-                                    </div>
-
-                                    {int.status === "disconnected" ? (
-                                       <button className="px-5 h-9 bg-[#1a1510] text-[#b99b7b] rounded-lg text-[9px] font-bold uppercase tracking-widest shadow-lg shadow-black/10 hover:-translate-y-0.5 transition-all">
-                                          Connect
-                                       </button>
-                                    ) : int.status === "warning" ? (
-                                       <button className="px-5 h-9 bg-[#1a1510] text-amber-500 rounded-lg text-[9px] font-bold uppercase tracking-widest shadow-lg shadow-black/10 hover:-translate-y-0.5 transition-all border border-amber-500/20">
-                                          Reconnect
-                                       </button>
-                                    ) : (
-                                       <div className="flex items-center gap-2">
-                                          <button className="px-3 h-9 bg-white border border-[#1a1510]/10 text-[#1a1510]/60 rounded-lg text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5 hover:bg-[#fafbfc] transition-all">
-                                             <RefreshCw size={14} /> Test
-                                          </button>
-                                          <button className="px-5 h-9 bg-[#1a1510] text-[#b99b7b] rounded-lg text-[9px] font-bold uppercase tracking-widest shadow-lg shadow-black/10 hover:-translate-y-0.5 transition-all">
-                                             Sync Now
-                                          </button>
-                                       </div>
-                                    )}
-                                 </div>
-                              </motion.div>
-                           ))}
+                                  <div className="flex items-center gap-2">
+                                     <button className="px-3 h-9 bg-white border border-[#1a1510]/10 text-[#1a1510]/60 rounded-lg text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5 hover:bg-[#fafbfc] transition-all">
+                                        <RefreshCw size={14} /> Test
+                                     </button>
+                                  </div>
+                               </motion.div>
+                            ))}
+                            {integrations.length === 0 && (
+                                <div className="text-center py-10 border border-dashed border-[#1a1510]/10 rounded-2xl">
+                                    <p className="text-[11px] font-bold text-[#1a1510]/30 uppercase tracking-widest">No active integrations found</p>
+                                    <button className="mt-3 text-[10px] font-bold text-[#b99b7b] uppercase tracking-widest hover:underline">Add first integration</button>
+                                </div>
+                            )}
                         </div>
                      </motion.div>
                   )}
@@ -622,25 +751,25 @@ export default function SettingsPage() {
                            </div>
 
                            <div className="grid grid-cols-3 gap-6">
-                              <div className="space-y-2">
-                                 <label className="text-[11px] font-bold text-[#1a1510]/40 uppercase tracking-widest">Daily Send Limit</label>
-                                 <input type="text" defaultValue="200" className="w-full h-11 bg-[#f7f8f9] border border-[#1a1510]/5 rounded-xl px-4 text-[13px] font-medium text-[#1a1510] outline-none focus:border-[#b99b7b]/30 transition-all" />
-                              </div>
-                              <div className="space-y-2">
-                                 <label className="text-[11px] font-bold text-[#1a1510]/40 uppercase tracking-widest">Inbox Rotation</label>
-                                 <div className="relative">
-                                    <select className="w-full h-11 bg-[#f7f8f9] border border-[#1a1510]/5 rounded-xl px-4 text-[13px] font-medium text-[#1a1510] outline-none appearance-none focus:border-[#b99b7b]/30 transition-all">
-                                       <option>Round Robin</option>
-                                       <option>Sequential</option>
-                                    </select>
-                                    <ChevronRight size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#1a1510]/20 rotate-90" />
-                                 </div>
-                              </div>
-                              <div className="space-y-2">
-                                 <label className="text-[11px] font-bold text-[#1a1510]/40 uppercase tracking-widest">Auto-pause threshold</label>
-                                 <input type="text" defaultValue="5% bounce rate" className="w-full h-11 bg-[#f7f8f9] border border-[#1a1510]/5 rounded-xl px-4 text-[13px] font-medium text-[#1a1510] outline-none focus:border-[#b99b7b]/30 transition-all" />
-                              </div>
-                           </div>
+                               <div className="space-y-2">
+                                  <label className="text-[11px] font-bold text-[#1a1510]/40 uppercase tracking-widest">Daily Send Limit</label>
+                                  <input type="text" value={dailySendLimit} onChange={(e) => setDailySendLimit(e.target.value)} className="w-full h-11 bg-[#f7f8f9] border border-[#1a1510]/5 rounded-xl px-4 text-[13px] font-medium text-[#1a1510] outline-none focus:border-[#b99b7b]/30 transition-all" />
+                               </div>
+                               <div className="space-y-2">
+                                  <label className="text-[11px] font-bold text-[#1a1510]/40 uppercase tracking-widest">Inbox Rotation</label>
+                                  <div className="relative">
+                                     <select value={inboxRotation} onChange={(e) => setInboxRotation(e.target.value)} className="w-full h-11 bg-[#f7f8f9] border border-[#1a1510]/5 rounded-xl px-4 text-[13px] font-medium text-[#1a1510] outline-none appearance-none focus:border-[#b99b7b]/30 transition-all">
+                                        <option value="Round Robin">Round Robin</option>
+                                        <option value="Sequential">Sequential</option>
+                                     </select>
+                                     <ChevronRight size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#1a1510]/20 rotate-90" />
+                                  </div>
+                               </div>
+                               <div className="space-y-2">
+                                  <label className="text-[11px] font-bold text-[#1a1510]/40 uppercase tracking-widest">Auto-pause threshold</label>
+                                  <input type="text" value={autoPauseThreshold} onChange={(e) => setAutoPauseThreshold(e.target.value)} className="w-full h-11 bg-[#f7f8f9] border border-[#1a1510]/5 rounded-xl px-4 text-[13px] font-medium text-[#1a1510] outline-none focus:border-[#b99b7b]/30 transition-all" />
+                               </div>
+                            </div>
 
                            <div className="bg-[#fafbfc] border border-[#1a1510]/5 rounded-2xl p-6">
                               <span className="text-[10px] font-bold uppercase tracking-widest text-[#1a1510]/30 block mb-4">Deliverability Health</span>
@@ -675,9 +804,9 @@ export default function SettingsPage() {
                                     <Linkedin size={20} />
                                  </div>
                                  <div>
-                                    <p className="text-[13px] font-bold text-[#1a1510]">sarah.linkedin</p>
-                                    <p className="text-[11px] font-medium text-[#1a1510]/30 uppercase tracking-tight">Primary account</p>
-                                 </div>
+                                     <input type="text" value={linkedinAccount} onChange={(e) => setLinkedinAccount(e.target.value)} className="text-[13px] font-bold text-[#1a1510] bg-transparent border-none outline-none focus:ring-0" />
+                                     <p className="text-[11px] font-medium text-[#1a1510]/30 uppercase tracking-tight">Primary account</p>
+                                  </div>
                               </div>
                               <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-bold rounded-full border border-emerald-100/60">
                                  Connected
@@ -687,11 +816,11 @@ export default function SettingsPage() {
                            <div className="grid grid-cols-2 gap-6">
                               <div className="space-y-2">
                                  <label className="text-[11px] font-bold text-[#1a1510]/40 uppercase tracking-widest">Daily Connection Limit</label>
-                                 <input type="text" defaultValue="25" className="w-full h-11 bg-[#f7f8f9] border border-[#1a1510]/5 rounded-xl px-4 text-[13px] font-medium text-[#1a1510] outline-none focus:border-[#b99b7b]/30 transition-all" />
+                                 <input type="text" value={dailyConnectionLimit} onChange={(e) => setDailyConnectionLimit(e.target.value)} className="w-full h-11 bg-[#f7f8f9] border border-[#1a1510]/5 rounded-xl px-4 text-[13px] font-medium text-[#1a1510] outline-none focus:border-[#b99b7b]/30 transition-all" />
                               </div>
                               <div className="space-y-2">
                                  <label className="text-[11px] font-bold text-[#1a1510]/40 uppercase tracking-widest">Daily Message Limit</label>
-                                 <input type="text" defaultValue="50" className="w-full h-11 bg-[#f7f8f9] border border-[#1a1510]/5 rounded-xl px-4 text-[13px] font-medium text-[#1a1510] outline-none focus:border-[#b99b7b]/30 transition-all" />
+                                 <input type="text" value={dailyMessageLimit} onChange={(e) => setDailyMessageLimit(e.target.value)} className="w-full h-11 bg-[#f7f8f9] border border-[#1a1510]/5 rounded-xl px-4 text-[13px] font-medium text-[#1a1510] outline-none focus:border-[#b99b7b]/30 transition-all" />
                               </div>
                            </div>
 
@@ -722,10 +851,10 @@ export default function SettingsPage() {
                               <div className="space-y-2">
                                  <label className="text-[11px] font-bold text-[#1a1510]/40 uppercase tracking-widest">Tone</label>
                                  <div className="relative">
-                                    <select className="w-full h-11 bg-[#f7f8f9] border border-[#1a1510]/5 rounded-xl px-4 text-[13px] font-medium text-[#1a1510] outline-none appearance-none focus:border-[#b99b7b]/30 transition-all">
-                                       <option>Professional</option>
-                                       <option>Friendly</option>
-                                       <option>Direct</option>
+                                    <select value={aiTone} onChange={(e) => setAiTone(e.target.value)} className="w-full h-11 bg-[#f7f8f9] border border-[#1a1510]/5 rounded-xl px-4 text-[13px] font-medium text-[#1a1510] outline-none appearance-none focus:border-[#b99b7b]/30 transition-all">
+                                       <option value="Professional">Professional</option>
+                                       <option value="Friendly">Friendly</option>
+                                       <option value="Direct">Direct</option>
                                     </select>
                                     <ChevronRight size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#1a1510]/20 rotate-90" />
                                  </div>
@@ -733,10 +862,10 @@ export default function SettingsPage() {
                               <div className="space-y-2">
                                  <label className="text-[11px] font-bold text-[#1a1510]/40 uppercase tracking-widest">Personalization Depth</label>
                                  <div className="relative">
-                                    <select className="w-full h-11 bg-[#f7f8f9] border border-[#1a1510]/5 rounded-xl px-4 text-[13px] font-medium text-[#1a1510] outline-none appearance-none focus:border-[#b99b7b]/30 transition-all">
-                                       <option>Medium — Company research</option>
-                                       <option>Light — First name only</option>
-                                       <option>Deep — Social media synthesis</option>
+                                    <select value={aiPersonalization} onChange={(e) => setAiPersonalization(e.target.value)} className="w-full h-11 bg-[#f7f8f9] border border-[#1a1510]/5 rounded-xl px-4 text-[13px] font-medium text-[#1a1510] outline-none appearance-none focus:border-[#b99b7b]/30 transition-all">
+                                       <option value="Medium">Medium — Company research</option>
+                                       <option value="Light">Light — First name only</option>
+                                       <option value="Deep">Deep — Social media synthesis</option>
                                     </select>
                                     <ChevronRight size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#1a1510]/20 rotate-90" />
                                  </div>
@@ -1101,18 +1230,201 @@ export default function SettingsPage() {
             </section>
          </main>
 
-         {/* Brain FAB removed */}
+         {/* Password Modal */}
+         <AnimatePresence>
+            {isPasswordModalOpen && (
+               <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                  <motion.div
+                     initial={{ opacity: 0 }}
+                     animate={{ opacity: 1 }}
+                     exit={{ opacity: 0 }}
+                     onClick={() => setIsPasswordModalOpen(false)}
+                     className="absolute inset-0 bg-[#1a1510]/60 backdrop-blur-sm"
+                  />
+                  <motion.div
+                     initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                     animate={{ opacity: 1, scale: 1, y: 0 }}
+                     exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                     className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-[#1a1510]/5"
+                  >
+                     <div className="p-8 space-y-6">
+                        <div className="flex items-center gap-3">
+                           <div className="w-12 h-12 rounded-2xl bg-[#b99b7b]/10 flex items-center justify-center text-[#b99b7b]">
+                              <Lock size={24} />
+                           </div>
+                           <div>
+                              <h3 className="text-xl font-bold tracking-tight text-[#1a1510]">Change Password</h3>
+                              <p className="text-[11px] font-bold text-[#1a1510]/30 uppercase tracking-widest">Secure your account</p>
+                           </div>
+                        </div>
 
+                        <div className="space-y-4">
+                           <div className="space-y-1.5">
+                              <label className="text-[9px] font-bold uppercase text-[#1a1510]/30 tracking-widest">Current Password</label>
+                              <div className="relative">
+                                 <input 
+                                    type={showCurrentPassword ? "text" : "password"} 
+                                    value={currentPassword}
+                                    onChange={(e) => setCurrentPassword(e.target.value)}
+                                    className="w-full h-11 px-4 pr-12 bg-[#f7f8f9] rounded-xl border border-transparent focus:bg-white focus:border-[#b99b7b]/20 focus:outline-none transition-all text-[14px] font-medium text-[#1a1510]" 
+                                    placeholder="••••••••"
+                                 />
+                                 <button 
+                                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#1a1510]/20 hover:text-[#b99b7b] transition-colors"
+                                 >
+                                    {showCurrentPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                 </button>
+                              </div>
+                           </div>
+                           <div className="space-y-1.5">
+                              <label className="text-[9px] font-bold uppercase text-[#1a1510]/30 tracking-widest">New Password</label>
+                              <div className="relative">
+                                 <input 
+                                    type={showNewPassword ? "text" : "password"} 
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    className="w-full h-11 px-4 pr-12 bg-[#f7f8f9] rounded-xl border border-transparent focus:bg-white focus:border-[#b99b7b]/20 focus:outline-none transition-all text-[14px] font-medium text-[#1a1510]" 
+                                    placeholder="••••••••"
+                                 />
+                                 <button 
+                                    onClick={() => setShowNewPassword(!showNewPassword)}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#1a1510]/20 hover:text-[#b99b7b] transition-colors"
+                                 >
+                                    {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                 </button>
+                              </div>
+                           </div>
+                           <div className="space-y-1.5">
+                              <label className="text-[9px] font-bold uppercase text-[#1a1510]/30 tracking-widest">Confirm New Password</label>
+                              <div className="relative">
+                                 <input 
+                                    type={showConfirmPassword ? "text" : "password"} 
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    className="w-full h-11 px-4 pr-12 bg-[#f7f8f9] rounded-xl border border-transparent focus:bg-white focus:border-[#b99b7b]/20 focus:outline-none transition-all text-[14px] font-medium text-[#1a1510]" 
+                                    placeholder="••••••••"
+                                 />
+                                 <button 
+                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#1a1510]/20 hover:text-[#b99b7b] transition-colors"
+                                 >
+                                    {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                 </button>
+                              </div>
+                           </div>
+                        </div>
 
+                        <div className="flex gap-3 pt-2">
+                           <button 
+                              onClick={() => setIsPasswordModalOpen(false)}
+                              className="flex-1 h-12 rounded-xl text-[10px] font-bold uppercase tracking-widest text-[#1a1510]/40 hover:text-[#1a1510] hover:bg-[#f7f8f9] transition-all"
+                           >
+                              Cancel
+                           </button>
+                           <button 
+                              onClick={handlePasswordChange}
+                              disabled={isChangingPassword}
+                              className="flex-[2] h-12 bg-[#1a1510] text-[#b99b7b] rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-xl shadow-[#1a1510]/20 hover:-translate-y-0.5 transition-all disabled:opacity-50"
+                           >
+                              {isChangingPassword ? "Updating..." : "Update Password"}
+                           </button>
+                        </div>
+                     </div>
+                  </motion.div>
+               </div>
+            )}
+         </AnimatePresence>
+
+         {/* 2FA Setup Modal */}
+         <AnimatePresence>
+            {is2FAModalOpen && (
+               <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                  <motion.div
+                     initial={{ opacity: 0 }}
+                     animate={{ opacity: 1 }}
+                     exit={{ opacity: 0 }}
+                     onClick={() => setIs2FAModalOpen(false)}
+                     className="absolute inset-0 bg-[#1a1510]/60 backdrop-blur-sm"
+                  />
+                  <motion.div
+                     initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                     animate={{ opacity: 1, scale: 1, y: 0 }}
+                     exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                     className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-[#1a1510]/5"
+                  >
+                     <div className="p-8 space-y-6">
+                        <div className="flex items-center gap-3">
+                           <div className="w-12 h-12 rounded-2xl bg-[#b99b7b]/10 flex items-center justify-center text-[#b99b7b]">
+                              <Fingerprint size={24} />
+                           </div>
+                           <div>
+                              <h3 className="text-xl font-bold tracking-tight text-[#1a1510]">Setup 2FA</h3>
+                              <p className="text-[11px] font-bold text-[#1a1510]/30 uppercase tracking-widest">Verify your device</p>
+                           </div>
+                        </div>
+
+                        {twoFAStep === "verify" && (
+                           <div className="space-y-6">
+                              <div className="flex justify-center p-4 bg-[#f7f8f9] rounded-2xl border border-[#1a1510]/5">
+                                 {twoFAQRCode ? (
+                                    <img src={twoFAQRCode} alt="2FA QR Code" className="w-48 h-48 mix-blend-multiply" />
+                                 ) : (
+                                    <div className="w-48 h-48 flex items-center justify-center text-[#1a1510]/20"><RefreshCw className="animate-spin" /></div>
+                                 )}
+                              </div>
+                              
+                              <div className="space-y-4">
+                                 <p className="text-[11px] text-[#1a1510]/60 text-center font-medium">
+                                    Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.) and enter the 6-digit code below.
+                                 </p>
+                                 <div className="space-y-1.5">
+                                    <label className="text-[9px] font-bold uppercase text-[#1a1510]/30 tracking-widest">Verification Code</label>
+                                    <input 
+                                       type="text" 
+                                       maxLength={6}
+                                       value={twoFAVerificationCode}
+                                       onChange={(e) => setTwoFAVerificationCode(e.target.value.replace(/\D/g, ''))}
+                                       className="w-full h-12 px-4 bg-[#f7f8f9] rounded-xl border border-transparent focus:bg-white focus:border-[#b99b7b]/20 focus:outline-none transition-all text-center text-2xl tracking-[0.5em] font-bold text-[#1a1510]" 
+                                       placeholder="000000"
+                                    />
+                                 </div>
+                              </div>
+                           </div>
+                        )}
+
+                        <div className="flex gap-3 pt-2">
+                           <button 
+                              onClick={() => setIs2FAModalOpen(false)}
+                              className="flex-1 h-12 rounded-xl text-[10px] font-bold uppercase tracking-widest text-[#1a1510]/40 hover:text-[#1a1510] hover:bg-[#f7f8f9] transition-all"
+                           >
+                              Cancel
+                           </button>
+                           <button 
+                              onClick={handle2FAVerify}
+                              disabled={isVerifying2FA || twoFAVerificationCode.length !== 6}
+                              className="flex-[2] h-12 bg-[#1a1510] text-[#b99b7b] rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-xl shadow-[#1a1510]/20 hover:-translate-y-0.5 transition-all disabled:opacity-50"
+                           >
+                              {isVerifying2FA ? "Verifying..." : "Enable 2FA"}
+                           </button>
+                        </div>
+                     </div>
+                  </motion.div>
+               </div>
+            )}
+         </AnimatePresence>
+
+         {/* Toast Message */}
          <AnimatePresence>
             {toastMessage && (
-               <motion.div 
-                  initial={{ opacity: 0, y: 20 }} 
-                  animate={{ opacity: 1, y: 0 }} 
-                  exit={{ opacity: 0, y: 20 }} 
-                  className="fixed bottom-10 right-10 bg-[#1a1510] text-[#b99b7b] px-5 py-3 rounded-xl shadow-2xl z-50 text-[10px] font-bold tracking-widest uppercase border border-white/5"
+               <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
+                  className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 bg-[#1a1510] text-white rounded-xl shadow-2xl border border-white/5 flex items-center gap-3"
                >
-                  {toastMessage}
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#b99b7b] animate-pulse" />
+                  <span className="text-[11px] font-bold tracking-tight">{toastMessage}</span>
                </motion.div>
             )}
          </AnimatePresence>

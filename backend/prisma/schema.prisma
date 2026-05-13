@@ -8,97 +8,149 @@ datasource db {
 }
 
 model Operator {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email         String   @unique
-  password_hash String
-  name          String
-  role          String   @default("operator")
-  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  id                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                String              @unique
+  password_hash        String
+  name                 String
+  role                 String              @default("operator")
+  created_at           DateTime            @default(now()) @db.Timestamptz(6)
+  two_factor_secret    String?
+  
+  workspace_id         String?             @db.Uuid
+  workspace            Workspace?          @relation(fields: [workspace_id], references: [id])
+  settings             OperatorSettings?
 
-  clients               Client[]
-  client_tool_accounts  ClientToolAccount[]
-  execution_contexts    ExecutionContext[]
-  executions            Execution[]
+  client_tool_accounts ClientToolAccount[]
+  clients              Client[]
+  execution_contexts   ExecutionContext[]
+  executions           Execution[]
 
   @@map("operators")
 }
 
+model Workspace {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  domain      String?
+  timezone    String?  @default("Eastern (EST)")
+  logo_url    String?
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  operators   Operator[]
+
+  @@map("workspaces")
+}
+
+model OperatorSettings {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  operator_id   String   @unique @db.Uuid
+  operator      Operator @relation(fields: [operator_id], references: [id], onDelete: Cascade)
+  
+  // AI Preferences
+  ai_tone               String?  @default("Professional")
+  ai_personalization    String?  @default("Medium")
+  auto_reply            Boolean  @default(true)
+  auto_pause            Boolean  @default(true)
+  auto_optimize         Boolean  @default(false)
+  auto_score            Boolean  @default(true)
+
+  // Notification Preferences (as JSON)
+  notifications         Json     @default("[]")
+
+  // Outreach Settings
+  daily_send_limit      Int      @default(200)
+  inbox_rotation        String?  @default("Round Robin")
+  auto_pause_threshold  String?  @default("5% bounce rate")
+  safety_mode           Boolean  @default(true)
+  daily_connection_limit Int     @default(25)
+  daily_message_limit    Int     @default(50)
+  linkedin_account      String?  @default("sarah.linkedin")
+  default_crm           String?  @default("hubspot")
+  two_factor_enabled    Boolean  @default(false)
+
+  @@map("operator_settings")
+}
+
 model Client {
-  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                     String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name                   String
   description            String?
-  created_by_operator    Operator @relation(fields: [created_by_operator_id], references: [id])
-  created_by_operator_id String   @db.Uuid
-  created_at             DateTime @default(now()) @db.Timestamptz(6)
-
-  tool_accounts      ClientToolAccount[]
-  execution_contexts ExecutionContext[]
-  executions         Execution[]
+  created_by_operator_id String              @db.Uuid
+  created_at             DateTime            @default(now()) @db.Timestamptz(6)
+  account_owner          String?
+  industry               String?
+  priority               String              @default("Medium")
+  region                 String?
+  status                 String              @default("Active")
+  website                String?
+  tool_accounts          ClientToolAccount[]
+  created_by_operator    Operator            @relation(fields: [created_by_operator_id], references: [id])
+  execution_contexts     ExecutionContext[]
+  executions             Execution[]
 
   @@map("clients")
 }
 
 model ClientToolAccount {
-  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  client                 Client   @relation(fields: [client_id], references: [id], onDelete: Cascade)
-  client_id              String   @db.Uuid
+  id                     String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  client_id              String      @db.Uuid
   tool_name              String
   account_label          String
   api_key_encrypted      String
-  created_by_operator    Operator @relation(fields: [created_by_operator_id], references: [id])
-  created_by_operator_id String   @db.Uuid
-  created_at             DateTime @default(now()) @db.Timestamptz(6)
-
-  executions Execution[]
+  created_by_operator_id String      @db.Uuid
+  created_at             DateTime    @default(now()) @db.Timestamptz(6)
+  client                 Client      @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  created_by_operator    Operator    @relation(fields: [created_by_operator_id], references: [id])
+  executions             Execution[]
 
   @@map("client_tool_accounts")
 }
 
 model Tool {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tool_id     String   @unique // String ID like 'apollo', 'hubspot'
+  tool_id     String   @unique
   name        String
   category    String
   description String?
   created_at  DateTime @default(now()) @db.Timestamptz(6)
+  status      String   @default("active")
 
   @@map("tools")
 }
 
 model ExecutionContext {
-  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  client                 Client   @relation(fields: [client_id], references: [id], onDelete: Cascade)
-  client_id              String   @db.Uuid
+  id                     String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  client_id              String      @db.Uuid
   name                   String
   description            String?
   context_data           Json?
-  created_by_operator    Operator @relation(fields: [created_by_operator_id], references: [id])
-  created_by_operator_id String   @db.Uuid
-  created_at             DateTime @default(now()) @db.Timestamptz(6)
-
-  executions Execution[]
+  created_by_operator_id String      @db.Uuid
+  created_at             DateTime    @default(now()) @db.Timestamptz(6)
+  client                 Client      @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  created_by_operator    Operator    @relation(fields: [created_by_operator_id], references: [id])
+  executions             Execution[]
 
   @@map("execution_contexts")
 }
 
 model Execution {
   id                       String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  client                   Client            @relation(fields: [client_id], references: [id], onDelete: Cascade)
   client_id                String            @db.Uuid
   tool_name                String
-  tool_account             ClientToolAccount @relation(fields: [tool_account_id], references: [id])
   tool_account_id          String            @db.Uuid
-  context                  ExecutionContext? @relation(fields: [context_id], references: [id], onDelete: SetNull)
   context_id               String?           @db.Uuid
   action                   String
   status                   String            @default("pending")
   request_payload          Json?
   response_payload         Json?
   error_message            String?
-  triggered_by_operator    Operator          @relation(fields: [triggered_by_operator_id], references: [id])
   triggered_by_operator_id String            @db.Uuid
   created_at               DateTime          @default(now()) @db.Timestamptz(6)
   updated_at               DateTime          @default(now()) @updatedAt @db.Timestamptz(6)
+  client                   Client            @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  context                  ExecutionContext? @relation(fields: [context_id], references: [id])
+  tool_account             ClientToolAccount @relation(fields: [tool_account_id], references: [id])
+  triggered_by_operator    Operator          @relation(fields: [triggered_by_operator_id], references: [id])
 
   @@map("executions")
 }

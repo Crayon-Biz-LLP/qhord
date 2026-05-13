@@ -7,6 +7,7 @@ export interface Operator {
   role: OperatorRole;
   password_hash: string;
   created_at: string;
+  two_factor_secret?: string | null;
 }
 
 export interface Client {
