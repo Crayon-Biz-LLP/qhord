@@ -1,0 +1,59 @@
+import express from 'express';
+import cors from 'cors';
+import 'dotenv/config';
+import authRoutes from './routes/auth';
+import clientRoutes from './routes/clients';
+import toolRoutes from './routes/tools';
+import executionRoutes from './routes/executions';
+import planRoutes from './routes/plans';
+import campaignRoutes from './routes/campaigns';
+import nodeStatusRoutes from './routes/node-status';
+import approvalRoutes from './routes/approvals';
+import campaignExecutionRoutes from './routes/execution';
+import aiMetricsRoutes from './routes/ai-metrics';
+import subscriptionRoutes from './routes/subscription';
+import commandCenterRoutes from './routes/command-center';
+import queueRoutes from './routes/queue';
+import workflowRoutes from './routes/workflows';
+import memoryRoutes from './routes/memory';
+import { prisma } from './lib/prisma';
+import { campaignWorker } from './workers/campaign-worker';
+
+const app = express();
+
+app.use(cors({ origin: '*', credentials: true }));
+app.use(express.json({ limit: '1mb' }));
+
+app.get('/api/health', async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: 'ok' });
+  } catch (err) {
+    console.error('Health check error', err);
+    res.status(500).json({ status: 'error' });
+  }
+});
+
+app.use('/api/auth', authRoutes);
+app.use('/api/clients', clientRoutes);
+app.use('/api/tools', toolRoutes);
+app.use('/api/executions', executionRoutes);
+app.use('/api/plans', planRoutes);
+app.use('/api/campaigns', campaignRoutes);
+app.use('/api/nodes', nodeStatusRoutes);
+app.use('/api/approvals', approvalRoutes);
+app.use('/api/execution', campaignExecutionRoutes);
+app.use('/api/queue', queueRoutes);
+app.use('/api/workflows', workflowRoutes);
+app.use('/api/memory', memoryRoutes);
+app.use('/api', aiMetricsRoutes);
+app.use('/api/subscription', subscriptionRoutes);
+app.use('/api/command-center', commandCenterRoutes);
+
+const port = parseInt(process.env.PORT || '4000', 10);
+
+app.listen(port, () => {
+  // eslint-disable-next-line no-console
+  console.log(`Backend listening on port ${port}`);
+});
+

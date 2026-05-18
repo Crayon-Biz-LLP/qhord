@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase 1 Test - Campaign Planner</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        
+        textarea {
+            width: 100%;
+            height: 100px;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        
+        .result {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        
+        .node-flow {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        .node {
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        .parser { background: #e3f2fd; }
+        .architect { background: #f3e5f5; }
+        .validator { background: #e8f5e8; }
+        .executor { background: #fff3e0; }
+        
+        .node.active { 
+            border: 3px solid #28a745;
+            box-shadow: 0 0 10px rgba(40, 167, 69, 0.3);
+        }
+        
+        .node.error { 
+            border: 3px solid #dc3545;
+            background: #f8d7da;
+        }
+        
+        h1 { color: #333; text-align: center; }
+        h3 { color: #666; margin-top: 30px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Phase 1 Test - Campaign Planner</h1>
+        
+        <div class="status info">
+            <strong>Testing:</strong> LangGraph State Machine + Groq AI + Database Integration
+        </div>
+        
+        <label for="prompt"><strong>Campaign Prompt:</strong></label>
+        <textarea id="prompt" placeholder="Enter your campaign request...">Send 100 B2B leads from Apollo to Smartlead with 2-day warmup</textarea>
+        
+        <label for="activeTools"><strong>Active Tools:</strong></label>
+        <select id="activeTools" multiple style="width: 100%; padding: 8px; margin: 10px 0;">
+            <option value="Apollo" selected>Apollo</option>
+            <option value="Smartlead" selected>Smartlead</option>
+            <option value="Clay">Clay</option>
+            <option value="HeyReach">HeyReach</option>
+            <option value="HubSpot">HubSpot</option>
+        </select>
+        
+        <button onclick="testPhase1()" id="testBtn">🚀 Test Phase 1</button>
+        
+        <div id="status"></div>
+        
+        <h3>🔄 LangGraph Node Flow</h3>
+        <div class="node-flow">
+            <div class="node parser" id="parser-node">
+                <div>Parser</div>
+                <small>Understanding</small>
+            </div>
+            <div class="node architect" id="architect-node">
+                <div>Architect</div>
+                <small>Planning</small>
+            </div>
+            <div class="node validator" id="validator-node">
+                <div>Validator</div>
+                <small>Guardrails</small>
+            </div>
+            <div class="node executor" id="executor-node">
+                <div>Executor</div>
+                <small>Saving</small>
+            </div>
+        </div>
+        
+        <div id="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:4000';
+        
+        async function testPhase1() {
+            const btn = document.getElementById('testBtn');
+            const status = document.getElementById('status');
+            const result = document.getElementById('result');
+            
+            btn.disabled = true;
+            btn.textContent = '⏳ Testing...';
+            
+            // Reset node states
+            document.querySelectorAll('.node').forEach(node => {
+                node.classList.remove('active', 'error');
+            });
+            
+            try {
+                // Get selected tools
+                const select = document.getElementById('activeTools');
+                const selectedTools = Array.from(select.selectedOptions).map(option => option.value);
+                
+                const prompt = document.getElementById('prompt').value;
+                
+                status.innerHTML = '<div class="status info">🔄 Testing Phase 1 API...</div>';
+                
+                // First, create test user and client
+                const authResponse = await fetch(`${API_BASE}/api/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'test@example.com',
+                        password: 'testpass123',
+                        name: 'Test User'
+                    })
+                });
+                
+                const authData = await authResponse.json();
+                
+                if (!authData.token) {
+                    throw new Error('Failed to create test user');
+                }
+                
+                // Now test the campaign planning
+                const campaignResponse = await fetch(`${API_BASE}/api/campaigns/plan`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authData.token}`
+                    },
+                    body: JSON.stringify({
+                        prompt: prompt
+                    })
+                });
+                
+                const campaignData = await campaignResponse.json();
+                
+                if (campaignData.success) {
+                    // Success! Show node flow
+                    updateNodeFlow(['parser', 'architect', 'validator', 'executor']);
+                    
+                    status.innerHTML = '<div class="status success">✅ Phase 1 Working! All nodes executed successfully.</div>';
+                    
+                    result.style.display = 'block';
+                    result.innerHTML = `
+                        <h3>🎉 CAMPAIGN PLAN CREATED</h3>
+                        <strong>Campaign ID:</strong> ${campaignData.campaignId}<br>
+                        <strong>Name:</strong> ${campaignData.plan.name}<br>
+                        <strong>Description:</strong> ${campaignData.plan.description}<br>
+                        <strong>Steps:</strong> ${campaignData.plan.steps.length}<br>
+                        <strong>Estimated Cost:</strong> $${campaignData.estimatedCost}<br>
+                        <strong>Estimated Duration:</strong> ${campaignData.estimatedDuration} minutes<br>
+                        <strong>Status:</strong> ${campaignData.plan.steps.map(s => s.status).join(', ')}<br><br>
+                        
+                        <h4>📋 Campaign Steps:</h4>
+                        ${campaignData.plan.steps.map((step, i) => `
+                            <div style="margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 4px;">
+                                <strong>Step ${i + 1}:</strong> ${step.tool} - ${step.action}<br>
+                                <small>Order: ${step.order} | Dependencies: ${step.dependencies.join(', ') || 'None'}</small>
+                            </div>
+                        `).join('')}
+                        
+                        ${campaignData.warnings && campaignData.warnings.length > 0 ? `
+                            <h4>⚠️ Warnings:</h4>
+                            ${campaignData.warnings.map(w => `<div class="status warning">• ${w}</div>`).join('')}
+                        ` : ''}
+                    `;
+                } else {
+                    throw new Error(campaignData.error || 'Unknown error');
+                }
+                
+            } catch (error) {
+                status.innerHTML = `<div class="status error">❌ Error: ${error.message}</div>`;
+                result.style.display = 'block';
+                result.innerHTML = `<strong>Error Details:</strong><br>${error.message}`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🚀 Test Phase 1';
+            }
+        }
+        
+        function updateNodeFlow(successfulNodes) {
+            successfulNodes.forEach((nodeName, index) => {
+                setTimeout(() => {
+                    document.getElementById(`${nodeName}-node`).classList.add('active');
+                }, index * 500);
+            });
+        }
+        
+        // Check if backend is running
+        window.onload = async function() {
+            try {
+                const response = await fetch(`${API_BASE}/api/health`);
+                if (response.ok) {
+                    document.getElementById('status').innerHTML = '<div class="status success">✅ Backend is running and ready</div>';
+                } else {
+                    throw new Error('Backend not responding');
+                }
+            } catch (error) {
+                document.getElementById('status').innerHTML = '<div class="status error">❌ Backend not running. Start with: npm run dev</div>';
+            }
+        };
+    </script>
+</body>
+</html>

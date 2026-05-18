@@ -1,0 +1,221 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Operator {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email         String   @unique
+  password_hash String
+  name          String
+  role          String   @default("operator")
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  clients               Client[]
+  client_tool_accounts  ClientToolAccount[]
+  execution_contexts    ExecutionContext[]
+  executions            Execution[]
+  campaigns             Campaign[]
+  submitted_campaigns   Campaign[]           @relation("campaign_submitted_by")
+  approved_campaigns    Campaign[]           @relation("campaign_approved_by")
+  requested_approvals   CampaignApproval[]   @relation("approval_requested_by")
+  approved_approvals    CampaignApproval[]   @relation("approval_approved_by")
+  notifications         Notification[]
+
+  @@map("operators")
+}
+
+model Client {
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                   String
+  description            String?
+  created_by_operator    Operator @relation(fields: [created_by_operator_id], references: [id])
+  created_by_operator_id String   @db.Uuid
+  created_at             DateTime @default(now()) @db.Timestamptz(6)
+
+  tool_accounts      ClientToolAccount[]
+  execution_contexts ExecutionContext[]
+  executions         Execution[]
+  campaigns          Campaign[]
+
+  @@map("clients")
+}
+
+model ClientToolAccount {
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  client                 Client   @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  client_id              String   @db.Uuid
+  tool_name              String
+  account_label          String
+  api_key_encrypted      String
+  created_by_operator    Operator @relation(fields: [created_by_operator_id], references: [id])
+  created_by_operator_id String   @db.Uuid
+  created_at             DateTime @default(now()) @db.Timestamptz(6)
+
+  executions Execution[]
+
+  @@map("client_tool_accounts")
+}
+
+model Tool {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tool_id     String   @unique // String ID like 'apollo', 'hubspot'
+  name        String
+  category    String
+  description String?
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("tools")
+}
+
+model ExecutionContext {
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  client                 Client   @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  client_id              String   @db.Uuid
+  name                   String
+  description            String?
+  context_data           Json?
+  created_by_operator    Operator @relation(fields: [created_by_operator_id], references: [id])
+  created_by_operator_id String   @db.Uuid
+  created_at             DateTime @default(now()) @db.Timestamptz(6)
+
+  executions Execution[]
+
+  @@map("execution_contexts")
+}
+
+model Execution {
+  id                       String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  client                   Client            @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  client_id                String            @db.Uuid
+  tool_name                String
+  tool_account             ClientToolAccount @relation(fields: [tool_account_id], references: [id])
+  tool_account_id          String            @db.Uuid
+  context                  ExecutionContext? @relation(fields: [context_id], references: [id], onDelete: SetNull)
+  context_id               String?           @db.Uuid
+  action                   String
+  status                   String            @default("pending")
+  request_payload          Json?
+  response_payload         Json?
+  error_message            String?
+  triggered_by_operator    Operator          @relation(fields: [triggered_by_operator_id], references: [id])
+  triggered_by_operator_id String            @db.Uuid
+  created_at               DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime          @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@map("executions")
+}
+
+model Plan {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  tagline     String?
+  price       String
+  credits     String?
+  features    Json     @default("[]")
+  is_custom   Boolean  @default(false)
+  button_text String
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("plans")
+}
+
+model Campaign {
+  id                     String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  client                 Client            @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  client_id              String            @db.Uuid
+  name                   String
+  description            String?
+  status                 String            @default("draft") // draft, pending_approval, approved, rejected, executing, completed, failed
+  approval_status        String            @default("draft") // draft, pending_approval, approved, rejected, executing, completed, failed
+  manifest               Json?             // The DAG/JSON plan
+  estimated_cost         Float?
+  estimated_duration     Int?              // minutes
+  priority               Int               @default(5) // 1-10 priority for execution queue
+  submitted_by_operator   Operator?         @relation("campaign_submitted_by", fields: [submitted_by_operator_id], references: [id])
+  submitted_by_operator_id String?           @db.Uuid
+  submitted_at           DateTime?         @db.Timestamptz(6)
+  approved_by_operator    Operator?         @relation("campaign_approved_by", fields: [approved_by_operator_id], references: [id])
+  approved_by_operator_id String?           @db.Uuid
+  approved_at            DateTime?         @db.Timestamptz(6)
+  rejection_reason        String?
+  created_by_operator    Operator          @relation(fields: [created_by_operator_id], references: [id])
+  created_by_operator_id String            @db.Uuid
+  created_at             DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime          @default(now()) @updatedAt @db.Timestamptz(6)
+
+  steps     CampaignStep[]
+  approvals CampaignApproval[]
+  queue     ExecutionQueue?
+
+  @@map("campaigns")
+}
+
+model CampaignStep {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  campaign    Campaign  @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
+  campaign_id String    @db.Uuid
+  step_order  Int
+  tool_name   String
+  action      String
+  params      Json?
+  status      String    @default("pending") // pending, running, completed, failed
+  dependencies Json?    // Array of step IDs this depends on
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@map("campaign_steps")
+}
+
+model CampaignApproval {
+  id                     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  campaign               Campaign  @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
+  campaign_id            String    @db.Uuid
+  requested_by_operator  Operator  @relation("approval_requested_by", fields: [requested_by_operator_id], references: [id])
+  requested_by_operator_id String  @db.Uuid
+  approved_by_operator   Operator? @relation("approval_approved_by", fields: [approved_by_operator_id], references: [id])
+  approved_by_operator_id String?  @db.Uuid
+  status                 String    @default("pending") // pending, approved, rejected
+  comments               String?
+  created_at             DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@map("campaign_approvals")
+}
+
+model ExecutionQueue {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  campaign      Campaign  @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
+  campaign_id   String    @unique @db.Uuid
+  status        String    @default("pending") // pending, running, completed, failed
+  priority      Int       @default(5) // 1-10 priority
+  scheduled_at  DateTime  @default(now()) @db.Timestamptz(6)
+  started_at    DateTime? @db.Timestamptz(6)
+  completed_at  DateTime? @db.Timestamptz(6)
+  error_message String?
+  retry_count   Int       @default(0)
+  max_retries   Int       @default(3)
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@map("execution_queue")
+}
+
+model Notification {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  operator    Operator @relation(fields: [operator_id], references: [id])
+  operator_id String   @db.Uuid
+  type        String   // campaign_pending, campaign_approved, campaign_rejected, campaign_executing
+  title       String
+  message     String
+  entity_id   String?  // campaign_id or other entity
+  entity_type String?  // campaign, client, etc.
+  is_read     Boolean  @default(false)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("notifications")
+}
