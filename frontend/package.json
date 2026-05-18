@@ -20,6 +20,7 @@
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "recharts": "^3.8.0",
+    "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
     "three": "^0.160.0"
   },
@@ -28,9 +29,9 @@
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
-    "tailwindcss": "^4",
-    "typescript": "^5.7.2",
     "eslint": "^8.57.1",
-    "eslint-config-next": "14.2.15"
+    "eslint-config-next": "14.2.15",
+    "tailwindcss": "^4",
+    "typescript": "^5.7.2"
   }
 }

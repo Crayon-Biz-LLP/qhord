@@ -14,13 +14,19 @@ const outfit = Outfit({
   subsets: ["latin"],
 });
 
+import { Toaster } from 'sonner';
+import { CreditProvider } from '@/contexts/CreditContext';
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body
         className={`${inter.variable} ${outfit.variable} antialiased`}
       >
-        {children}
+        <CreditProvider>
+          <Toaster position="top-right" richColors />
+          {children}
+        </CreditProvider>
       </body>
     </html>
   );

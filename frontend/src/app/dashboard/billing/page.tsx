@@ -4,10 +4,13 @@ import React, { useState, useEffect } from "react";
 import {
   Zap, Crown, Building2, Check, LayoutDashboard, Search, Bell, Ghost, Sparkles, Rocket,
   TrendingUp, TrendingDown, Layers, Activity, CreditCard, ChevronRight, BarChart3, Target,
-  RefreshCw, Smartphone, Monitor, Globe, Plus, AlertCircle, Info, MoveRight, ArrowUpRight, X
+  RefreshCw, Smartphone, Monitor, Globe, Plus, AlertCircle, Info, MoveRight, ArrowUpRight, X,
+  Smartphone as UpiIcon
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
+import { useCredits } from "@/contexts/CreditContext";
+import { toast } from "sonner";
 
 // Placeholder for GoldToggle since it's in Settings.tsx but we might want it here
 const GoldToggle = ({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) => (
@@ -27,7 +30,10 @@ const GoldToggle = ({ enabled, onToggle }: { enabled: boolean; onToggle: () => v
 
 export default function BillingPage() {
   const router = useRouter();
+  const { userCredits, topUpCredits } = useCredits();
   const [showCheckout, setShowCheckout] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'upi'>('card');
   const [checkoutItem, setCheckoutItem] = useState({ name: "Pro Upgrade", price: "799.00" });
 
   const plans = [
@@ -71,7 +77,7 @@ export default function BillingPage() {
   ];
 
   const usageStats = [
-    { label: "Credits Used", current: 5153, max: 8000, growth: "+12%", color: "#b99b7b" },
+    { label: "Credits Used", current: 2000 - userCredits, max: 2000, growth: "+0%", color: "#b99b7b" },
     { label: "Emails Sent", current: 12340, max: 25000, growth: "+8%", color: "#1a1510" },
     { label: "Enrichments", current: 892, max: 2000, growth: "+24%", color: "#b99b7b" },
     { label: "Active Campaigns", current: 5, max: 10, growth: "+2", color: "#1a1510" }
@@ -87,6 +93,21 @@ export default function BillingPage() {
   const handleUpgrade = (name: string, price: string) => {
     setCheckoutItem({ name, price });
     setShowCheckout(true);
+  };
+
+  const handleConfirmPurchase = async () => {
+    setIsProcessing(true);
+    try {
+      // For demo purposes, we'll calculate added credits based on price
+      // $1 = 100 credits
+      const priceVal = parseFloat(checkoutItem.price);
+      await topUpCredits(priceVal);
+      setShowCheckout(false);
+    } catch (error) {
+      console.error("Purchase failed:", error);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const CheckoutModal = () => (
@@ -130,33 +151,67 @@ export default function BillingPage() {
                 <span className="text-[13px] font-bold text-[#1a1510]">${checkoutItem.price}/mo</span>
               </div>
 
+              <div className="flex p-1 bg-[#fafbfc] border border-[#1a1510]/5 rounded-xl">
+                <button 
+                  onClick={() => setPaymentMethod('card')}
+                  className={`flex-1 h-9 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${paymentMethod === 'card' ? 'bg-white text-[#1a1510] shadow-sm border border-[#1a1510]/5' : 'text-[#1a1510]/30 hover:text-[#1a1510]'}`}
+                >
+                  Card
+                </button>
+                <button 
+                  onClick={() => setPaymentMethod('upi')}
+                  className={`flex-1 h-9 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${paymentMethod === 'upi' ? 'bg-white text-[#1a1510] shadow-sm border border-[#1a1510]/5' : 'text-[#1a1510]/30 hover:text-[#1a1510]'}`}
+                >
+                  UPI
+                </button>
+              </div>
+
               <div className="space-y-5">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-[#1a1510]/40 uppercase tracking-widest">Card Number</label>
-                  <input 
-                    type="text" 
-                    placeholder="4242 4242 4242 4242"
-                    className="w-full h-12 bg-[#fafbfc] border border-[#1a1510]/5 rounded-xl px-4 text-[13px] font-medium outline-none focus:border-[#b99b7b]/30 transition-all placeholder:text-[#1a1510]/20 shadow-sm"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+                {paymentMethod === 'card' ? (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-[#1a1510]/40 uppercase tracking-widest">Card Number</label>
+                      <input 
+                        type="text" 
+                        placeholder="4242 4242 4242 4242"
+                        className="w-full h-12 bg-[#fafbfc] border border-[#1a1510]/5 rounded-xl px-4 text-[13px] font-medium outline-none focus:border-[#b99b7b]/30 transition-all placeholder:text-[#1a1510]/20 shadow-sm"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-[#1a1510]/40 uppercase tracking-widest">Expiry</label>
+                        <input 
+                          type="text" 
+                          placeholder="MM / YY"
+                          className="w-full h-12 bg-[#fafbfc] border border-[#1a1510]/5 rounded-xl px-4 text-[13px] font-medium outline-none focus:border-[#b99b7b]/30 transition-all placeholder:text-[#1a1510]/20 shadow-sm"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-[#1a1510]/40 uppercase tracking-widest">CVC</label>
+                        <input 
+                          type="text" 
+                          placeholder="123"
+                          className="w-full h-12 bg-[#fafbfc] border border-[#1a1510]/5 rounded-xl px-4 text-[13px] font-medium outline-none focus:border-[#b99b7b]/30 transition-all placeholder:text-[#1a1510]/20 shadow-sm"
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : (
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-[#1a1510]/40 uppercase tracking-widest">Expiry</label>
-                    <input 
-                      type="text" 
-                      placeholder="MM / YY"
-                      className="w-full h-12 bg-[#fafbfc] border border-[#1a1510]/5 rounded-xl px-4 text-[13px] font-medium outline-none focus:border-[#b99b7b]/30 transition-all placeholder:text-[#1a1510]/20 shadow-sm"
-                    />
+                    <label className="text-[10px] font-bold text-[#1a1510]/40 uppercase tracking-widest">UPI ID</label>
+                    <div className="relative">
+                      <input 
+                        type="text" 
+                        placeholder="username@bank"
+                        className="w-full h-12 bg-[#fafbfc] border border-[#1a1510]/5 rounded-xl pl-4 pr-12 text-[13px] font-medium outline-none focus:border-[#b99b7b]/30 transition-all placeholder:text-[#1a1510]/20 shadow-sm"
+                      />
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[#1a1510]/20">
+                        <UpiIcon size={16} />
+                      </div>
+                    </div>
+                    <p className="text-[9px] font-bold text-[#1a1510]/30 uppercase tracking-widest mt-1">Pay using Google Pay, PhonePe, or Paytm</p>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-[#1a1510]/40 uppercase tracking-widest">CVC</label>
-                    <input 
-                      type="text" 
-                      placeholder="123"
-                      className="w-full h-12 bg-[#fafbfc] border border-[#1a1510]/5 rounded-xl px-4 text-[13px] font-medium outline-none focus:border-[#b99b7b]/30 transition-all placeholder:text-[#1a1510]/20 shadow-sm"
-                    />
-                  </div>
-                </div>
+                )}
               </div>
 
               <div className="pt-4 border-t border-[#1a1510]/5 space-y-4">
@@ -165,10 +220,16 @@ export default function BillingPage() {
                   <span className="text-[18px] font-black text-[#1a1510] tracking-tighter">${checkoutItem.price}</span>
                 </div>
                 <button 
-                  onClick={() => setShowCheckout(false)}
-                  className="w-full h-12 bg-[#1a1510] text-[#b99b7b] rounded-xl text-[11px] font-bold uppercase tracking-[0.2em] shadow-xl shadow-black/20 hover:-translate-y-1 transition-all"
+                  onClick={handleConfirmPurchase}
+                  disabled={isProcessing}
+                  className={`w-full h-12 bg-[#1a1510] text-[#b99b7b] rounded-xl text-[11px] font-bold uppercase tracking-[0.2em] shadow-xl shadow-black/20 hover:-translate-y-1 transition-all flex items-center justify-center gap-2 ${isProcessing ? 'opacity-70 cursor-not-allowed' : ''}`}
                 >
-                  Confirm Purchase
+                  {isProcessing ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      Processing...
+                    </>
+                  ) : 'Confirm Purchase'}
                 </button>
               </div>
             </div>

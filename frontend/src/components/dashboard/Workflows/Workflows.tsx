@@ -10,6 +10,9 @@ import {
    Workflow, GitBranch, GitMerge, Activity, RefreshCw, Settings,
    Moon, Sun, Wand2, ArrowRight, Bell
 } from "lucide-react";
+import { useCredits } from "@/contexts/CreditContext";
+import { useCreditCheck } from "@/hooks/useCreditCheck";
+import Link from "next/link";
 
 interface WorkflowsProps {
    onBackToDashboard: () => void;
@@ -89,6 +92,8 @@ const WORKFLOWS_DATA: WorkflowItem[] = [
 ];
 
 export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
+   const { userCredits } = useCredits();
+   const { checkCredits } = useCreditCheck();
    const [searchQuery, setSearchQuery] = useState("");
 
    const filteredWorkflows = useMemo(() => {
@@ -122,11 +127,11 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
 
             <div className="flex items-center gap-5">
                <div className="h-8 px-4 rounded-full bg-[#f7f8f9] border border-[#1a1510]/5 flex items-center gap-4">
-                  <span className="text-[9px] font-bold text-[#1a1510]/40 whitespace-nowrap">2,847 / 5,000 <span className="opacity-50">credits</span></span>
+                  <span className="text-[9px] font-bold text-[#1a1510]/40 whitespace-nowrap">{userCredits.toLocaleString()} / 5,000 <span className="opacity-50">credits</span></span>
                   <div className="w-16 h-1 rounded-full bg-[#1a1510]/5 overflow-hidden">
-                     <div className="w-[57%] h-full bg-brand-gold rounded-full"></div>
+                     <div className="h-full bg-brand-gold rounded-full" style={{ width: `${Math.min((userCredits / 5000) * 100, 100)}%` }}></div>
                   </div>
-                  <button className="text-[9px] font-bold text-brand-gold border-l border-[#1a1510]/5 pl-3 hover:underline whitespace-nowrap">+ Buy</button>
+                  <Link href="/dashboard/billing" className="text-[9px] font-bold text-brand-gold border-l border-[#1a1510]/5 pl-3 hover:underline whitespace-nowrap">+ Buy</Link>
                </div>
                
                <div className="relative group">
@@ -140,7 +145,14 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                      <span className="absolute top-1 right-1 w-1 h-1 bg-red-500 rounded-full border border-white"></span>
                   </button>
                   <button className="p-1.5 text-[#1a1510]/40 hover:text-brand-gold transition-colors"><Moon size={16} /></button>
-                  <button className="h-8 px-4 rounded-full bg-[#1a1510] text-[#fdfbf7] text-[9px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all hover:translate-y-[-0.5px] shadow-lg shadow-[#1a1510]/10">
+                  <button 
+                     onClick={() => checkCredits(async () => {
+                       // Mock create workflow action
+                       console.log("Creating new workflow...");
+                       return userCredits - 50;
+                     })}
+                     className="h-8 px-4 rounded-full bg-[#1a1510] text-[#fdfbf7] text-[9px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all hover:translate-y-[-0.5px] shadow-lg shadow-[#1a1510]/10"
+                  >
                      <Plus size={12} /> New Workflow
                   </button>
                </div>
@@ -169,7 +181,14 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                         </div>
                      ))}
                   </div>
-                  <button className="h-9 px-4 rounded-lg bg-brand-gold text-[#1a1510] text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-md shadow-brand-gold/10 hover:translate-y-[-1px] transition-all">
+                  <button 
+                     onClick={() => checkCredits(async () => {
+                       // Mock create workflow action
+                       console.log("Creating workflow...");
+                       return userCredits - 50;
+                     })}
+                     className="h-9 px-4 rounded-lg bg-brand-gold text-[#1a1510] text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-md shadow-brand-gold/10 hover:translate-y-[-1px] transition-all"
+                  >
                      <Plus size={14} strokeWidth={2.5} /> Create Workflow
                   </button>
                </div>
@@ -234,7 +253,14 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                      placeholder="Describe what you want to build..."
                      className="flex-1 bg-transparent border-none focus:ring-0 text-sm font-medium placeholder:text-[#1a1510]/20"
                   />
-                  <button className="h-10 px-8 rounded-xl bg-[#1a1510] text-brand-gold text-[10px] font-bold uppercase tracking-widest shadow-lg hover:translate-y-[-0.5px] transition-all">
+                  <button 
+                     onClick={() => checkCredits(async () => {
+                       // Mock generate action
+                       console.log("Generating workflow...");
+                       return userCredits - 100;
+                     })}
+                     className="h-10 px-8 rounded-xl bg-[#1a1510] text-brand-gold text-[10px] font-bold uppercase tracking-widest shadow-lg hover:translate-y-[-0.5px] transition-all"
+                  >
                      Generate
                   </button>
                </div>
