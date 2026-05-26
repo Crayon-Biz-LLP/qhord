@@ -152,38 +152,172 @@ export const TOOL_REGISTRY: Record<string, ToolCapability> = {
 
   'HeyReach': {
     name: 'HeyReach',
-    description: 'SMS marketing and communication platform',
-    category: 'SMS Marketing',
+    description: 'LinkedIn outreach and multi-channel automation',
+    category: 'LinkedIn Outreach',
     actions: [
       {
-        name: 'send_sms',
-        description: 'Send SMS campaign',
-        params: { message: 'string', phone_numbers: 'array' },
+        name: 'add_leads_to_campaign',
+        description: 'Add leads to a LinkedIn outreach campaign',
+        params: { campaign_id: 'string', leads: 'array' },
         prerequisites: [],
         credit_cost: 2
       },
       {
-        name: 'track_conversions',
-        description: 'Track SMS conversions and responses',
-        params: { campaign_id: 'string', time_range: 'string' },
-        prerequisites: ['send_sms'],
+        name: 'send_message',
+        description: 'Send LinkedIn message to lead',
+        params: { lead_id: 'string', message: 'string' },
+        prerequisites: [],
         credit_cost: 1
       },
       {
-        name: 'manage_contacts',
-        description: 'Manage SMS contact lists',
-        params: { contacts: 'array', list_name: 'string' },
+        name: 'get_conversations',
+        description: 'Fetch LinkedIn conversations',
+        params: {},
         prerequisites: [],
         credit_cost: 1
       }
     ],
     required_params: ['api_key'],
     supported_sequences: [
-      ['manage_contacts', 'send_sms'],
-      ['manage_contacts', 'send_sms', 'track_conversions']
+      ['add_leads_to_campaign'],
+      ['add_leads_to_campaign', 'send_message'],
+      ['add_leads_to_campaign', 'send_message', 'get_conversations']
     ],
     credit_cost: 2,
     subscription_required: 'pro'
+  },
+
+  'Instantly': {
+    name: 'Instantly',
+    description: 'Cold email platform with deliverability optimization',
+    category: 'Email Marketing',
+    actions: [
+      {
+        name: 'create_campaign',
+        description: 'Create an email campaign',
+        params: { name: 'string', subject: 'string', template: 'string' },
+        prerequisites: [],
+        credit_cost: 2
+      },
+      {
+        name: 'add_leads',
+        description: 'Add leads to an existing campaign',
+        params: { campaign_id: 'string', leads: 'array' },
+        prerequisites: ['create_campaign'],
+        credit_cost: 1
+      },
+      {
+        name: 'get_campaign_stats',
+        description: 'Get campaign sending statistics',
+        params: { campaign_id: 'string' },
+        prerequisites: ['create_campaign'],
+        credit_cost: 1
+      }
+    ],
+    required_params: ['api_key'],
+    supported_sequences: [
+      ['create_campaign', 'add_leads'],
+      ['create_campaign', 'add_leads', 'get_campaign_stats']
+    ],
+    credit_cost: 2,
+    subscription_required: 'starter'
+  },
+
+  'Salesforce': {
+    name: 'Salesforce',
+    description: 'Enterprise CRM for sales pipeline and account management',
+    category: 'CRM',
+    actions: [
+      {
+        name: 'query',
+        description: 'Run SOQL query',
+        params: { q: 'string' },
+        prerequisites: [],
+        credit_cost: 1
+      },
+      {
+        name: 'create_lead',
+        description: 'Create a new lead record',
+        params: { properties: 'object' },
+        prerequisites: [],
+        credit_cost: 1
+      },
+      {
+        name: 'create_contact',
+        description: 'Create a new contact record',
+        params: { properties: 'object' },
+        prerequisites: [],
+        credit_cost: 1
+      },
+      {
+        name: 'create_opportunity',
+        description: 'Create a new opportunity',
+        params: { properties: 'object' },
+        prerequisites: [],
+        credit_cost: 1
+      },
+      {
+        name: 'create_account',
+        description: 'Create a new account',
+        params: { properties: 'object' },
+        prerequisites: [],
+        credit_cost: 1
+      }
+    ],
+    required_params: ['access_token'],
+    supported_sequences: [
+      ['query'],
+      ['create_lead'],
+      ['create_contact', 'create_opportunity'],
+      ['query', 'create_lead']
+    ],
+    credit_cost: 1,
+    subscription_required: 'pro'
+  },
+
+  'HubSpot': {
+    name: 'HubSpot',
+    description: 'CRM platform for contacts, deals, and pipeline management',
+    category: 'CRM',
+    actions: [
+      {
+        name: 'create_contact',
+        description: 'Create a new contact in CRM',
+        params: { properties: 'object' },
+        prerequisites: [],
+        credit_cost: 1
+      },
+      {
+        name: 'search_contacts',
+        description: 'Search contacts by query',
+        params: { query: 'string', limit: 'number' },
+        prerequisites: [],
+        credit_cost: 1
+      },
+      {
+        name: 'create_deal',
+        description: 'Create a new deal in pipeline',
+        params: { properties: 'object' },
+        prerequisites: [],
+        credit_cost: 1
+      },
+      {
+        name: 'get_pipelines',
+        description: 'Get deal pipelines and stages',
+        params: {},
+        prerequisites: [],
+        credit_cost: 1
+      }
+    ],
+    required_params: ['api_key'],
+    supported_sequences: [
+      ['create_contact'],
+      ['create_contact', 'create_deal'],
+      ['search_contacts'],
+      ['get_pipelines', 'create_deal']
+    ],
+    credit_cost: 1,
+    subscription_required: 'starter'
   }
 };
 
@@ -207,19 +341,35 @@ export const TOOL_SEQUENCES: ToolSequence[] = [
   },
   {
     name: 'Multi-Channel Outreach',
-    description: 'Email and SMS multi-channel campaign',
+    description: 'Email and LinkedIn multi-channel campaign',
     tools: ['Apollo', 'Smartlead', 'HeyReach'],
-    actions: ['search_people', 'create_campaign', 'send_campaign', 'send_sms'],
+    actions: ['search_people', 'create_campaign', 'send_campaign', 'add_leads_to_campaign'],
     total_credit_cost: 7,
-    use_case: 'Reach leads through multiple channels'
+    use_case: 'Reach leads through email and LinkedIn'
   },
   {
     name: 'Full Funnel Pipeline',
-    description: 'Complete pipeline from lead gen to multi-channel outreach',
-    tools: ['Apollo', 'Clay', 'Smartlead', 'HeyReach'],
-    actions: ['search_people', 'enrich_person', 'verify_email', 'create_campaign', 'send_campaign', 'send_sms'],
-    total_credit_cost: 9,
-    use_case: 'Complete GTM automation pipeline'
+    description: 'Complete pipeline from lead gen to CRM and outreach',
+    tools: ['Apollo', 'Hunter', 'HubSpot', 'Brevo'],
+    actions: ['search_people', 'search_leads', 'create_contact', 'create_deal', 'create_campaign', 'send_campaign'],
+    total_credit_cost: 8,
+    use_case: 'Lead gen → CRM → Email outreach'
+  },
+  {
+    name: 'Cold Email with Instantly',
+    description: 'Generate leads and send cold email via Instantly',
+    tools: ['Hunter', 'Instantly'],
+    actions: ['search_leads', 'create_campaign', 'add_leads'],
+    total_credit_cost: 5,
+    use_case: 'Cold email outreach with deliverability focus'
+  },
+  {
+    name: 'CRM Pipeline Sync',
+    description: 'Enrich leads and sync to HubSpot CRM',
+    tools: ['Hunter', 'BetterContacts', 'HubSpot'],
+    actions: ['search_leads', 'enrich_contacts', 'create_contact', 'create_deal'],
+    total_credit_cost: 4,
+    use_case: 'Lead enrichment and CRM sync'
   }
 ];
 
@@ -229,24 +379,24 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     name: 'Free Trial',
     level: 'free',
     credits_per_month: 1000,
-    tools_available: ['Apollo'],
-    features: ['Basic lead generation', 'Campaign creation', 'Dashboard access'],
+    tools_available: ['Hunter'],
+    features: ['Basic lead generation', 'Dashboard access'],
     price: 0
   },
   {
     name: 'Starter',
     level: 'starter',
     credits_per_month: 5000,
-    tools_available: ['Apollo', 'Smartlead', 'Clay'],
-    features: ['Advanced lead generation', 'Email campaigns', 'Data enrichment', 'Analytics'],
+    tools_available: ['Hunter', 'Brevo', 'BetterContacts', 'Instantly', 'HubSpot'],
+    features: ['Lead generation', 'Email campaigns', 'Enrichment', 'CRM', 'Analytics'],
     price: 99
   },
   {
     name: 'Pro',
     level: 'pro',
     credits_per_month: 20000,
-    tools_available: ['Apollo', 'Smartlead', 'Clay', 'HeyReach'],
-    features: ['All tools', 'Multi-channel campaigns', 'Advanced analytics', 'Priority support', 'Custom integrations'],
+    tools_available: ['Hunter', 'Brevo', 'BetterContacts', 'Calendly', 'Smartlead', 'HeyReach', 'Instantly', 'HubSpot', 'Salesforce'],
+    features: ['All tools', 'Full pipeline', 'CRM (HubSpot + Salesforce)', 'LinkedIn outreach', 'Multi-channel', 'Priority support'],
     price: 299
   }
 ];

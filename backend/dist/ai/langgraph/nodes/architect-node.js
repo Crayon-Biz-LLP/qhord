@@ -7,14 +7,10 @@ const manifest_builder_1 = require("../../utils/manifest-builder");
 class ArchitectNode {
     async invoke(state) {
         try {
-            const intent = state.intent || {
-                goal: 'Generate leads',
-                target: { type: 'B2B' },
-                volume: 100,
-                tools: ['apollo', 'smartlead'],
-                sequence: ['source_leads', 'enrich_contacts', 'send_sequence'],
-                timing: {}
-            };
+            if (!state.intent) {
+                throw new Error('No parsed intent available from parser node');
+            }
+            const intent = state.intent;
             // First, try to build manifest using logic (faster, more reliable)
             const logicalManifest = this.buildLogicalManifest(intent, state.activeTools);
             if (logicalManifest) {
@@ -86,9 +82,9 @@ class ArchitectNode {
     }
     getRequiredToolsForIntent(intent) {
         const toolMap = {
-            'source_leads': ['Apollo'],
-            'enrich_data': ['Clay', 'Clearbit'],
-            'send_emails': ['Smartlead', 'Instantly', 'Lemlist'],
+            'source_leads': ['Apollo', 'Hunter'],
+            'enrich_data': ['Clay', 'BetterContacts', 'Clearbit'],
+            'send_emails': ['Smartlead', 'Brevo', 'Instantly', 'Lemlist'],
             'schedule_meetings': ['Calendly'],
             'crm_sync': ['HubSpot', 'Salesforce', 'Pipedrive']
         };

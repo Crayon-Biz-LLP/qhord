@@ -281,20 +281,26 @@ async function getActiveToolsForClient(operatorId: string): Promise<string[]> {
       distinct: ['tool_name']
     });
 
-    // Return unique tool names
-    const activeTools = toolAccounts.map(account => account.tool_name);
-
-    // If no tools are configured, return a default set for testing
-    if (activeTools.length === 0) {
-      return ['Apollo', 'Smartlead']; // Default tools for testing
+    const { getEnvToolsForDemoStack, useFreeDemoStack } = await import('../config/demo-stack');
+    const tools = new Set<string>(
+      toolAccounts.length > 0
+        ? toolAccounts.map((account) => account.tool_name)
+        : ['Apollo', 'Clay', 'Smartlead']
+    );
+    for (const t of getEnvToolsForDemoStack()) {
+      tools.add(t);
     }
-
-    return activeTools;
-
+    if (useFreeDemoStack()) {
+      tools.add('Hunter');
+      tools.add('Brevo');
+      tools.add('Apollo');
+      tools.add('Clay');
+      tools.add('Smartlead');
+    }
+    return [...tools];
   } catch (error) {
     console.error('Error getting active tools:', error);
-    // Return default tools if there's an error
-    return ['Apollo', 'Smartlead'];
+    return ['Apollo', 'Clay', 'Smartlead', 'Hunter', 'Brevo'];
   }
 }
 

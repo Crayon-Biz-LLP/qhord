@@ -10,9 +10,12 @@ Analyze the user's request and extract:
 
 Available tools:
 - Apollo: Lead sourcing and prospecting
+- Hunter: Lead sourcing and email discovery
 - Clay: Data enrichment and verification
+- BetterContacts: Contact data enrichment and verification
 - HeyReach: LinkedIn outreach and automation
 - Smartlead: Email campaign automation
+- Brevo: Email campaign management and sending
 - HubSpot: CRM and sales automation
 - Salesforce: Enterprise CRM
 - Calendly: Meeting scheduling

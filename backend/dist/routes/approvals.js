@@ -45,8 +45,7 @@ router.use(auth_1.requireAuth);
  */
 router.post('/submit', async (req, res) => {
     try {
-        const { campaignId, priority = 5 } = req.body;
-        const operatorId = req.user.id;
+        const { campaignId } = req.body;
         // Get the campaign (demo mode - skip user check)
         const campaign = await prisma_1.prisma.campaign.findFirst({
             where: {
@@ -63,8 +62,7 @@ router.post('/submit', async (req, res) => {
         const updatedCampaign = await prisma_1.prisma.campaign.update({
             where: { id: campaignId },
             data: {
-                status: 'pending_approval',
-                priority
+                status: 'pending_approval'
             }
         });
         // Create approval record
@@ -103,7 +101,7 @@ router.post('/submit', async (req, res) => {
  */
 router.post('/review', async (req, res) => {
     try {
-        const { campaignId, action, comments, priority } = req.body;
+        const { campaignId, action, comments } = req.body;
         const operatorId = req.user.id;
         // Get the campaign
         const campaign = await prisma_1.prisma.campaign.findFirst({
@@ -133,7 +131,6 @@ router.post('/review', async (req, res) => {
         if (action === 'approve') {
             // Approve the campaign
             updateData.status = 'approved';
-            updateData.priority = priority || campaign.priority;
             updatedCampaign = await prisma_1.prisma.campaign.update({
                 where: { id: campaignId },
                 data: updateData
@@ -245,7 +242,6 @@ router.get('/pending', async (req, res) => {
                 client: campaign.client,
                 estimated_cost: campaign.estimated_cost,
                 estimated_duration: campaign.estimated_duration,
-                priority: campaign.priority || 5,
                 step_count: 0, // campaign._count.steps,
                 created_by: campaign.created_by_operator,
                 submitted_by: null, // campaign.approvals[0]?.requested_by_operator,

@@ -16,6 +16,10 @@ import commandCenterRoutes from './routes/command-center';
 import queueRoutes from './routes/queue';
 import workflowRoutes from './routes/workflows';
 import memoryRoutes from './routes/memory';
+import settingsRoutes from './routes/settings';
+import leadsRoutes from './routes/leads';
+import dashboardRoutes from './routes/dashboard';
+import analyticsRoutes from './routes/analytics';
 import { prisma } from './lib/prisma';
 import { campaignWorker } from './workers/campaign-worker';
 
@@ -49,6 +53,10 @@ app.use('/api/memory', memoryRoutes);
 app.use('/api', aiMetricsRoutes);
 app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/command-center', commandCenterRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/leads', leadsRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 const port = parseInt(process.env.PORT || '4000', 10);
 

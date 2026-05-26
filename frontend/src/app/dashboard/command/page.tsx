@@ -102,7 +102,7 @@ export default function CommandPage() {
         
         {/* Metric Ribbon */}
         <section className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 sm:gap-4">
-          {dashboardData?.kpis?.map((kpi, i) => (
+          {dashboardData?.kpis?.map((kpi: any, i: number) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, y: 10 }}
@@ -125,7 +125,7 @@ export default function CommandPage() {
               </div>
 
               <div className="h-4 flex items-end gap-[2px] mt-2 opacity-10 group-hover:opacity-100 transition-opacity">
-                {kpi.sparkline.map((val, idx) => (
+                {kpi.sparkline.map((val: any, idx: number) => (
                   <div key={idx} className="flex-1 bg-brand-gold rounded-full" style={{ height: `${val}%` }} />
                 ))}
               </div>
@@ -248,7 +248,7 @@ export default function CommandPage() {
                          </tr>
                       </thead>
                       <tbody className="divide-y divide-[#1a1510]/5">
-                         {dashboardData?.healthTable?.map((row, i) => (
+                          {dashboardData?.healthTable?.map((row: any, i: number) => (
                             <tr key={i} className="hover:bg-[#f7f8f9] transition-colors group cursor-pointer font-medium">
                                <td className="py-5 px-6">
                                   <div className="flex items-center gap-4 min-w-0">
@@ -258,7 +258,7 @@ export default function CommandPage() {
                                      <div className="truncate">
                                         <p className="text-xs font-black text-[#1a1510] group-hover:text-brand-gold transition-colors truncate">{row.name}</p>
                                         <div className="flex items-center gap-2 mt-0.5">
-                                           {row.tools.map((t, ti) => (
+                                            {row.tools.map((t: any, ti: number) => (
                                               <span key={ti} className="text-[8px] font-bold text-[#1a1510]/30 lowercase px-1.5 py-0.5 bg-[#f7f8f9] rounded">{t}</span>
                                            ))}
                                         </div>
@@ -302,7 +302,7 @@ export default function CommandPage() {
                </div>
                
                <div className="space-y-4">
-                 {dashboardData?.priorities?.map((item, i) => (
+                  {dashboardData?.priorities?.map((item: any, i: number) => (
                    <motion.div
                      key={i}
                      className="p-5 rounded-2xl bg-white border border-[#1a1510]/5 group hover:border-brand-gold/30 transition-all shadow-sm"

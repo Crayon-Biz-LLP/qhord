@@ -89,13 +89,19 @@ export class ManifestBuilder {
     const steps: CampaignStep[] = [];
     let order = 1;
 
-    // Source step (if needed)
-    if (intent.sequence.includes('source') && activeTools.includes('Apollo')) {
+    // Source step — prefer Hunter over Apollo
+    const hasSource = activeTools.includes('Apollo') || activeTools.includes('Hunter');
+    const hasEnrich = activeTools.includes('Clay') || activeTools.includes('Hunter') || activeTools.includes('BetterContacts');
+    const hasEmailSend = activeTools.includes('Smartlead') || activeTools.includes('Brevo');
+    const hasSchedule = activeTools.includes('Calendly');
+
+    if (intent.sequence.includes('source') && hasSource) {
+      const useHunter = activeTools.includes('Hunter');
       steps.push({
         id: 'source_leads',
         order: order++,
-        tool: 'Apollo',
-        action: 'search_people',
+        tool: useHunter ? 'Hunter' : 'Apollo',
+        action: 'search_leads',
         params: {
           query: this.buildSearchQuery(intent),
           limit: intent.volume,
@@ -106,13 +112,14 @@ export class ManifestBuilder {
       });
     }
 
-    // Enrichment step (if needed)
-    if (intent.sequence.includes('enrich') && activeTools.includes('Clay')) {
+    // Enrichment step
+    if (intent.sequence.includes('enrich') && hasEnrich) {
       const deps = steps.length > 0 ? [steps[steps.length - 1].id] : [];
+      const useBC = activeTools.includes('BetterContacts');
       steps.push({
         id: 'enrich_data',
         order: order++,
-        tool: 'Clay',
+        tool: useBC ? 'BetterContacts' : 'Clay',
         action: 'enrich_contacts',
         params: {
           enrichment_fields: ['company', 'title', 'email', 'phone'],
@@ -123,7 +130,7 @@ export class ManifestBuilder {
       });
     }
 
-    // Warmup delay (if specified)
+    // Warmup delay
     if (intent.timing.warmup_days && intent.timing.warmup_days > 0) {
       const deps = steps.length > 0 ? [steps[steps.length - 1].id] : [];
       steps.push({
@@ -136,25 +143,23 @@ export class ManifestBuilder {
           reason: 'Email warmup to improve deliverability'
         },
         dependencies: deps,
-        estimated_time: intent.timing.warmup_days * 24 * 60 // Convert days to minutes
+        estimated_time: intent.timing.warmup_days * 24 * 60
       });
     }
 
-    // Delivery step
+    // Send/delivery step
     if (intent.sequence.includes('send') || intent.sequence.includes('deliver')) {
       const deps = steps.length > 0 ? [steps[steps.length - 1].id] : [];
-
-      if (activeTools.includes('Smartlead')) {
+      if (hasEmailSend) {
         steps.push({
           id: 'send_emails',
           order: order++,
-          tool: 'Smartlead',
+          tool: 'Brevo',
           action: 'send_campaign',
           params: {
             subject: 'Personalized B2B Outreach',
             template: 'professional_outreach',
             schedule: intent.timing.send_schedule || 'business_hours',
-            follow_up_sequence: true
           },
           dependencies: deps,
           estimated_time: 30
@@ -173,6 +178,22 @@ export class ManifestBuilder {
           estimated_time: 25
         });
       }
+    }
+
+    // Schedule meeting step
+    if (intent.sequence.includes('schedule') && hasSchedule) {
+      const deps = steps.length > 0 ? [steps[steps.length - 1].id] : [];
+      steps.push({
+        id: 'schedule_meeting',
+        order: order++,
+        tool: 'Calendly',
+        action: 'create_scheduling_link',
+        params: {
+          max_event_count: 1,
+        },
+        dependencies: deps,
+        estimated_time: 2
+      });
     }
 
     return steps;
@@ -213,10 +234,17 @@ export class ManifestBuilder {
     let totalCost = 0;
 
     const costMap: Record<string, Record<string, number>> = {
-      'Apollo': { 'search_people': 0.05 }, // $0.05 per lead
-      'Clay': { 'enrich_contacts': 0.02 }, // $0.02 per contact
-      'Smartlead': { 'send_campaign': 0.10 }, // $0.10 per email
-      'HeyReach': { 'send_connection_requests': 0.15 } // $0.15 per connection
+      'Apollo': { 'search_leads': 0.05 },
+      'Hunter': { 'search_leads': 0.01 },
+      'Clay': { 'enrich_contacts': 0.02 },
+      'BetterContacts': { 'enrich_contacts': 0.01 },
+      'Smartlead': { 'send_campaign': 0.10 },
+      'Brevo': { 'send_campaign': 0.02 },
+      'HeyReach': { 'add_leads_to_campaign': 0.15, 'send_message': 0.10 },
+      'Instantly': { 'create_campaign': 0.05, 'add_leads': 0.03 },
+      'HubSpot': { 'create_contact': 0.02, 'create_deal': 0.02 },
+      'Salesforce': { 'create_lead': 0.02, 'create_opportunity': 0.02 },
+      'Calendly': { 'create_scheduling_link': 0.00 }
     };
 
     for (const step of steps) {

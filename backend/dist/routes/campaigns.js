@@ -1,10 +1,45 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const state_machine_1 = require("../ai/langgraph/state-machine");
 const auth_1 = require("../middleware/auth");
 const prisma_1 = require("../lib/prisma");
+const planner_memory_service_1 = require("../services/planner-memory.service");
 const router = (0, express_1.Router)();
+const plannerMemoryService = new planner_memory_service_1.PlannerMemoryService();
 // Apply authentication to all routes except /plan and GET /campaigns for testing
 router.use((req, res, next) => {
     if (req.path === '/plan' || (req.method === 'GET' && req.path === '/')) {
@@ -74,6 +109,7 @@ router.post('/plan', async (req, res) => {
         }
         // Get active tools
         const activeTools = await getActiveToolsForClient(operatorId);
+        const memoryInsights = await plannerMemoryService.getInsights(operatorId, prompt, activeTools);
         // Run the campaign compiler
         const result = await (0, state_machine_1.runCampaignCompiler)(prompt, activeTools, operatorId, clientId);
         if (result.error) {
@@ -95,7 +131,8 @@ router.post('/plan', async (req, res) => {
             plan: result.validatedPlan,
             estimatedCost: result.validatedPlan?.estimated_cost,
             estimatedDuration: result.validatedPlan?.estimated_duration,
-            warnings: result.warnings
+            warnings: result.warnings,
+            memoryInsights
         };
         res.status(201).json(response);
     }
@@ -126,7 +163,10 @@ router.get('/', async (req, res) => {
         }
         const campaigns = await prisma_1.prisma.campaign.findMany({
             where: operatorId ? {
-                created_by_operator_id: operatorId
+                created_by_operator_id: operatorId,
+                status: {
+                    not: 'workflow_template'
+                }
             } : {},
             include: {
                 _count: {
@@ -226,18 +266,25 @@ async function getActiveToolsForClient(operatorId) {
             },
             distinct: ['tool_name']
         });
-        // Return unique tool names
-        const activeTools = toolAccounts.map(account => account.tool_name);
-        // If no tools are configured, return a default set for testing
-        if (activeTools.length === 0) {
-            return ['Apollo', 'Smartlead']; // Default tools for testing
+        const { getEnvToolsForDemoStack, useFreeDemoStack } = await Promise.resolve().then(() => __importStar(require('../config/demo-stack')));
+        const tools = new Set(toolAccounts.length > 0
+            ? toolAccounts.map((account) => account.tool_name)
+            : ['Apollo', 'Clay', 'Smartlead']);
+        for (const t of getEnvToolsForDemoStack()) {
+            tools.add(t);
         }
-        return activeTools;
+        if (useFreeDemoStack()) {
+            tools.add('Hunter');
+            tools.add('Brevo');
+            tools.add('Apollo');
+            tools.add('Clay');
+            tools.add('Smartlead');
+        }
+        return [...tools];
     }
     catch (error) {
         console.error('Error getting active tools:', error);
-        // Return default tools if there's an error
-        return ['Apollo', 'Smartlead'];
+        return ['Apollo', 'Clay', 'Smartlead', 'Hunter', 'Brevo'];
     }
 }
 /**

@@ -8,7 +8,7 @@ import {
   Archive, MoreVertical, Link, Check, User as UserIcon, LogOut, 
   MoreHorizontal, Plus, ShieldCheck, Zap, DollarSign, Activity,
   ThumbsUp, ThumbsDown, Star, ExternalLink, RefreshCw, Smartphone,
-  LayoutDashboard, ArchiveX, Reply, Clock, X
+  LayoutDashboard, ArchiveX, Reply, Clock, X, ArrowLeft
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 

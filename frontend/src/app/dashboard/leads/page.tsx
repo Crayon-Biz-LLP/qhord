@@ -1,72 +1,44 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
-   Users, UserPlus, Filter, Search, MoreHorizontal, Download,
-   ChevronRight, Database, Zap, ShieldCheck, Mail, Target,
-   LayoutDashboard, Terminal, MessageSquare, BarChart3, Clock,
-   CheckCircle, Plus, Sparkles, Bot, Box, MoreVertical, Star,
-   Smartphone, MapPin, Briefcase, Globe, ExternalLink, RefreshCw, Bell
+   Users, UserPlus, Filter, Search, Download,
+   ChevronRight, Database, Zap, ShieldCheck, Mail,
+   LayoutDashboard, Plus, Sparkles, Star,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { api } from "@/lib/api";
+
+interface Lead {
+   id: string;
+   email: string;
+   first_name: string;
+   last_name: string;
+   title: string;
+   company_name: string;
+   domain: string;
+   linkedin_url: string;
+   industry: string;
+   source: string;
+   status: string;
+   enriched: boolean;
+   created_at: string;
+}
 
 export default function LeadsPage() {
    const router = useRouter();
    const [activeFilter, setActiveFilter] = useState("All Leads");
+   const [leads, setLeads] = useState<Lead[]>([]);
+   const [loading, setLoading] = useState(true);
 
-   const leads = [
-      {
-         name: "Sarah Chen",
-         company: "Stripe",
-         persona: "VP of Sales",
-         location: "San Francisco, CA",
-         icp: "High",
-         source: "Apollo",
-         status: "Replied",
-         time: "2h ago"
-      },
-      {
-         name: "Marcus Johnson",
-         company: "Figma",
-         persona: "Head of Growth",
-         location: "New York, NY",
-         icp: "High",
-         source: "LinkedIn",
-         status: "In Progress",
-         time: "5h ago"
-      },
-      {
-         name: "David Kim",
-         company: "Linear",
-         persona: "CTO",
-         location: "Seoul, KR",
-         icp: "Medium",
-         source: "Manual",
-         status: "Not Started",
-         time: "1d ago"
-      },
-      {
-         name: "Lisa Wang",
-         company: "Vercel",
-         persona: "Director of Marketing",
-         location: "London, UK",
-         icp: "High",
-         source: "Clay",
-         status: "Enriched",
-         time: "Yesterday"
-      },
-      {
-         name: "James Park",
-         company: "Datadog",
-         persona: "Sales Ops Lead",
-         location: "Austin, TX",
-         icp: "Low",
-         source: "Apollo",
-         status: "Not Started",
-         time: "2d ago"
-      },
-   ];
+   useEffect(() => {
+      api.get("/leads").then((res) => {
+         setLeads(res.data.leads || []);
+      }).catch(console.error).finally(() => setLoading(false));
+   }, []);
+
+   const filteredLeads = activeFilter === "All Leads" ? leads : leads;
 
    return (
       <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#f7f8f9] text-[#1a1510] font-sans selection:bg-brand-gold/30">
@@ -111,10 +83,10 @@ export default function LeadsPage() {
             {/* 2. Metric Ribbon */}
             <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 w-full">
                {[
-                  { label: "TOTAL AUDIENCE", value: "2,481", icon: Users, color: "text-[#1a1510]", bg: "bg-[#1a1510]/5", spark: [30, 45, 38, 55, 48, 65, 58, 75] },
-                  { label: "ICP MATCH RATE", value: "84.2%", icon: ShieldCheck, color: "text-emerald-500", bg: "bg-emerald-50", spark: [70, 75, 72, 80, 78, 85, 82, 90] },
-                  { label: "READY TO SEND", value: "142", icon: Zap, color: "text-brand-gold", bg: "bg-brand-gold/5", spark: [20, 35, 28, 45, 38, 55, 48, 65] },
-                  { label: "WEEKLY GROWTH", value: "+132", icon: UserPlus, color: "text-blue-500", bg: "bg-blue-50", spark: [40, 55, 48, 65, 58, 75, 68, 85] },
+                  { label: "TOTAL AUDIENCE", value: String(leads.length), icon: Users, color: "text-[#1a1510]", bg: "bg-[#1a1510]/5" },
+                  { label: "SOURCED FROM HUNTER", value: String(leads.filter(l => l.source === 'hunter').length), icon: ShieldCheck, color: "text-emerald-500", bg: "bg-emerald-50" },
+                  { label: "ENRICHED", value: String(leads.filter(l => l.enriched).length), icon: Zap, color: "text-brand-gold", bg: "bg-brand-gold/5" },
+                  { label: "RECENTLY ADDED", value: leads.length > 0 ? "+" + leads.filter(l => Date.now() - new Date(l.created_at).getTime() < 86400000).length : "0", icon: UserPlus, color: "text-blue-500", bg: "bg-blue-50" },
                ].map((stat, i) => (
                   <motion.div
                      key={i}
@@ -131,11 +103,6 @@ export default function LeadsPage() {
                      </div>
                      <div className="mt-2 z-10">
                         <h3 className="text-2xl sm:text-3xl lg:text-4xl font-black text-[#1a1510] tracking-tighter leading-none">{stat.value}</h3>
-                        <div className="h-4 flex items-end gap-[2px] mt-4 opacity-10 group-hover:opacity-30 transition-opacity">
-                           {stat.spark.map((val, idx) => (
-                              <div key={idx} className="flex-1 bg-brand-gold rounded-full" style={{ height: `${val}%` }} />
-                           ))}
-                        </div>
                      </div>
                   </motion.div>
                ))}
@@ -189,56 +156,61 @@ export default function LeadsPage() {
                         </tr>
                      </thead>
                      <tbody className="divide-y divide-[#1a1510]/[0.03]">
-                        {leads.map((lead, i) => (
-                           <motion.tr
-                              key={i}
-                              initial={{ opacity: 0, x: -10 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: i * 0.05 }}
-                              className="group hover:bg-[#f7f8f9]/30 transition-all cursor-default"
-                           >
-                              <td className="p-6 sm:p-8"><input type="checkbox" className="w-5 h-5 rounded-lg border-[#1a1510]/10 text-brand-gold cursor-pointer" /></td>
-                              <td className="py-6 px-4">
-                                 <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-[#1a1510] text-brand-gold flex items-center justify-center text-[10px] font-black shadow-lg group-hover:scale-110 transition-transform shrink-0">
-                                       {lead.name.split(' ').map(n => n[0]).join('')}
-                                    </div>
-                                    <div className="truncate">
-                                       <h4 className="text-xs sm:text-[14px] font-black text-[#1a1510] leading-tight truncate">{lead.name}</h4>
-                                       <p className="text-[10px] font-bold text-[#1a1510]/30 mt-0.5 truncate">{lead.persona} @{lead.company}</p>
-                                    </div>
-                                 </div>
-                              </td>
-                              <td className="py-6 px-4 text-center">
-                                 <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${lead.icp === 'High' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'}`}>
-                                    <Star size={10} className={lead.icp === 'High' ? 'fill-emerald-600' : ''} />
-                                    {lead.icp}
-                                 </div>
-                              </td>
-                              <td className="py-6 px-4">
-                                 <div className="flex items-center gap-2 text-[10px] font-black text-[#1a1510]/40 uppercase tracking-widest">
-                                    <Database size={12} /> {lead.source}
-                                 </div>
-                              </td>
-                              <td className="py-6 px-4">
-                                 <span className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${lead.status === 'Replied' ? 'bg-[#1a1510] text-brand-gold' : 'bg-[#f7f8f9] text-[#1a1510]/40'}`}>
-                                    {lead.status}
-                                 </span>
-                              </td>
-                              <td className="py-6 px-6 text-right">
-                                 <div className="flex items-center gap-2 justify-end opacity-0 group-hover:opacity-100 transition-all">
-                                    <button className="w-8 h-8 rounded-lg bg-white border border-[#1a1510]/10 text-brand-gold flex items-center justify-center hover:bg-brand-gold hover:text-white transition-all"><Mail size={14} /></button>
-                                    <button className="w-8 h-8 rounded-lg bg-[#1a1510] text-brand-gold flex items-center justify-center hover:scale-110 transition-transform"><Plus size={14} /></button>
-                                 </div>
-                              </td>
-                           </motion.tr>
-                        ))}
+                  {loading ? (
+                     <tr><td colSpan={6} className="p-12 text-center text-xs text-[#1a1510]/40">Loading leads...</td></tr>
+                  ) : filteredLeads.length === 0 ? (
+                     <tr><td colSpan={6} className="p-12 text-center text-xs text-[#1a1510]/40">No leads yet. Run a pipeline to start collecting them.</td></tr>
+                  ) : filteredLeads.map((lead, i) => (
+                     <motion.tr
+                        key={lead.id}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.03 }}
+                        className="group hover:bg-[#f7f8f9]/30 transition-all cursor-default"
+                     >
+                        <td className="p-6 sm:p-8"><input type="checkbox" className="w-5 h-5 rounded-lg border-[#1a1510]/10 text-brand-gold cursor-pointer" /></td>
+                        <td className="py-6 px-4">
+                           <div className="flex items-center gap-4">
+                              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-[#1a1510] text-brand-gold flex items-center justify-center text-[10px] font-black shadow-lg group-hover:scale-110 transition-transform shrink-0">
+                                 {lead.first_name?.[0]}{lead.last_name?.[0]}
+                              </div>
+                              <div className="truncate">
+                                 <h4 className="text-xs sm:text-[14px] font-black text-[#1a1510] leading-tight truncate">{lead.first_name} {lead.last_name}</h4>
+                                 <p className="text-[10px] font-bold text-[#1a1510]/30 mt-0.5 truncate">{lead.title || '—'} @{lead.company_name || lead.domain}</p>
+                                 <p className="text-[9px] text-[#1a1510]/20 mt-0.5 truncate">{lead.email}</p>
+                              </div>
+                           </div>
+                        </td>
+                        <td className="py-6 px-4 text-center">
+                           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-600">
+                              <Star size={10} className="fill-emerald-600" />
+                              {lead.industry ? lead.industry.slice(0, 8) : 'B2B'}
+                           </div>
+                        </td>
+                        <td className="py-6 px-4">
+                           <div className="flex items-center gap-2 text-[10px] font-black text-[#1a1510]/40 uppercase tracking-widest">
+                              <Database size={12} /> {lead.source}
+                           </div>
+                        </td>
+                        <td className="py-6 px-4">
+                           <span className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${lead.status === 'Replied' ? 'bg-[#1a1510] text-brand-gold' : 'bg-[#f7f8f9] text-[#1a1510]/40'}`}>
+                              {lead.status}
+                           </span>
+                        </td>
+                        <td className="py-6 px-6 text-right">
+                           <div className="flex items-center gap-2 justify-end opacity-0 group-hover:opacity-100 transition-all">
+                              <button className="w-8 h-8 rounded-lg bg-white border border-[#1a1510]/10 text-brand-gold flex items-center justify-center hover:bg-brand-gold hover:text-white transition-all"><Mail size={14} /></button>
+                              <button className="w-8 h-8 rounded-lg bg-[#1a1510] text-brand-gold flex items-center justify-center hover:scale-110 transition-transform"><Plus size={14} /></button>
+                           </div>
+                        </td>
+                     </motion.tr>
+                  ))}
                      </tbody>
                   </table>
                </div>
 
                <div className="p-6 sm:p-8 bg-[#fcfcfc] border-t border-[#1a1510]/[0.03] flex items-center justify-between">
-                  <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-[#1a1510]/20">Showing 5 of 2.4k node units</span>
+                  <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-[#1a1510]/20">{filteredLeads.length} lead{filteredLeads.length !== 1 ? 's' : ''}</span>
                   <div className="flex items-center gap-1">
                      <button className="w-8 h-8 rounded-lg hover:bg-white border border-transparent hover:border-[#1a1510]/5 transition-all text-[#1a1510]/20 flex items-center justify-center"><ChevronRight size={16} className="rotate-180" /></button>
                      <div className="h-8 px-3 rounded-lg bg-[#1a1510] text-brand-gold flex items-center text-[10px] font-black">1</div>

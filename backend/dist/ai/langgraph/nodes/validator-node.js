@@ -4,37 +4,15 @@ exports.ValidatorNode = void 0;
 class ValidatorNode {
     async invoke(state) {
         try {
-            const manifest = state.manifest || {
-                name: 'Test Campaign',
-                description: 'Auto-generated test campaign',
-                estimated_cost: 100,
-                estimated_duration: 60,
-                steps: [
-                    {
-                        id: 'step-1',
-                        order: 1,
-                        tool: 'apollo',
-                        action: 'search_leads',
-                        params: { limit: 50 },
-                        dependencies: [],
-                        estimated_time: 30
-                    },
-                    {
-                        id: 'step-2',
-                        order: 2,
-                        tool: 'smartlead',
-                        action: 'create_campaign',
-                        params: { name: 'Test Campaign' },
-                        dependencies: ['step-1'],
-                        estimated_time: 45
-                    }
-                ]
-            };
+            if (!state.manifest) {
+                throw new Error('No campaign manifest available from architect node');
+            }
+            const manifest = state.manifest;
             const errors = [];
             const warnings = [];
             // Run all validation checks
             this.validateManifestStructure(manifest, errors);
-            this.validateToolAvailability(manifest, state.activeTools, errors);
+            this.validateToolAvailability(manifest, state.activeTools, warnings);
             this.validateGuardrails(manifest, state.intent, errors, warnings);
             this.validateRateLimits(manifest, errors, warnings);
             this.validateDuplicatePrevention(manifest, warnings);
@@ -70,8 +48,9 @@ class ValidatorNode {
         }
     }
     validateManifestStructure(manifest, errors) {
-        if (!manifest.steps || manifest.steps.length === 0) {
-            errors.push('Campaign must have at least one step');
+        if (!manifest.steps) {
+            errors.push('Campaign manifest is missing steps');
+            return;
         }
         // Check for circular dependencies
         const stepIds = new Set(manifest.steps.map(s => s.id));
@@ -89,11 +68,11 @@ class ValidatorNode {
             }
         }
     }
-    validateToolAvailability(manifest, activeTools, errors) {
+    validateToolAvailability(manifest, activeTools, warnings) {
         const usedTools = [...new Set(manifest.steps.map(s => s.tool))];
         for (const tool of usedTools) {
             if (tool !== 'System' && !activeTools.includes(tool)) {
-                errors.push(`Tool '${tool}' is not active for this client. Available tools: ${activeTools.join(', ')}`);
+                warnings.push(`Tool '${tool}' is not active for this client. Available tools: ${activeTools.join(', ')}.`);
             }
         }
     }
@@ -173,7 +152,27 @@ class ValidatorNode {
         }
     }
     applyAutoFixes(manifest, warnings) {
-        const fixedManifest = { ...manifest };
+        const fixedManifest = {
+            ...manifest,
+            steps: [...manifest.steps]
+        };
+        if (fixedManifest.steps.length === 0) {
+            fixedManifest.steps.push({
+                id: 'manual_review',
+                order: 1,
+                tool: 'System',
+                action: 'manual_review',
+                params: {
+                    reason: 'No executable tool steps generated for current active tools',
+                    next_action: 'Enable required tools or adjust prompt'
+                },
+                dependencies: [],
+                estimated_time: 5
+            });
+            fixedManifest.estimated_duration = Math.max(fixedManifest.estimated_duration || 0, 5);
+            warnings.push('No executable tool steps were generated. Added System manual_review fallback step.');
+            return fixedManifest;
+        }
         // Auto-add warmup delays for email steps without them
         const emailStepsWithoutWarmup = fixedManifest.steps.filter(step => {
             if (!['Smartlead', 'Instantly', 'Lemlist'].includes(step.tool))

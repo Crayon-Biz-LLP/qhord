@@ -15,7 +15,7 @@ class ParserNode {
             if (!jsonMatch) {
                 throw new Error('No valid JSON found in LLM response');
             }
-            const intent = JSON.parse(jsonMatch[0]);
+            const intent = this.normalizeIntent(JSON.parse(jsonMatch[0]));
             // Validate the intent structure
             this.validateIntent(intent);
             return {
@@ -48,6 +48,9 @@ class ParserNode {
         if (!Array.isArray(intent.sequence) || intent.sequence.length === 0) {
             throw new Error('Intent must have a sequence');
         }
+        if (intent.campaign_name !== undefined && intent.campaign_name !== null && typeof intent.campaign_name !== 'string') {
+            throw new Error('campaign_name must be a string or null');
+        }
         // Validate goal values
         const validGoals = ['source_leads', 'enrich_data', 'send_emails', 'schedule_meetings', 'crm_sync'];
         if (!validGoals.includes(intent.goal)) {
@@ -63,6 +66,26 @@ class ParserNode {
                 throw new Error('Warmup days cannot be negative');
             }
         }
+    }
+    normalizeIntent(rawIntent) {
+        const normalized = {
+            goal: rawIntent?.goal,
+            campaign_name: rawIntent?.campaign_name ?? null,
+            target: {
+                type: rawIntent?.target?.type || 'B2B',
+                industry: rawIntent?.target?.industry ?? null,
+                job_titles: Array.isArray(rawIntent?.target?.job_titles) ? rawIntent.target.job_titles : [],
+                company_size: rawIntent?.target?.company_size ?? null
+            },
+            volume: typeof rawIntent?.volume === 'number' && rawIntent.volume > 0 ? rawIntent.volume : 100,
+            tools: Array.isArray(rawIntent?.tools) ? rawIntent.tools : [],
+            sequence: Array.isArray(rawIntent?.sequence) ? rawIntent.sequence : [],
+            timing: {
+                warmup_days: rawIntent?.timing?.warmup_days,
+                send_schedule: rawIntent?.timing?.send_schedule ?? null
+            }
+        };
+        return normalized;
     }
 }
 exports.ParserNode = ParserNode;

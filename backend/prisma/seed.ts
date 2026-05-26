@@ -11,6 +11,8 @@ const SUPPORTED_TOOLS = [
   { tool_id: "clay", name: "Clay", category: "Enrichment", description: "Data enrichment & buying signals orchestration" },
   { tool_id: "clearbit", name: "Clearbit", category: "Enrichment", description: "Real-time B2B data enrichment" },
   { tool_id: "smartlead", name: "Smartlead", category: "Email Outreach", description: "Email campaign scale automation" },
+  { tool_id: "hunter", name: "Hunter", category: "Prospecting & Data", description: "Discover companies and find/verify emails (free API tier)" },
+  { tool_id: "brevo", name: "Brevo", category: "Email Outreach", description: "Email campaigns and transactional send (free tier)" },
   { tool_id: "instantly", name: "Instantly", category: "Email Outreach", description: "Cold email at scale with deliverability focus" },
   { tool_id: "lemlist", name: "Lemlist", category: "Email Outreach", description: "Personalized cold outreach platform" },
   { tool_id: "heyreach", name: "HeyReach", category: "LinkedIn", description: "LinkedIn outreach and multi-channel scale" },

@@ -9,6 +9,7 @@ import {
 import { motion } from "framer-motion";
 import { useClient } from "../../../contexts/ClientContext";
 import { useAuth } from "../../../hooks/useAuth";
+import { useCredits } from "../../../contexts/CreditContext";
 
 export type DashboardView = 
   | 'dashboard' 
@@ -40,6 +41,7 @@ interface SidebarProps {
 export const Sidebar = ({ onSignOut, activeView = 'dashboard', onViewChange }: SidebarProps) => {
   const { clients, selectedClient, setSelectedClient } = useClient();
   const { user } = useAuth();
+  const { userCredits } = useCredits();
 
   return (
     <aside className="w-72 border-r border-[#1a1510]/5 flex flex-col hidden md:flex bg-[#1a1510] relative z-20 shadow-[20px_0_40px_-20px_rgba(0,0,0,0.1)] overflow-y-auto scrollbar-hide shrink-0">
@@ -125,11 +127,11 @@ export const Sidebar = ({ onSignOut, activeView = 'dashboard', onViewChange }: S
       <div className="mt-auto p-6 space-y-4">
         <div className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">2,847 credits</span>
-            <span className="text-[9px] font-black text-brand-gold uppercase tracking-widest">Upgrade</span>
+            <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">{userCredits.toLocaleString()} credits</span>
+            <Link href="/dashboard/billing" className="text-[9px] font-black text-brand-gold uppercase tracking-widest">Upgrade</Link>
           </div>
           <div className="w-full h-1.5 rounded-full bg-white/5 overflow-hidden">
-             <div className="h-full bg-brand-gold rounded-full" style={{ width: '57%' }}></div>
+             <div className="h-full bg-brand-gold rounded-full" style={{ width: `${Math.min((userCredits / 2000) * 100, 100)}%` }}></div>
           </div>
         </div>
 

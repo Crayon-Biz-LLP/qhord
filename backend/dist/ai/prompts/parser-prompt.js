@@ -13,9 +13,12 @@ Analyze the user's request and extract:
 
 Available tools:
 - Apollo: Lead sourcing and prospecting
+- Hunter: Lead sourcing and email discovery
 - Clay: Data enrichment and verification
+- BetterContacts: Contact data enrichment and verification
 - HeyReach: LinkedIn outreach and automation
 - Smartlead: Email campaign automation
+- Brevo: Email campaign management and sending
 - HubSpot: CRM and sales automation
 - Salesforce: Enterprise CRM
 - Calendly: Meeting scheduling
@@ -23,6 +26,7 @@ Available tools:
 Return a JSON object with this structure:
 {
   "goal": "source_leads" | "enrich_data" | "send_emails" | "schedule_meetings" | "crm_sync",
+  "campaign_name": "string or null (extract explicit campaign name from the user request if present)",
   "target": {
     "type": "B2B" | "B2C",
     "industry": "string or null",
@@ -42,6 +46,7 @@ Example input: "Send 100 B2B leads from Apollo to Smartlead with 2-day warmup"
 Example output:
 {
   "goal": "send_emails",
+  "campaign_name": null,
   "target": {
     "type": "B2B",
     "industry": null,
@@ -56,5 +61,10 @@ Example output:
     "send_schedule": null
   }
 }
+
+Important:
+- If the user explicitly provides a campaign name, preserve it exactly in "campaign_name".
+- If no explicit name is provided, return null for "campaign_name".
+- Do not force "send_emails" goal unless the user clearly asks for outreach/email sending.
 
 Be precise and only return valid JSON.`;

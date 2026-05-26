@@ -1,6 +1,0 @@
-@echo off
-echo Setting Redis URL to Upstash...
-set REDIS_URL=rediss://default:gQAAAAAAAc9BAAIgcDE5OTI4MWE2NGNlNzk0NWUyOGMyNmNjZjA0NTk4NTQ2MQ@enhanced-oriole-118593.upstash.io:6379
-echo Redis URL: %REDIS_URL%
-echo Starting backend with Upstash Redis...
-npm run dev

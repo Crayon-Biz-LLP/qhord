@@ -19,6 +19,12 @@ const ai_metrics_1 = __importDefault(require("./routes/ai-metrics"));
 const subscription_1 = __importDefault(require("./routes/subscription"));
 const command_center_1 = __importDefault(require("./routes/command-center"));
 const queue_1 = __importDefault(require("./routes/queue"));
+const workflows_1 = __importDefault(require("./routes/workflows"));
+const memory_1 = __importDefault(require("./routes/memory"));
+const settings_1 = __importDefault(require("./routes/settings"));
+const leads_1 = __importDefault(require("./routes/leads"));
+const dashboard_1 = __importDefault(require("./routes/dashboard"));
+const analytics_1 = __importDefault(require("./routes/analytics"));
 const prisma_1 = require("./lib/prisma");
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)({ origin: '*', credentials: true }));
@@ -43,9 +49,15 @@ app.use('/api/nodes', node_status_1.default);
 app.use('/api/approvals', approvals_1.default);
 app.use('/api/execution', execution_1.default);
 app.use('/api/queue', queue_1.default);
+app.use('/api/workflows', workflows_1.default);
+app.use('/api/memory', memory_1.default);
 app.use('/api', ai_metrics_1.default);
 app.use('/api/subscription', subscription_1.default);
 app.use('/api/command-center', command_center_1.default);
+app.use('/api/settings', settings_1.default);
+app.use('/api/leads', leads_1.default);
+app.use('/api/dashboard', dashboard_1.default);
+app.use('/api/analytics', analytics_1.default);
 const port = parseInt(process.env.PORT || '4000', 10);
 app.listen(port, () => {
     // eslint-disable-next-line no-console

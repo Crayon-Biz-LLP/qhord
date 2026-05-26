@@ -2,6 +2,23 @@ import { Worker, Job } from 'bullmq';
 import { prisma } from '../lib/prisma';
 import { ExecutionEngine } from '../services/execution.engine';
 import { redisConnection } from '../queue/bullmq-setup';
+import { resolveManifestSteps, applyPipelineToPayload } from '../ai/pipeline/action-resolver';
+import { emptyPipelineContext, type ManifestStepLike } from '../ai/pipeline/pipeline-types';
+import type { ToolName } from '../types';
+import { mergePipelineContext } from '../ai/pipeline/pipeline-leads';
+import { findToolAccount } from '../ai/pipeline/ensure-tool-accounts';
+
+const CREDIT_COST: Record<string, number> = {
+  hunter: 2,
+  bettercontacts: 1,
+  brevo: 3,
+  calendly: 1,
+  smartlead: 2,
+  heyreach: 2,
+  instantly: 2,
+  hubspot: 1,
+  salesforce: 1,
+};
 
 interface CampaignJobData {
   campaignId: string;
@@ -15,22 +32,20 @@ export class CampaignWorker {
 
   constructor() {
     this.executionEngine = new ExecutionEngine();
-    
-    // Create worker for campaign execution
+
     this.worker = new Worker(
       'campaign-execution',
       this.processCampaign.bind(this),
       {
         connection: redisConnection,
-        concurrency: 5, // Process 5 campaigns concurrently
+        concurrency: 5,
         limiter: {
           max: 10,
-          duration: 60000, // 10 jobs per minute max
+          duration: 60000,
         },
       }
     );
 
-    // Handle worker events
     this.worker.on('completed', (job) => {
       console.log(`✅ Campaign worker completed job ${job.id}`);
     });
@@ -46,141 +61,228 @@ export class CampaignWorker {
 
   private async processCampaign(job: Job<CampaignJobData, any, string>) {
     const { campaignId, operatorId, clientId } = job.data;
-    
+
     try {
       console.log(`🚀 Starting campaign execution: ${campaignId}`);
-      
-      // Update campaign status to executing
+
       await prisma.campaign.update({
         where: { id: campaignId },
-        data: { status: 'executing' }
+        data: { status: 'executing' },
       });
 
-      // Get campaign steps from database
       const campaignSteps = await prisma.campaignStep.findMany({
         where: { campaign_id: campaignId },
-        orderBy: { step_order: 'asc' }
+        orderBy: { step_order: 'asc' },
       });
 
-      console.log(`📋 Found ${campaignSteps.length} steps to execute`);
+      const manifestSteps: ManifestStepLike[] = campaignSteps.map((s) => ({
+        id: s.id,
+        order: s.step_order,
+        tool: s.tool_name,
+        action: s.action,
+        params: (s.params as Record<string, unknown>) || {},
+        dependencies: (s.dependencies as string[]) || [],
+      }));
 
-      // Execute each step in order
+      const resolvedSteps = resolveManifestSteps(manifestSteps);
+      console.log(`📋 Resolved ${resolvedSteps.length} execution actions from ${campaignSteps.length} manifest steps`);
+
+      let pipelineContext = emptyPipelineContext();
       const results = [];
-      for (const step of campaignSteps) {
+      let stepIndex = 0;
+
+      for (const resolved of resolvedSteps) {
+        stepIndex += 1;
+
+        const manifestStep = manifestSteps.find((m) => m.id === resolved.manifestStepId);
+        const manifestParams = manifestStep?.params || {};
+
         try {
-          // Update step status to running
-          await prisma.campaignStep.update({
-            where: { id: step.id },
-            data: { status: 'running' }
+          await job.updateProgress({
+            currentStep: stepIndex,
+            totalSteps: resolvedSteps.length,
+            stepName: resolved.label,
           });
 
-          // Report progress
-          job.updateProgress({
-            currentStep: step.step_order,
-            totalSteps: campaignSteps.length,
-            stepName: `${step.tool_name} - ${step.action}`
-          });
+          if (resolved.skipExecution) {
+            if (resolved.waitMs && resolved.waitMs > 0) {
+              await new Promise((r) => setTimeout(r, resolved.waitMs));
+            }
+            console.log(`⏭️ Skipped (system): ${resolved.label}`);
+            continue;
+          }
 
-          // Execute the step
-          const result = await this.executeStep(step, operatorId, clientId);
+          const payload = applyPipelineToPayload(resolved, pipelineContext, manifestParams);
+
+          const result = await this.executeResolvedStep(
+            resolved,
+            payload,
+            operatorId,
+            clientId,
+            campaignId
+          );
           results.push(result);
 
-          // Update step status to completed
-          await prisma.campaignStep.update({
-            where: { id: step.id },
-            data: { status: 'completed' }
-          });
+          pipelineContext = mergePipelineContext(
+            pipelineContext,
+            resolved.tool,
+            resolved.action,
+            result.response
+          );
 
-          console.log(`✅ Step completed: ${step.tool_name} - ${step.action}`);
-
+          console.log(
+            `✅ ${resolved.label} — ${pipelineContext.leads.length} leads in pipeline`
+          );
         } catch (stepError) {
-          console.error(`❌ Step failed: ${step.tool_name} - ${step.action}`, stepError);
-          
-          // Update step status to failed
-          await prisma.campaignStep.update({
-            where: { id: step.id },
-            data: { status: 'failed' }
+          console.error(`❌ Failed: ${resolved.label}`, stepError);
+          results.push({
+            success: false,
+            tool: resolved.tool,
+            action: resolved.action,
+            status: 'error',
+            error: stepError instanceof Error ? stepError.message : String(stepError),
+            response: null,
           });
-
-          throw stepError; // Fail the entire campaign if a step fails
         }
       }
 
-      // Mark campaign as completed
+      // Persist leads from pipeline to database
+      if (pipelineContext.leads.length > 0) {
+        const leadData = pipelineContext.leads.map((l: any) => ({
+          client_id: clientId,
+          campaign_id: campaignId,
+          email: l.email || '',
+          first_name: l.first_name || l.firstName || '',
+          last_name: l.last_name || l.lastName || '',
+          title: l.title || l.position || '',
+          company_name: l.company_name || l.company || '',
+          domain: l.domain || '',
+          linkedin_url: l.linkedin_url || '',
+          industry: l.industry || '',
+          source: l.source || 'hunter',
+          status: 'new',
+          enriched: false,
+        }));
+        await prisma.lead.createMany({ data: leadData, skipDuplicates: true });
+        console.log(`📝 ${leadData.length} leads saved to DB`);
+      }
+
       await prisma.campaign.update({
         where: { id: campaignId },
-        data: { 
+        data: {
           status: 'completed',
-          updated_at: new Date()
-        }
+          updated_at: new Date(),
+        },
       });
 
-      console.log(`✅ Campaign completed successfully: ${campaignId}`);
+      const hasErrors = results.some((r) => r.status === 'error');
+      console.log(`${hasErrors ? '⚠️' : '✅'} Campaign finished: ${campaignId}`);
 
       return {
-        success: true,
+        success: !hasErrors,
         campaignId,
         stepsExecuted: results.length,
-        message: 'Campaign executed successfully'
+        leadsProcessed: pipelineContext.leads.length,
+        results,
+        message: hasErrors ? 'Campaign completed with errors' : 'Campaign executed successfully',
       };
-
     } catch (error) {
       console.error(`❌ Campaign execution failed: ${campaignId}`, error);
-      
-      // Mark campaign as failed
+
       await prisma.campaign.update({
         where: { id: campaignId },
-        data: { 
+        data: {
           status: 'failed',
-          updated_at: new Date()
-        }
+          updated_at: new Date(),
+        },
       });
 
       throw error;
     }
   }
 
-  private async executeStep(step: any, operatorId: string, clientId: string) {
-    console.log(`📋 Executing step: ${step.tool_name} - ${step.action}`);
-
-    // Get tool account for this client
-    const toolAccount = await prisma.clientToolAccount.findFirst({
-      where: {
-        client_id: clientId,
-        tool_name: step.tool_name
-      }
-    });
+  private async executeResolvedStep(
+    resolved: { tool: string; action: string; label: string },
+    payload: Record<string, unknown>,
+    operatorId: string,
+    clientId: string,
+    campaignId: string
+  ) {
+    const toolAccount = await findToolAccount(clientId, resolved.tool);
 
     if (!toolAccount) {
-      throw new Error(`No tool account found for ${step.tool_name} on client ${clientId}`);
+      throw new Error(
+        `No tool account for ${resolved.tool}. Connect ${resolved.tool} in settings or run with mock accounts.`
+      );
     }
 
-    // Execute using the execution engine
-    const execution = await this.executionEngine.execute({
-      clientId,
-      tool: step.tool_name.toLowerCase() as any,
-      toolAccountId: toolAccount.id,
-      contextId: undefined,
-      action: step.action,
-      payload: step.params
-    }, operatorId);
+    const execution = await this.executionEngine.execute(
+      {
+        clientId,
+        tool: resolved.tool as ToolName,
+        toolAccountId: toolAccount.id,
+        contextId: undefined,
+        action: resolved.action,
+        payload,
+      },
+      operatorId
+    );
+
+    if (execution.status !== 'success') {
+      throw new Error(execution.error_message || `Step failed: ${resolved.label}`);
+    }
+
+    // Consume credits after successful step
+    try {
+      const cost = CREDIT_COST[resolved.tool] || 1;
+      const credit = await prisma.clientCredit.findUnique({ where: { client_id: clientId } });
+      if (credit && credit.balance >= cost) {
+        await prisma.clientCredit.update({
+          where: { id: credit.id },
+          data: { balance: { decrement: cost }, total_used: { increment: cost } },
+        });
+        await prisma.creditTransaction.create({
+          data: {
+            credit_id: credit.id,
+            amount: cost,
+            type: 'debit',
+            description: `${resolved.tool}:${resolved.action}`,
+            tool_name: resolved.tool,
+            action: resolved.action,
+            campaign_id: campaignId,
+            execution_id: execution.id,
+          },
+        });
+        console.log(`💰 Consumed ${cost} credits for ${resolved.tool}:${resolved.action}`);
+      }
+    } catch (creditErr) {
+      console.error(`⚠️ Credit consumption failed (non-blocking):`, creditErr);
+    }
 
     return {
-      success: execution.status === 'success',
-      stepId: step.id,
-      tool: step.tool_name,
-      action: step.action,
+      success: true,
+      status: 'success',
+      tool: resolved.tool,
+      action: resolved.action,
       executionId: execution.id,
-      response: execution.response_payload
+      response: execution.response_payload,
     };
   }
 
-  // Graceful shutdown
+  /** Run campaign steps in-process (no Redis queue). Used when QHORD_SYNC_PIPELINE=true. */
+  async runCampaignNow(campaignId: string, operatorId: string, clientId: string) {
+    const job = {
+      id: `sync-${campaignId}`,
+      data: { campaignId, operatorId, clientId },
+      updateProgress: async () => {},
+    } as unknown as Job<CampaignJobData, unknown, string>;
+    return this.processCampaign(job);
+  }
+
   async close() {
     await this.worker.close();
     console.log('Campaign worker closed');
   }
 }
 
-// Create and export singleton instance
 export const campaignWorker = new CampaignWorker();

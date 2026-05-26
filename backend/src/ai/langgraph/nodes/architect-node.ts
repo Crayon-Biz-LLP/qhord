@@ -106,9 +106,9 @@ export class ArchitectNode {
 
   private getRequiredToolsForIntent(intent: CampaignIntent): string[] {
     const toolMap: Record<string, string[]> = {
-      'source_leads': ['Apollo'],
-      'enrich_data': ['Clay', 'Clearbit'],
-      'send_emails': ['Smartlead', 'Instantly', 'Lemlist'],
+      'source_leads': ['Apollo', 'Hunter'],
+      'enrich_data': ['Clay', 'BetterContacts', 'Clearbit'],
+      'send_emails': ['Smartlead', 'Brevo', 'Instantly', 'Lemlist'],
       'schedule_meetings': ['Calendly'],
       'crm_sync': ['HubSpot', 'Salesforce', 'Pipedrive']
     };

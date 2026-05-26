@@ -3,6 +3,8 @@
 import '../globals.css';
 import type { ReactNode } from 'react';
 import { Inter, Outfit } from 'next/font/google';
+import { Toaster } from 'sonner';
+import { CreditProvider } from '@/contexts/CreditContext';
 
 const inter = Inter({
   variable: "--font-geist-sans",
@@ -20,7 +22,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body
         className={`${inter.variable} ${outfit.variable} antialiased`}
       >
-        {children}
+        <CreditProvider>
+          <Toaster position="top-right" richColors />
+          {children}
+        </CreditProvider>
       </body>
     </html>
   );
