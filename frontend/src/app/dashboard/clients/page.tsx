@@ -15,8 +15,16 @@ export default function ClientsPage() {
    const { clients, createClient, selectedClient, setSelectedClient } = useClient();
    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
    const [searchQuery, setSearchQuery] = useState("");
-   const [newClientName, setNewClientName] = useState("");
-   const [newClientDesc, setNewClientDesc] = useState("");
+   const [formData, setFormData] = useState({
+      name: "",
+      region: "",
+      account_owner: "",
+      industry: "",
+      status: "Active",
+      website: "",
+      priority: "Medium",
+      description: ""
+   });
    const [isSubmitting, setIsSubmitting] = useState(false);
 
    const filteredClients = clients.filter(c =>
@@ -28,10 +36,18 @@ export default function ClientsPage() {
       e.preventDefault();
       setIsSubmitting(true);
       try {
-         await createClient(newClientName, newClientDesc);
+         await createClient(formData);
          setIsCreateModalOpen(false);
-         setNewClientName("");
-         setNewClientDesc("");
+         setFormData({
+            name: "",
+            region: "",
+            account_owner: "",
+            industry: "",
+            status: "Active",
+            website: "",
+            priority: "Medium",
+            description: ""
+         });
       } catch (err) {
          console.error("Create client error", err);
       } finally {
@@ -206,11 +222,16 @@ export default function ClientsPage() {
                   >
                      <div className="space-y-8">
                         <div className="space-y-3">
-                           <div className="flex items-center gap-3">
-                              <div className="p-2 bg-brand-gold rounded-xl text-[#1a1510]">
-                                 <Plus size={18} />
+                           <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                 <div className="p-2 bg-brand-gold rounded-xl text-[#1a1510]">
+                                    <Plus size={18} />
+                                 </div>
+                                 <h2 className="text-xl font-bold tracking-tight text-[#1a1510] uppercase">Establish New Client</h2>
                               </div>
-                              <h2 className="text-xl font-bold tracking-tight text-[#1a1510] uppercase">Establish New Clint</h2>
+                              <button onClick={() => setIsCreateModalOpen(false)} className="text-[#1a1510]/30 hover:text-[#1a1510] transition-colors">
+                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                              </button>
                            </div>
                            <p className="text-[10px] font-semibold text-[#1a1510]/30 uppercase tracking-widest leading-relaxed">
                               Define your new operational project namespace. All tool protocols will be scoped to this client.
@@ -218,36 +239,141 @@ export default function ClientsPage() {
                         </div>
 
                         <form onSubmit={handleCreateClient} className="space-y-6">
-                           <div className="space-y-4">
+                           <div className="space-y-5">
                               <div className="space-y-2">
                                  <label className="text-[9px] font-bold uppercase text-[#1a1510]/30 tracking-widest px-1">Client Name</label>
                                  <input
                                     required
                                     type="text"
-                                    value={newClientName}
-                                    onChange={(e) => setNewClientName(e.target.value)}
+                                    value={formData.name}
+                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                     placeholder="Enter Name"
                                     className="w-full h-11 px-5 rounded-xl bg-[#f7f8f9] border border-transparent text-xs font-bold focus:bg-white focus:border-brand-gold/30 focus:outline-none transition-all placeholder:text-[#1a1510]/20"
                                  />
                               </div>
-                              <div className="space-y-2">
-                                 <label className="text-[9px] font-bold uppercase text-[#1a1510]/30 tracking-widest px-1">Descriptor</label>
-                                 <input
-                                    type="text"
-                                    value={newClientDesc}
-                                    onChange={(e) => setNewClientDesc(e.target.value)}
-                                    placeholder="Short intel description..."
-                                    className="w-full h-11 px-5 rounded-xl bg-[#f7f8f9] border border-transparent text-xs font-bold focus:bg-white focus:border-brand-gold/30 focus:outline-none transition-all placeholder:text-[#1a1510]/20"
+
+                              <div className="grid grid-cols-2 gap-4">
+                                 <div className="space-y-2">
+                                    <label className="text-[9px] font-bold uppercase text-[#1a1510]/30 tracking-widest px-1">Region</label>
+                                    <div className="relative">
+                                       <select
+                                          value={formData.region}
+                                          onChange={(e) => setFormData({ ...formData, region: e.target.value })}
+                                          className="w-full h-11 px-5 rounded-xl bg-[#f7f8f9] border border-transparent text-xs font-bold focus:bg-white focus:border-brand-gold/30 focus:outline-none transition-all appearance-none"
+                                       >
+                                          <option value="">Select...</option>
+                                          <option value="NAMER">NAMER</option>
+                                          <option value="EMEA">EMEA</option>
+                                          <option value="APAC">APAC</option>
+                                       </select>
+                                       <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1a1510]/30 pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                    </div>
+                                 </div>
+                                 <div className="space-y-2">
+                                    <label className="text-[9px] font-bold uppercase text-[#1a1510]/30 tracking-widest px-1">Account Owner</label>
+                                    <div className="relative">
+                                       <select
+                                          value={formData.account_owner}
+                                          onChange={(e) => setFormData({ ...formData, account_owner: e.target.value })}
+                                          className="w-full h-11 px-5 rounded-xl bg-[#f7f8f9] border border-transparent text-xs font-bold focus:bg-white focus:border-brand-gold/30 focus:outline-none transition-all appearance-none"
+                                       >
+                                          <option value="">Select...</option>
+                                          <option value="Sarah Mitchell">Sarah Mitchell</option>
+                                          <option value="Alex Chen">Alex Chen</option>
+                                          <option value="Marcus Johnson">Marcus Johnson</option>
+                                       </select>
+                                       <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1a1510]/30 pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                    </div>
+                                 </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-4">
+                                 <div className="space-y-2">
+                                    <label className="text-[9px] font-bold uppercase text-[#1a1510]/30 tracking-widest px-1">Industry</label>
+                                    <input
+                                       type="text"
+                                       value={formData.industry}
+                                       onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+                                       placeholder="e.g. Automotive"
+                                       className="w-full h-11 px-5 rounded-xl bg-[#f7f8f9] border border-transparent text-xs font-bold focus:bg-white focus:border-brand-gold/30 focus:outline-none transition-all placeholder:text-[#1a1510]/20"
+                                    />
+                                 </div>
+                                 <div className="space-y-2">
+                                    <label className="text-[9px] font-bold uppercase text-[#1a1510]/30 tracking-widest px-1">Status</label>
+                                    <div className="relative">
+                                       <select
+                                          value={formData.status}
+                                          onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                                          className="w-full h-11 px-5 rounded-xl bg-[#f7f8f9] border border-transparent text-xs font-bold focus:bg-white focus:border-brand-gold/30 focus:outline-none transition-all appearance-none"
+                                       >
+                                          <option value="Active">Active</option>
+                                          <option value="Inactive">Inactive</option>
+                                       </select>
+                                       <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1a1510]/30 pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                    </div>
+                                 </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-4">
+                                 <div className="space-y-2">
+                                    <label className="text-[9px] font-bold uppercase text-[#1a1510]/30 tracking-widest px-1">Website</label>
+                                    <input
+                                       type="url"
+                                       value={formData.website}
+                                       onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                                       placeholder="https://..."
+                                       className="w-full h-11 px-5 rounded-xl bg-[#f7f8f9] border border-transparent text-xs font-bold focus:bg-white focus:border-brand-gold/30 focus:outline-none transition-all placeholder:text-[#1a1510]/20"
+                                    />
+                                 </div>
+                                 <div className="space-y-2">
+                                    <label className="text-[9px] font-bold uppercase text-[#1a1510]/30 tracking-widest px-1">Priority</label>
+                                    <div className="relative">
+                                       <select
+                                          value={formData.priority}
+                                          onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+                                          className="w-full h-11 pl-10 pr-5 rounded-xl bg-[#f7f8f9] border border-transparent text-xs font-bold focus:bg-white focus:border-brand-gold/30 focus:outline-none transition-all appearance-none"
+                                       >
+                                          <option value="High">High</option>
+                                          <option value="Medium">Medium</option>
+                                          <option value="Low">Low</option>
+                                       </select>
+                                       <div className={`absolute left-4 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full ${formData.priority === 'High' ? 'bg-red-500' : formData.priority === 'Medium' ? 'bg-[#ffcc00]' : 'bg-emerald-500'}`} />
+                                       <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1a1510]/30 pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                    </div>
+                                 </div>
+                              </div>
+
+                              <div className="space-y-2 relative">
+                                 <label className="text-[9px] font-bold uppercase text-[#1a1510]/30 tracking-widest px-1">Brief Note</label>
+                                 <textarea
+                                    value={formData.description}
+                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                    placeholder="What is this account about?"
+                                    rows={3}
+                                    className="w-full p-5 rounded-xl bg-[#f7f8f9] border border-transparent text-xs font-bold focus:bg-white focus:border-brand-gold/30 focus:outline-none transition-all placeholder:text-[#1a1510]/20 resize-none"
                                  />
+                                 <div className="absolute bottom-3 right-3 text-[#1a1510]/20 pointer-events-none">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" x2="2" y1="2" y2="22"/><path d="M10.41 14 13.59 10.83"/><path d="M14.47 8.59 14.5 8.56a2 2 0 0 1 2.83 0l1.41 1.41a2.83 2.83 0 0 1 0 4l-4.24 4.24a2 2 0 0 1-2.83 0"/></svg>
+                                 </div>
                               </div>
                            </div>
 
-                           <button
-                              disabled={isSubmitting || !newClientName}
-                              className="w-full h-11 bg-[#1a1510] text-brand-gold rounded-xl font-bold text-[10px] uppercase tracking-[0.2em] shadow-xl hover:translate-y-[-1px] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-                           >
-                              Establish Registry Link
-                           </button>
+                           <div className="flex justify-end gap-4 pt-4">
+                              <button
+                                 type="button"
+                                 onClick={() => setIsCreateModalOpen(false)}
+                                 className="px-6 h-11 font-bold text-[10px] uppercase tracking-widest text-[#1a1510]/60 hover:text-[#1a1510] hover:bg-[#1a1510]/5 rounded-xl transition-all"
+                              >
+                                 Cancel
+                              </button>
+                              <button
+                                 type="submit"
+                                 disabled={isSubmitting || !formData.name}
+                                 className="px-6 h-11 bg-[#1a1510] text-brand-gold rounded-xl font-bold text-[10px] uppercase tracking-[0.2em] shadow-xl hover:translate-y-[-1px] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                              >
+                                 Establish Registry Link
+                              </button>
+                           </div>
                         </form>
                      </div>
                   </motion.div>

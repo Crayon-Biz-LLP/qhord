@@ -7,6 +7,12 @@ interface Client {
   id: string;
   name: string;
   description?: string | null;
+  region?: string | null;
+  account_owner?: string | null;
+  industry?: string | null;
+  status?: string;
+  website?: string | null;
+  priority?: string;
 }
 
 interface ClientContextType {
@@ -15,7 +21,7 @@ interface ClientContextType {
   loading: boolean;
   setSelectedClient: (client: Client | null) => void;
   refreshClients: () => Promise<void>;
-  createClient: (name: string, description?: string) => Promise<Client>;
+  createClient: (clientData: Partial<Client>) => Promise<Client>;
 }
 
 const ClientContext = createContext<ClientContextType | undefined>(undefined);
@@ -60,8 +66,8 @@ export function ClientProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const createClient = async (name: string, description?: string) => {
-    const res = await api.post("/clients", { name, description });
+  const createClient = async (clientData: Partial<Client>) => {
+    const res = await api.post("/clients", clientData);
     const newClient = res.data.client;
     setClients((prev) => [newClient, ...prev]);
     setSelectedClient(newClient);

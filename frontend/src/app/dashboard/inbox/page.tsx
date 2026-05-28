@@ -23,7 +23,7 @@ const MESSAGES_DATA = [
       body: "Hey, thanks for reaching out! I'd love to chat more about how you handle outbound. We're actually looking for a solution like this.",
       subject: "Re: Quick question about your stack",
       tags: ["positive", "interested"],
-
+      tool: "Smartlead",
       unread: true,
       sentiment: "High Intent",
       avatar: "S"
@@ -205,7 +205,7 @@ export default function InboxPage() {
                   {/* Metrics (Pills for mobile) */}
                   <section className="flex md:grid md:grid-cols-5 gap-3 overflow-x-auto scrollbar-hide pb-2 md:pb-0">
                      {INBOX_KPIS.map((kpi, i) => (
-                        <div key={i} className={`bg-white p-3 rounded-2xl border border-[#1a1510]/5 flex flex-col justify-between h-22 sm:h-24 min-w-[120px] md:min-w-0 flex-1 hover:shadow-md transition-all`}>
+                        <div key={i} className={`bg-white p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-[#1a1510]/5 flex flex-col justify-between h-24 sm:h-28 min-w-[120px] md:min-w-0 flex-1 hover:shadow-md transition-all`}>
                            <div className="flex justify-between items-start">
                               <span className="text-[7px] font-bold text-[#1a1510]/30 tracking-widest uppercase truncate">{kpi.label}</span>
                               <div className={`p-1 rounded-md ${kpi.bg} ${kpi.color}`}>
@@ -227,9 +227,9 @@ export default function InboxPage() {
                      className="bg-white rounded-[2rem] border border-[#1a1510]/5 shadow-sm overflow-hidden"
                   >
                      {/* Detail Header */}
-                     <div className="px-5 sm:px-8 py-5 border-b border-[#1a1510]/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                     <div className="px-5 sm:px-8 py-5 sm:py-6 border-b border-[#1a1510]/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div className="flex items-center gap-4 w-full sm:w-auto">
-                           <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#1a1510] text-brand-gold flex items-center justify-center text-lg font-bold shrink-0 shadow-lg">
+                           <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-[#1a1510] text-brand-gold flex items-center justify-center text-lg font-bold shrink-0 shadow-lg">
                               {selectedMessage.avatar}
                            </div>
                            <div className="truncate">
@@ -261,7 +261,7 @@ export default function InboxPage() {
                         </div>
 
                         {/* AI intelligence Section */}
-                        <div className="p-6 rounded-2xl bg-[#1a1510] text-white relative group overflow-hidden">
+                        <div className="p-6 sm:p-8 rounded-[1.5rem] sm:rounded-3xl bg-[#1a1510] text-white relative group overflow-hidden">
                            <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
                               <Bot size={80} className="text-brand-gold" />
                            </div>

@@ -23,6 +23,7 @@ interface ToolItem {
    name: string;
    category: string;
    description: string;
+   status: string;
    isConnected: boolean;
    syncStat?: string;
    icon: any;
@@ -66,10 +67,16 @@ export default function ToolsPage() {
    const [loading, setLoading] = useState(true);
    const [selectedTool, setSelectedTool] = useState<{ id: string, name: string } | null>(null);
    const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
-   const { selectedClient } = useClient();
+   const [toastMessage, setToastMessage] = useState<string | null>(null);
+   const { selectedClient, loading: isClientLoading } = useClient();
+
+   const showToast = (msg: string) => {
+      setToastMessage(msg);
+      setTimeout(() => setToastMessage(null), 3000);
+   };
 
    const fetchData = useCallback(async () => {
-      if (!selectedClient) return;
+      if (isClientLoading) return;
       
       setLoading(true);
       try {
@@ -77,14 +84,19 @@ export default function ToolsPage() {
          const toolsRes = await api.get("/tools");
          const baseTools = toolsRes.data.tools;
 
+         let connectedToolNames = new Set<string>();
+
          // 2. Fetch connected accounts for the SELECTED client
-         const accountsRes = await api.get(`/tools/accounts/${selectedClient.id}`);
-         const connectedToolNames = new Set(accountsRes.data.accounts.map((a: any) => a.tool_name));
+         if (selectedClient) {
+             const accountsRes = await api.get(`/tools/accounts/${selectedClient.id}`);
+             connectedToolNames = new Set(accountsRes.data.accounts.map((a: any) => a.tool_name));
+         }
 
          // 3. Merge info
          const mergedTools: ToolItem[] = baseTools.map((t: any) => ({
             ...t,
             isConnected: connectedToolNames.has(t.id),
+            status: t.status || 'active',
             icon: TOOL_ICONS[t.id] || Box,
             syncStat: connectedToolNames.has(t.id) ? "Connected" : undefined
          }));
@@ -95,15 +107,25 @@ export default function ToolsPage() {
       } finally {
          setLoading(false);
       }
-   }, [selectedClient]);
+   }, [selectedClient, isClientLoading]);
 
    useEffect(() => {
       fetchData();
    }, [fetchData]);
 
    const handleConnectClick = (tool: { id: string, name: string }) => {
+      if (!selectedClient) {
+         showToast("Please create or select a client first to connect tools.");
+         setTimeout(() => router.push("/dashboard/clients"), 1500);
+         return;
+      }
       setSelectedTool(tool);
       setIsConnectModalOpen(true);
+   };
+
+   const handleDisabledConnectClick = (tool: ToolItem) => {
+      // Opt-in tracking hook/log for measuring interest in integration 
+      console.log(`[TRACKING] Interest logged for coming soon tool: ${tool.name} (${tool.id})`);
    };
 
    const filteredTools = useMemo(() => {
@@ -200,9 +222,21 @@ export default function ToolsPage() {
                                     </div>
                                     <div className="truncate">
                                        <h3 className="text-base sm:text-lg font-black text-[#1a1510] tracking-tight leading-none mb-1.5 truncate">{tool.name}</h3>
-                                       <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border truncate inline-block ${tool.category === 'Prospecting & Data' ? 'bg-blue-50 text-blue-500 border-blue-100' : 'bg-[#1a1510]/5 text-[#1a1510]/40 border-transparent'}`}>
-                                          {tool.category}
-                                       </span>
+                                       <div className="flex gap-2">
+                                          <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border truncate inline-block ${tool.category === 'Prospecting & Data' ? 'bg-blue-50 text-blue-500 border-blue-100' : 'bg-[#1a1510]/5 text-[#1a1510]/40 border-transparent'}`}>
+                                             {tool.category}
+                                          </span>
+                                          {tool.status === 'comingSoon' && (
+                                             <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border border-orange-200 bg-orange-50 text-orange-600 truncate inline-block">
+                                                Coming Soon
+                                             </span>
+                                          )}
+                                          {tool.status === 'disabled' && (
+                                             <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border border-red-200 bg-red-50 text-red-600 truncate inline-block">
+                                                Disabled
+                                             </span>
+                                          )}
+                                       </div>
                                     </div>
                                  </div>
                                  <div className="flex items-center gap-1.5 shrink-0">
@@ -233,13 +267,22 @@ export default function ToolsPage() {
                                        </button>
                                     </div>
                                  </div>
-                              ) : (
+                              ) : tool.status === 'active' ? (
                                  <button 
                                     onClick={() => handleConnectClick(tool)}
                                     className="w-full h-11 rounded-xl sm:rounded-2xl bg-[#1a1510] text-brand-gold text-[9px] sm:text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl hover:translate-y-[-1px] transition-all"
                                  >
                                     <LinkIcon size={14} /> Connect
                                  </button>
+                              ) : (
+                                 <div title={tool.status === 'comingSoon' ? "This integration is coming soon" : "This integration is currently disabled"}>
+                                    <button 
+                                       onClick={() => handleDisabledConnectClick(tool)}
+                                       className="w-full h-11 rounded-xl sm:rounded-2xl bg-[#f7f8f9] text-[#1a1510]/30 border border-[#1a1510]/10 text-[9px] sm:text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:bg-[#1a1510]/5"
+                                    >
+                                       <LinkIcon size={14} /> {tool.status === 'comingSoon' ? "Coming Soon" : "Disabled"}
+                                    </button>
+                                 </div>
                               )}
                            </div>
                         </motion.div>
@@ -256,6 +299,19 @@ export default function ToolsPage() {
             clientId={selectedClient?.id || ""}
             onSuccess={fetchData}
          />
+
+         <AnimatePresence>
+            {toastMessage && (
+               <motion.div 
+                  initial={{ opacity: 0, y: 20 }} 
+                  animate={{ opacity: 1, y: 0 }} 
+                  exit={{ opacity: 0, y: 20 }} 
+                  className="fixed bottom-10 right-10 bg-[#1a1510] text-white px-6 py-4 rounded-xl shadow-2xl z-50 text-[11px] font-black tracking-widest uppercase border border-white/10"
+               >
+                  {toastMessage}
+               </motion.div>
+            )}
+         </AnimatePresence>
       </div>
    );
 }

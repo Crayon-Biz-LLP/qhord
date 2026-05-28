@@ -20,7 +20,7 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 router.post('/', async (req: Request, res: Response) => {
-  const { name, description } = req.body as { name: string; description?: string };
+  const { name, description, region, account_owner, industry, status, website, priority } = req.body as any;
   if (!name) {
     res.status(400).json({ message: 'name is required' });
     return;
@@ -31,6 +31,12 @@ router.post('/', async (req: Request, res: Response) => {
       data: {
         name,
         description: description ?? null,
+        region: region ?? null,
+        account_owner: account_owner ?? null,
+        industry: industry ?? null,
+        status: status ?? 'Active',
+        website: website ?? null,
+        priority: priority ?? 'Medium',
         created_by_operator_id: req.user!.id
       }
     });
@@ -63,7 +69,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 
 router.put('/:id', async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { name, description } = req.body as { name?: string; description?: string };
+  const { name, description, region, account_owner, industry, status, website, priority } = req.body as any;
 
   try {
     const existing = await prisma.client.findFirst({
@@ -82,7 +88,13 @@ router.put('/:id', async (req: Request, res: Response) => {
       where: { id },
       data: {
         name: name !== undefined ? name : undefined,
-        description: description !== undefined ? description : undefined
+        description: description !== undefined ? description : undefined,
+        region: region !== undefined ? region : undefined,
+        account_owner: account_owner !== undefined ? account_owner : undefined,
+        industry: industry !== undefined ? industry : undefined,
+        status: status !== undefined ? status : undefined,
+        website: website !== undefined ? website : undefined,
+        priority: priority !== undefined ? priority : undefined
       }
     });
     res.json({ client });

@@ -24,7 +24,7 @@ export function useAuth(redirectUnauthenticated = false): UseAuthResult {
         const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
         if (!token) {
           if (redirectUnauthenticated) {
-            router.replace("/login");
+            router.replace("/");
           }
           setLoading(false);
           return;
@@ -34,7 +34,7 @@ export function useAuth(redirectUnauthenticated = false): UseAuthResult {
       } catch {
         localStorage.removeItem("auth_token");
         if (redirectUnauthenticated) {
-          router.replace("/login");
+          router.replace("/");
         }
       } finally {
         setLoading(false);
@@ -62,7 +62,7 @@ export function useAuth(redirectUnauthenticated = false): UseAuthResult {
   const logout = () => {
     localStorage.removeItem("auth_token");
     setUser(null);
-    router.replace("/login");
+    router.replace("/");
   };
 
   return { user, loading, login, register, logout };

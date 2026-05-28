@@ -8,7 +8,7 @@ const router = Router();
 router.get('/', async (_req: Request, res: Response) => {
   try {
     const dbTools = await (prisma as any).tool.findMany({
-      orderBy: { name: 'asc' }
+      orderBy: { status: 'asc' }
     });
     // Map tool_id to id for frontend compatibility
     const tools = dbTools.map((t: any) => ({
@@ -94,8 +94,8 @@ router.delete('/accounts/:id', async (req: Request, res: Response) => {
     res.status(204).send();
   } catch (err: any) {
     if (err.code === 'P2025') {
-       res.status(404).json({ message: 'Tool account not found' });
-       return;
+      res.status(404).json({ message: 'Tool account not found' });
+      return;
     }
     console.error('Delete tool account error', err);
     res.status(500).json({ message: 'Failed to delete tool account' });
