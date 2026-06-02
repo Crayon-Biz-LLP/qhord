@@ -14,6 +14,15 @@ services:
       - db_data:/var/lib/postgresql/data
       - ./backend/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
   backend:
     build:
       context: ./backend
@@ -22,6 +31,7 @@ services:
       NODE_ENV: production
       PORT: 4000
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/control_tower
+      REDIS_URL: redis://redis:6379
       JWT_SECRET: development-jwt-secret-change-me
       BCRYPT_SALT_ROUNDS: 12
       ENCRYPTION_SECRET: development-encryption-secret-change-me
@@ -31,6 +41,7 @@ services:
       SMARTLEAD_BASE_URL: https://server.smartlead.ai/api/v1
     depends_on:
       - postgres
+      - redis
     ports:
       - "4000:4000"
 
@@ -48,4 +59,4 @@ services:
 
 volumes:
   db_data:
-
+  redis_data:

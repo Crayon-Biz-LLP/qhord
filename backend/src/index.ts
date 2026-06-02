@@ -1,15 +1,27 @@
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
+import 'dotenv/config';
 import authRoutes from './routes/auth';
 import clientRoutes from './routes/clients';
 import toolRoutes from './routes/tools';
 import executionRoutes from './routes/executions';
 import planRoutes from './routes/plans';
+import campaignRoutes from './routes/campaigns';
+import nodeStatusRoutes from './routes/node-status';
+import approvalRoutes from './routes/approvals';
+import campaignExecutionRoutes from './routes/execution';
+import aiMetricsRoutes from './routes/ai-metrics';
+import subscriptionRoutes from './routes/subscription';
+import commandCenterRoutes from './routes/command-center';
+import queueRoutes from './routes/queue';
+import workflowRoutes from './routes/workflows';
+import memoryRoutes from './routes/memory';
 import settingsRoutes from './routes/settings';
+import leadsRoutes from './routes/leads';
+import dashboardRoutes from './routes/dashboard';
+import analyticsRoutes from './routes/analytics';
 import { prisma } from './lib/prisma';
-
-dotenv.config();
+import { campaignWorker } from './workers/campaign-worker';
 
 const app = express();
 
@@ -31,7 +43,20 @@ app.use('/api/clients', clientRoutes);
 app.use('/api/tools', toolRoutes);
 app.use('/api/executions', executionRoutes);
 app.use('/api/plans', planRoutes);
+app.use('/api/campaigns', campaignRoutes);
+app.use('/api/nodes', nodeStatusRoutes);
+app.use('/api/approvals', approvalRoutes);
+app.use('/api/execution', campaignExecutionRoutes);
+app.use('/api/queue', queueRoutes);
+app.use('/api/workflows', workflowRoutes);
+app.use('/api/memory', memoryRoutes);
+app.use('/api', aiMetricsRoutes);
+app.use('/api/subscription', subscriptionRoutes);
+app.use('/api/command-center', commandCenterRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/leads', leadsRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 const port = parseInt(process.env.PORT || '4000', 10);
 

@@ -893,6 +893,36 @@ export const actionTemplates: ActionTemplate[] = [
       { name: "email_account_ids", label: "Email Account IDs", type: "string", required: true, helpText: "Comma-separated numeric IDs of email accounts." },
     ],
   },
+  {
+    id: "hunter.search_leads",
+    tool: "hunter",
+    action: "search_leads",
+    label: "Discover & find emails",
+    description: "Free demo: Hunter Discover + domain search (auto pipeline source).",
+    fields: [
+      { name: "query", label: "Company search query", type: "string", required: true, placeholder: "SaaS companies in the United States" },
+      { name: "limit", label: "Max leads", type: "number", defaultValue: 10 },
+    ],
+  },
+  {
+    id: "hunter.verify_emails",
+    tool: "hunter",
+    action: "verify_emails",
+    label: "Verify emails",
+    description: "Free demo: verify emails on leads in pipeline.",
+    fields: [{ name: "max", label: "Max to verify", type: "number", defaultValue: 10 }],
+  },
+  {
+    id: "brevo.prepare_campaign",
+    tool: "brevo",
+    action: "prepare_campaign",
+    label: "Prepare campaign",
+    description: "Free demo: create Brevo list + draft campaign.",
+    fields: [
+      { name: "name", label: "Campaign name", type: "string", required: true },
+      { name: "subject", label: "Email subject", type: "string", placeholder: "Quick intro" },
+    ],
+  },
 ];
 
 export function getTemplate(tool: string, action: string | null | undefined): ActionTemplate | undefined {

@@ -1,44 +1,47 @@
 "use client";
 
-import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import React, { useState, useEffect } from "react";
 import { 
-  Bot, ShieldCheck, Zap, Cpu, Activity, Clock, Search, Target, Mail, 
-  MessageSquare, LayoutDashboard, Terminal, Settings2, RotateCcw, 
-  Database, Plus, ChevronRight, CheckCircle, AlertTriangle, XCircle, 
-  Globe, Play, Pause, RefreshCw, Layers, TrendingUp, BarChart3, Users, Sparkles,
-  ArrowUpRight, ArrowDownRight, Filter, Download, MoreHorizontal, MousePointer2,
-  Lock, ZapOff, History, LayoutPanelLeft, LineChart, Calendar, DollarSign
+  Bot, Database, Plus, CheckCircle, Clock, RefreshCw, MoreHorizontal, Target,
+  LayoutDashboard
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-
-// --- Mock Data ---
-const CAMPAIGNS_DATA = {
-  kpis: [
-    { label: "ACTIVE", value: "8", change: "+2 this mo", sparkline: [40, 50, 45, 60, 55, 70, 65, 80] },
-    { label: "REPLY RT", value: "12.4%", change: "+1.2% skew", sparkline: [30, 35, 32, 40, 38, 45, 42, 50] },
-    { label: "MEETINGS", value: "42", change: "+18 today", sparkline: [20, 25, 22, 30, 28, 35, 32, 40] },
-    { label: "PIPELINE", value: "$1.4M", change: "+$210k week", sparkline: [10, 15, 12, 18, 16, 22, 18, 25] },
-  ],
-  priorities: [
-    { id: 1, type: "CRITICAL", entity: "Enterprise SaaS", title: "Approve 122 manual replies", impact: "Waiting > 4h — $120K at risk", color: "text-red-500", bg: "bg-red-50" },
-    { id: 2, type: "STALLED", entity: "Nike EU", title: "Domain warm-up completed", impact: "Ready to launch — potential +$45K", color: "text-[#D4AF37]", bg: "bg-brand-gold/5" },
-  ],
-  campaignTable: [
-    { name: "Cold Outbound", status: "Active", health: "92%", tools: ["A", "C"], replies: 24, mtgs: 6, pipeline: "$185K" },
-    { name: "LinkedIn Nurture", status: "Active", health: "78%", tools: ["H"], replies: 12, mtgs: 2, pipeline: "$45K" },
-    { name: "EU Expansion", status: "Paused", health: "65%", tools: ["A", "S"], replies: 8, mtgs: 1, pipeline: "$32K" },
-  ]
-};
+import { CreateCampaignModal } from "@/components/campaigns/CreateCampaignModal";
 
 export default function CampaignsPage() {
   const router = useRouter();
-  const [operatorMode, setOperatorMode] = useState<"Manual" | "Assisted" | "Autopilot">("Assisted");
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchCampaigns();
+  }, []);
+
+  const fetchCampaigns = async () => {
+    try {
+      const token = localStorage.getItem("auth_token");
+      const response = await fetch("http://localhost:4000/api/campaigns", {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setCampaigns(data.campaigns || []);
+      }
+    } catch (error) {
+      console.error('Error fetching campaigns:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#f7f8f9] text-[#1a1510] font-sans selection:bg-[#D4AF37]/30">
       
-      {/* 1. Header Navigation */}
       <nav className="h-20 border-b border-[#1a1510]/5 bg-white flex items-center justify-between px-4 sm:px-8 shrink-0 z-50 shadow-sm relative">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-[#1a1510] text-brand-gold rounded-xl shadow-lg shrink-0">
@@ -59,8 +62,11 @@ export default function CampaignsPage() {
           >
             <LayoutDashboard size={14} /> <span className="hidden sm:inline">Back</span>
           </button>
-          <button className="h-10 px-4 sm:px-6 rounded-xl bg-brand-gold text-[#1a1510] text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center gap-2 hover:translate-y-[-1px] transition-all">
-             <Plus size={14} /> <span className="hidden xs:inline">New</span>
+          <button 
+            onClick={() => setIsCreateModalOpen(true)}
+            className="h-10 px-4 sm:px-6 rounded-xl bg-brand-gold text-[#1a1510] text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center gap-2 hover:translate-y-[-1px] transition-all"
+          >
+            <Plus size={14} /> <span className="hidden xs:inline">New Campaign</span>
           </button>
         </div>
       </nav>
@@ -68,118 +74,118 @@ export default function CampaignsPage() {
       <main className="flex-1 overflow-y-auto scrollbar-hide pb-32">
         <div className="max-w-7xl mx-auto p-4 sm:p-8 space-y-12">
            
-           {/* KPI Ribbon */}
-           <div className="flex md:grid md:grid-cols-4 gap-4 overflow-x-auto scrollbar-hide pb-2">
-              {CAMPAIGNS_DATA.kpis.map((kpi, i) => (
-                 <div key={i} className="bg-white p-5 rounded-3xl border border-[#1a1510]/5 flex flex-col justify-between h-36 min-w-[150px] md:min-w-0 flex-1 hover:shadow-md transition-all group">
-                    <div className="flex justify-between items-start">
-                       <span className="text-[8px] font-black text-[#1a1510]/30 uppercase tracking-[0.2em]">{kpi.label}</span>
-                       <Activity size={12} className="text-[#1a1510]/10 group-hover:text-brand-gold transition-colors" />
-                    </div>
-                    <div>
-                       <h4 className="text-2xl font-black">{kpi.value}</h4>
-                       <span className="text-[8px] font-bold text-emerald-500 uppercase tracking-widest">{kpi.change}</span>
-                    </div>
-                    <div className="h-4 flex items-end gap-[2px] opacity-20 group-hover:opacity-100 transition-opacity">
-                       {kpi.sparkline.map((v, idx) => (
-                          <div key={idx} className="flex-1 bg-brand-gold rounded-full" style={{ height: `${v}%` }} />
-                       ))}
-                    </div>
+           <div className="p-8">
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+               <div className="bg-white rounded-xl p-6 border border-[#1a1510]/5 shadow-sm">
+                 <div className="flex items-center justify-between mb-4">
+                   <span className="text-xs font-bold text-[#1a1510]/40 uppercase tracking-widest">TOTAL CAMPAIGNS</span>
+                   <Database className="w-4 h-4 text-brand-gold" />
                  </div>
-              ))}
+                 <div className="text-2xl font-bold text-[#1a1510]">{campaigns.length}</div>
+                 <div className="text-xs text-[#1a1510]/40">Created by you</div>
+               </div>
+               
+               <div className="bg-white rounded-xl p-6 border border-[#1a1510]/5 shadow-sm">
+                 <div className="flex items-center justify-between mb-4">
+                   <span className="text-xs font-bold text-[#1a1510]/40 uppercase tracking-widest">APPROVED</span>
+                   <CheckCircle className="w-4 h-4 text-emerald-500" />
+                 </div>
+                 <div className="text-2xl font-bold text-[#1a1510]">
+                   {campaigns.filter(c => c.status === 'approved').length}
+                 </div>
+                 <div className="text-xs text-[#1a1510]/40">Ready for execution</div>
+               </div>
+               
+               <div className="bg-white rounded-xl p-6 border border-[#1a1510]/5 shadow-sm">
+                 <div className="flex items-center justify-between mb-4">
+                   <span className="text-xs font-bold text-[#1a1510]/40 uppercase tracking-widest">PENDING</span>
+                   <Clock className="w-4 h-4 text-orange-500" />
+                 </div>
+                 <div className="text-2xl font-bold text-[#1a1510]">
+                   {campaigns.filter(c => c.status === 'pending_approval').length}
+                 </div>
+                 <div className="text-xs text-[#1a1510]/40">Awaiting approval</div>
+               </div>
+             </div>
            </div>
 
-           {/* AI Operator Hero */}
-           <div className="bg-white border border-[#1a1510]/5 rounded-[2.5rem] sm:rounded-[3rem] overflow-hidden shadow-sm">
-              <div className="p-6 sm:p-10 flex flex-col sm:flex-row items-center justify-between gap-8">
-                 <div className="flex items-center gap-6">
-                    <div className="w-16 h-16 rounded-2xl bg-[#1a1510] text-brand-gold flex items-center justify-center shadow-lg shrink-0">
-                       <Bot size={32} />
-                    </div>
-                    <div className="text-center sm:text-left">
-                       <h3 className="text-2xl font-black tracking-tight">Campaign Operator</h3>
-                       <p className="text-[10px] font-bold text-[#1a1510]/30 uppercase tracking-widest mt-1">8 active nodes • Autopilot Assisted</p>
-                    </div>
+           <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-[#1a1510]">Your Campaigns</h3>
+              <div className="flex items-center gap-2">
+                 <button className="p-2 bg-white border border-[#1a1510]/5 rounded-lg hover:bg-[#f7f8f9] transition-colors">
+                    <RefreshCw size={16} className="text-[#1a1510]/60" />
+                 </button>
+              </div>
+           </div>
+
+           <div className="bg-white rounded-xl border border-[#1a1510]/5 overflow-hidden">
+              {loading ? (
+                 <div className="p-8 text-center">
+                    <div className="animate-spin w-8 h-8 border-2 border-brand-gold border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <p className="text-[#1a1510]/60">Loading campaigns...</p>
                  </div>
-                 <div className="flex bg-[#f7f8f9] p-1.5 rounded-2xl border border-[#1a1510]/5 shrink-0">
-                    {["Manual", "Assisted", "Autopilot"].map((m) => (
-                       <button key={m} onClick={() => setOperatorMode(m as any)} className={`px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${operatorMode === m ? 'bg-white text-[#1a1510] shadow-sm' : 'text-[#1a1510]/30'}`}>{m}</button>
+              ) : campaigns.length === 0 ? (
+                 <div className="p-8 text-center">
+                    <Bot className="w-12 h-12 text-[#1a1510]/20 mx-auto mb-4" />
+                    <h3 className="text-lg font-bold text-[#1a1510] mb-2">No campaigns yet</h3>
+                    <p className="text-[#1a1510]/60 mb-4">Create your first AI-powered campaign</p>
+                    <button 
+                       onClick={() => setIsCreateModalOpen(true)}
+                       className="px-4 py-2 bg-brand-gold text-[#1a1510] rounded-lg font-semibold hover:bg-brand-gold/90 transition-colors"
+                    >
+                       Create Campaign
+                    </button>
+                 </div>
+              ) : (
+                 <div className="divide-y divide-[#1a1510]/5">
+                    {campaigns.map((campaign) => (
+                       <div key={campaign.id} className="p-6 hover:bg-[#f7f8f9] transition-colors">
+                          <div className="flex items-center justify-between">
+                             <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-2">
+                                   <h4 className="font-bold text-[#1a1510]">{campaign.name}</h4>
+                                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                      campaign.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
+                                      campaign.status === 'pending_approval' ? 'bg-orange-100 text-orange-700' :
+                                      campaign.status === 'draft' ? 'bg-gray-100 text-gray-700' :
+                                      'bg-blue-100 text-blue-700'
+                                   }`}>
+                                      {campaign.status}
+                                   </span>
+                                </div>
+                                <p className="text-sm text-[#1a1510]/60 mb-2">{campaign.description}</p>
+                                <div className="flex items-center gap-4 text-xs text-[#1a1510]/40">
+                                   <span>💰 ${campaign.estimatedCost}</span>
+                                   <span>⏱️ {campaign.estimatedDuration} min</span>
+                                   <span>📊 {campaign.stepCount} steps</span>
+                                   <span>📅 {new Date(campaign.createdAt).toLocaleDateString()}</span>
+                                </div>
+                             </div>
+                             <div className="flex items-center gap-2">
+                                {campaign.status === 'draft' && (
+                                   <button className="px-3 py-1 bg-brand-gold text-[#1a1510] rounded-lg text-xs font-semibold hover:bg-brand-gold/90 transition-colors">
+                                      Submit for Approval
+                                   </button>
+                                )}
+                                <button className="p-2 bg-white border border-[#1a1510]/5 rounded-lg hover:bg-[#f7f8f9] transition-colors">
+                                   <MoreHorizontal size={16} className="text-[#1a1510]/60" />
+                                </button>
+                             </div>
+                          </div>
+                       </div>
                     ))}
                  </div>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 border-t border-[#1a1510]/5 divide-x divide-[#1a1510]/5 bg-[#fcfcfc]">
-                 {[
-                    { l: "Budget Saved", v: "$14k", c: "text-emerald-500" },
-                    { l: "Leads Recov.", v: "1.2k", c: "text-brand-gold" },
-                    { l: "Optimized", v: "12", c: "text-blue-500" },
-                    { l: "Risk Alerts", v: "2", c: "text-red-500" },
-                 ].map((s, i) => (
-                    <div key={i} className="p-6 text-center hover:bg-white transition-all">
-                       <p className="text-[8px] font-black uppercase text-[#1a1510]/20 tracking-widest mb-1">{s.l}</p>
-                       <p className={`text-xl font-black ${s.c}`}>{s.v}</p>
-                    </div>
-                 ))}
-              </div>
+              )}
            </div>
 
-           {/* Tactical Grid */}
-           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              
-              {/* Priorities */}
-              <div className="lg:col-span-4 space-y-4">
-                 <h4 className="text-[10px] font-black uppercase text-[#1a1510]/20 tracking-widest px-2">Priority Queue</h4>
-                 {CAMPAIGNS_DATA.priorities.map((p, i) => (
-                    <div key={i} className="bg-white border border-[#1a1510]/5 rounded-[2rem] p-6 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
-                       <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-gold opacity-10 group-hover:opacity-100" />
-                       <div className="flex justify-between mb-2">
-                          <span className={`text-[8px] font-black px-2 py-0.5 rounded ${p.bg} ${p.color} uppercase tracking-widest`}>{p.type}</span>
-                          <span className="text-[9px] font-black text-[#1a1510]/10 uppercase">{p.entity}</span>
-                       </div>
-                       <h5 className="text-sm font-black mb-1">{p.title}</h5>
-                       <p className="text-[9px] font-bold text-[#1a1510]/40 uppercase tracking-widest">{p.impact}</p>
-                    </div>
-                 ))}
-              </div>
-
-              {/* Table */}
-              <div className="lg:col-span-8 bg-white border border-[#1a1510]/5 rounded-[2.5rem] shadow-sm overflow-hidden">
-                 <div className="overflow-x-auto">
-                    <table className="w-full whitespace-nowrap">
-                       <thead className="bg-[#fcfcfc] border-b border-[#1a1510]/5">
-                          <tr>
-                             <th className="p-6 text-left text-[9px] font-black text-[#1a1510]/20 uppercase tracking-widest">Campaign</th>
-                             <th className="p-6 text-center text-[9px] font-black text-[#1a1510]/20 uppercase tracking-widest">Status</th>
-                             <th className="p-6 text-center text-[9px] font-black text-[#1a1510]/20 uppercase tracking-widest">Health</th>
-                             <th className="p-6 text-right text-[9px] font-black text-[#1a1510]/20 uppercase tracking-widest">Pipeline</th>
-                          </tr>
-                       </thead>
-                       <tbody className="divide-y divide-[#1a1510]/5">
-                          {CAMPAIGNS_DATA.campaignTable.map((r, i) => (
-                             <tr key={i} className="hover:bg-[#f7f8f9] group transition-all">
-                                <td className="p-6">
-                                   <div className="flex items-center gap-4">
-                                      <div className="w-10 h-10 rounded-xl bg-[#f7f8f9] flex items-center justify-center text-[#1a1510]/20 group-hover:bg-[#1a1510] group-hover:text-brand-gold transition-all">
-                                         <Target size={16} />
-                                      </div>
-                                      <div>
-                                         <p className="text-xs font-black truncate">{r.name}</p>
-                                         <p className="text-[8px] font-bold text-[#1a1510]/20 uppercase">Nodes: {r.tools.join(", ")}</p>
-                                      </div>
-                                   </div>
-                                </td>
-                                <td className="p-6 text-center">
-                                   <span className={`text-[8px] font-black px-2 py-0.5 rounded-full ${r.status === 'Active' ? 'bg-emerald-50 text-emerald-500' : 'bg-orange-50 text-orange-500'} uppercase tracking-widest`}>{r.status}</span>
-                                </td>
-                                <td className="p-6 text-center font-black text-xs">{r.health}</td>
-                                <td className="p-6 text-right font-black text-xs">{r.pipeline}</td>
-                             </tr>
-                          ))}
-                       </tbody>
-                    </table>
-                 </div>
-              </div>
-
-           </div>
+      <CreateCampaignModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={(campaign) => {
+          console.log('Campaign created:', campaign);
+          fetchCampaigns();
+        }}
+      />
         </div>
       </main>
     </div>

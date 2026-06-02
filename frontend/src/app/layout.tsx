@@ -3,6 +3,8 @@
 import '../globals.css';
 import type { ReactNode } from 'react';
 import { Inter, Outfit } from 'next/font/google';
+import { Toaster } from 'sonner';
+import { CreditProvider } from '@/contexts/CreditContext';
 
 const inter = Inter({
   variable: "--font-geist-sans",
@@ -13,9 +15,6 @@ const outfit = Outfit({
   variable: "--font-outfit",
   subsets: ["latin"],
 });
-
-import { Toaster } from 'sonner';
-import { CreditProvider } from '@/contexts/CreditContext';
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (

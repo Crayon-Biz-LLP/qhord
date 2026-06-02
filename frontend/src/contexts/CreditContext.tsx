@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
-import axios from 'axios';
+import { api } from '@/lib/api';
 
 interface CreditContextType {
   userCredits: number;
@@ -15,20 +15,30 @@ interface CreditContextType {
 
 const CreditContext = createContext<CreditContextType | undefined>(undefined);
 
+const DEFAULT_CREDITS = 2000;
+
 export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [userCredits, setUserCredits] = useState<number>(2000);
+  const [userCredits, setUserCredits] = useState<number>(DEFAULT_CREDITS);
   const [loading, setLoading] = useState<boolean>(true);
 
   const fetchCredits = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/api/user/balance');
-      if (response.data && typeof response.data.balance === 'number') {
-        setUserCredits(response.data.balance);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+      if (!token) {
+        setUserCredits(DEFAULT_CREDITS);
+        return;
+      }
+      const response = await api.get('/subscription/credits');
+      const balance =
+        typeof response.data?.balance === 'number'
+          ? response.data.balance
+          : response.data?.credits?.remaining_credits;
+      if (typeof balance === 'number') {
+        setUserCredits(balance);
       }
     } catch (error) {
       console.error('Failed to fetch credit balance:', error);
-      // Fallback to default if API fails, or keep current state
     } finally {
       setLoading(false);
     }
@@ -49,7 +59,7 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const topUpCredits = async (amount: number) => {
     try {
-      const response = await axios.post('/api/billing/top-up', { amount });
+      const response = await api.post('/subscription/top-up', { amount });
       if (response.data.success) {
         handlePurchaseSuccess(response.data.addedCredits, response.data.newTotal);
       }
@@ -61,14 +71,14 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   return (
-    <CreditContext.Provider 
-      value={{ 
-        userCredits, 
-        loading, 
-        fetchCredits, 
-        updateCredits, 
+    <CreditContext.Provider
+      value={{
+        userCredits,
+        loading,
+        fetchCredits,
+        updateCredits,
         handlePurchaseSuccess,
-        topUpCredits
+        topUpCredits,
       }}
     >
       {children}

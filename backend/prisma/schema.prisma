@@ -8,100 +8,138 @@ datasource db {
 }
 
 model Operator {
-  id                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email                String              @unique
-  password_hash        String
-  name                 String
-  role                 String              @default("operator")
-  created_at           DateTime            @default(now()) @db.Timestamptz(6)
-  two_factor_secret    String?
-  
-  workspace_id         String?             @db.Uuid
-  workspace            Workspace?          @relation(fields: [workspace_id], references: [id])
-  settings             OperatorSettings?
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email         String   @unique
+  password_hash String
+  name          String
+  role          String   @default("operator")
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  two_factor_secret String?
 
-  client_tool_accounts ClientToolAccount[]
-  clients              Client[]
-  execution_contexts   ExecutionContext[]
-  executions           Execution[]
+  workspace_id  String?  @db.Uuid
+  workspace     Workspace? @relation(fields: [workspace_id], references: [id])
+  settings      OperatorSettings?
+
+  clients               Client[]
+  client_tool_accounts  ClientToolAccount[]
+  execution_contexts    ExecutionContext[]
+  executions            Execution[]
+  campaigns             Campaign[]
+  submitted_campaigns   Campaign[]           @relation("campaign_submitted_by")
+  approved_campaigns    Campaign[]           @relation("campaign_approved_by")
+  requested_approvals   CampaignApproval[]   @relation("approval_requested_by")
+  approved_approvals    CampaignApproval[]   @relation("approval_approved_by")
+  notifications         Notification[]
 
   @@map("operators")
 }
 
 model Workspace {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name        String
-  domain      String?
-  timezone    String?  @default("Eastern (EST)")
-  logo_url    String?
-  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String
+  domain     String?
+  timezone   String?  @default("Eastern (EST)")
+  logo_url   String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
 
-  operators   Operator[]
+  operators Operator[]
 
   @@map("workspaces")
 }
 
 model OperatorSettings {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  operator_id   String   @unique @db.Uuid
-  operator      Operator @relation(fields: [operator_id], references: [id], onDelete: Cascade)
-  
-  // AI Preferences
-  ai_tone               String?  @default("Professional")
-  ai_personalization    String?  @default("Medium")
-  auto_reply            Boolean  @default(true)
-  auto_pause            Boolean  @default(true)
-  auto_optimize         Boolean  @default(false)
-  auto_score            Boolean  @default(true)
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  operator_id            String   @unique @db.Uuid
+  operator               Operator @relation(fields: [operator_id], references: [id], onDelete: Cascade)
 
-  // Notification Preferences (as JSON)
-  notifications         Json     @default("[]")
+  ai_tone                String?  @default("Professional")
+  ai_personalization     String?  @default("Medium")
+  auto_reply             Boolean  @default(true)
+  auto_pause             Boolean  @default(true)
+  auto_optimize          Boolean  @default(false)
+  auto_score             Boolean  @default(true)
 
-  // Outreach Settings
-  daily_send_limit      Int      @default(200)
-  inbox_rotation        String?  @default("Round Robin")
-  auto_pause_threshold  String?  @default("5% bounce rate")
-  safety_mode           Boolean  @default(true)
-  daily_connection_limit Int     @default(25)
-  daily_message_limit    Int     @default(50)
-  linkedin_account      String?  @default("sarah.linkedin")
-  default_crm           String?  @default("hubspot")
-  two_factor_enabled    Boolean  @default(false)
+  notifications          Json     @default("[]")
+
+  daily_send_limit       Int      @default(200)
+  inbox_rotation         String?  @default("Round Robin")
+  auto_pause_threshold   String?  @default("5% bounce rate")
+  safety_mode            Boolean  @default(true)
+  daily_connection_limit Int      @default(25)
+  daily_message_limit    Int      @default(50)
+  linkedin_account       String?  @default("sarah.linkedin")
+  default_crm            String?  @default("hubspot")
+  two_factor_enabled     Boolean  @default(false)
 
   @@map("operator_settings")
 }
 
 model Client {
-  id                     String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name                   String
   description            String?
-  created_by_operator_id String              @db.Uuid
-  created_at             DateTime            @default(now()) @db.Timestamptz(6)
+  created_by_operator    Operator @relation(fields: [created_by_operator_id], references: [id])
+  created_by_operator_id String   @db.Uuid
+  created_at             DateTime @default(now()) @db.Timestamptz(6)
   account_owner          String?
   industry               String?
-  priority               String              @default("Medium")
+  priority               String   @default("Medium")
   region                 String?
-  status                 String              @default("Active")
+  status                 String   @default("Active")
   website                String?
-  tool_accounts          ClientToolAccount[]
-  created_by_operator    Operator            @relation(fields: [created_by_operator_id], references: [id])
-  execution_contexts     ExecutionContext[]
-  executions             Execution[]
+
+  tool_accounts      ClientToolAccount[]
+  execution_contexts ExecutionContext[]
+  executions         Execution[]
+  campaigns          Campaign[]
+  leads              Lead[]
+  credit             ClientCredit?
 
   @@map("clients")
 }
 
+model ClientCredit {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  client_id  String   @unique @db.Uuid
+  client     Client   @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  balance    Int      @default(2000)
+  total_used Int      @default(0)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  transactions CreditTransaction[]
+
+  @@map("client_credits")
+}
+
+model CreditTransaction {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  credit_id   String   @db.Uuid
+  credit      ClientCredit @relation(fields: [credit_id], references: [id], onDelete: Cascade)
+  amount      Int
+  type        String   @default("debit") // "credit" | "debit"
+  description String?
+  tool_name   String?
+  action      String?
+  campaign_id String?  @db.Uuid
+  execution_id String? @db.Uuid
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("credit_transactions")
+}
+
 model ClientToolAccount {
-  id                     String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  client_id              String      @db.Uuid
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  client                 Client   @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  client_id              String   @db.Uuid
   tool_name              String
   account_label          String
   api_key_encrypted      String
-  created_by_operator_id String      @db.Uuid
-  created_at             DateTime    @default(now()) @db.Timestamptz(6)
-  client                 Client      @relation(fields: [client_id], references: [id], onDelete: Cascade)
-  created_by_operator    Operator    @relation(fields: [created_by_operator_id], references: [id])
-  executions             Execution[]
+  created_by_operator    Operator @relation(fields: [created_by_operator_id], references: [id])
+  created_by_operator_id String   @db.Uuid
+  created_at             DateTime @default(now()) @db.Timestamptz(6)
+
+  executions Execution[]
 
   @@map("client_tool_accounts")
 }
@@ -114,44 +152,44 @@ model Tool {
   description String?
   status      String   @default("active")
   created_at  DateTime @default(now()) @db.Timestamptz(6)
-  status      String   @default("active")
 
   @@map("tools")
 }
 
 model ExecutionContext {
-  id                     String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  client_id              String      @db.Uuid
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  client                 Client   @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  client_id              String   @db.Uuid
   name                   String
   description            String?
   context_data           Json?
-  created_by_operator_id String      @db.Uuid
-  created_at             DateTime    @default(now()) @db.Timestamptz(6)
-  client                 Client      @relation(fields: [client_id], references: [id], onDelete: Cascade)
-  created_by_operator    Operator    @relation(fields: [created_by_operator_id], references: [id])
-  executions             Execution[]
+  created_by_operator    Operator @relation(fields: [created_by_operator_id], references: [id])
+  created_by_operator_id String   @db.Uuid
+  created_at             DateTime @default(now()) @db.Timestamptz(6)
+
+  executions Execution[]
 
   @@map("execution_contexts")
 }
 
 model Execution {
   id                       String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  client                   Client            @relation(fields: [client_id], references: [id], onDelete: Cascade)
   client_id                String            @db.Uuid
   tool_name                String
+  tool_account             ClientToolAccount @relation(fields: [tool_account_id], references: [id])
   tool_account_id          String            @db.Uuid
+  context                  ExecutionContext? @relation(fields: [context_id], references: [id], onDelete: SetNull)
   context_id               String?           @db.Uuid
   action                   String
   status                   String            @default("pending")
   request_payload          Json?
   response_payload         Json?
   error_message            String?
+  triggered_by_operator    Operator          @relation(fields: [triggered_by_operator_id], references: [id])
   triggered_by_operator_id String            @db.Uuid
   created_at               DateTime          @default(now()) @db.Timestamptz(6)
   updated_at               DateTime          @default(now()) @updatedAt @db.Timestamptz(6)
-  client                   Client            @relation(fields: [client_id], references: [id], onDelete: Cascade)
-  context                  ExecutionContext? @relation(fields: [context_id], references: [id])
-  tool_account             ClientToolAccount @relation(fields: [tool_account_id], references: [id])
-  triggered_by_operator    Operator          @relation(fields: [triggered_by_operator_id], references: [id])
 
   @@map("executions")
 }
@@ -168,4 +206,125 @@ model Plan {
   created_at  DateTime @default(now()) @db.Timestamptz(6)
 
   @@map("plans")
+}
+
+model Campaign {
+  id                     String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  client                 Client            @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  client_id              String            @db.Uuid
+  name                   String
+  description            String?
+  status                 String            @default("draft")
+  approval_status        String            @default("draft")
+  manifest               Json?
+  estimated_cost         Float?
+  estimated_duration     Int?
+  priority               Int               @default(5)
+  submitted_by_operator   Operator?         @relation("campaign_submitted_by", fields: [submitted_by_operator_id], references: [id])
+  submitted_by_operator_id String?           @db.Uuid
+  submitted_at           DateTime?         @db.Timestamptz(6)
+  approved_by_operator    Operator?         @relation("campaign_approved_by", fields: [approved_by_operator_id], references: [id])
+  approved_by_operator_id String?           @db.Uuid
+  approved_at            DateTime?         @db.Timestamptz(6)
+  rejection_reason        String?
+  created_by_operator    Operator          @relation(fields: [created_by_operator_id], references: [id])
+  created_by_operator_id String            @db.Uuid
+  created_at             DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime          @default(now()) @updatedAt @db.Timestamptz(6)
+
+  steps     CampaignStep[]
+  approvals CampaignApproval[]
+  queue     ExecutionQueue?
+  leads     Lead[]
+
+  @@map("campaigns")
+}
+
+model CampaignStep {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  campaign    Campaign  @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
+  campaign_id String    @db.Uuid
+  step_order  Int
+  tool_name   String
+  action      String
+  params      Json?
+  status      String    @default("pending")
+  dependencies Json?
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@map("campaign_steps")
+}
+
+model CampaignApproval {
+  id                     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  campaign               Campaign  @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
+  campaign_id            String    @db.Uuid
+  requested_by_operator  Operator  @relation("approval_requested_by", fields: [requested_by_operator_id], references: [id])
+  requested_by_operator_id String  @db.Uuid
+  approved_by_operator   Operator? @relation("approval_approved_by", fields: [approved_by_operator_id], references: [id])
+  approved_by_operator_id String?  @db.Uuid
+  status                 String    @default("pending")
+  comments               String?
+  created_at             DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@map("campaign_approvals")
+}
+
+model ExecutionQueue {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  campaign      Campaign  @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
+  campaign_id   String    @unique @db.Uuid
+  status        String    @default("pending")
+  priority      Int       @default(5)
+  scheduled_at  DateTime  @default(now()) @db.Timestamptz(6)
+  started_at    DateTime? @db.Timestamptz(6)
+  completed_at  DateTime? @db.Timestamptz(6)
+  error_message String?
+  retry_count   Int       @default(0)
+  max_retries   Int       @default(3)
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@map("execution_queue")
+}
+
+model Lead {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  client_id     String   @db.Uuid
+  campaign_id   String?  @db.Uuid
+  email         String
+  first_name    String?
+  last_name     String?
+  title         String?
+  company_name  String?
+  domain        String?
+  linkedin_url  String?
+  industry      String?
+  source        String   @default("hunter")
+  status        String   @default("new")
+  enriched      Boolean  @default(false)
+  enrichment_data Json?
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  client    Client   @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  campaign  Campaign? @relation(fields: [campaign_id], references: [id], onDelete: SetNull)
+
+  @@map("leads")
+}
+
+model Notification {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  operator    Operator @relation(fields: [operator_id], references: [id])
+  operator_id String   @db.Uuid
+  type        String
+  title       String
+  message     String
+  entity_id   String?
+  entity_type String?
+  is_read     Boolean  @default(false)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("notifications")
 }

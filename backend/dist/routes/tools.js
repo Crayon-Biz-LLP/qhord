@@ -1,20 +1,44 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const db_1 = require("../config/db");
+const prisma_1 = require("../lib/prisma");
 const auth_1 = require("../middleware/auth");
 const encryption_1 = require("../config/encryption");
 const router = (0, express_1.Router)();
+router.get('/', async (_req, res) => {
+    try {
+        const dbTools = await prisma_1.prisma.tool.findMany({
+            orderBy: { name: 'asc' }
+        });
+        // Map tool_id to id for frontend compatibility
+        const tools = dbTools.map((t) => ({
+            ...t,
+            id: t.tool_id
+        }));
+        res.json({ tools });
+    }
+    catch (err) {
+        console.error('Fetch tools error', err);
+        res.status(500).json({ message: 'Failed to fetch tools from database' });
+    }
+});
 router.use(auth_1.requireAuth);
 router.get('/accounts/:clientId', async (req, res) => {
     const { clientId } = req.params;
     try {
-        const result = await (0, db_1.query)('SELECT * FROM client_tool_accounts WHERE client_id = $1 ORDER BY created_at DESC', [clientId]);
-        const sanitized = result.rows.map((row) => ({
-            ...row,
-            api_key_encrypted: undefined
-        }));
-        res.json({ accounts: sanitized });
+        const accounts = await prisma_1.prisma.clientToolAccount.findMany({
+            where: { client_id: clientId },
+            orderBy: { created_at: 'desc' },
+            select: {
+                id: true,
+                client_id: true,
+                tool_name: true,
+                account_label: true,
+                created_by_operator_id: true,
+                created_at: true
+            }
+        });
+        res.json({ accounts });
     }
     catch (err) {
         console.error('List tool accounts error', err);
@@ -29,14 +53,24 @@ router.post('/accounts', async (req, res) => {
     }
     try {
         const encryptedKey = (0, encryption_1.encrypt)(apiKey);
-        const result = await (0, db_1.query)('INSERT INTO client_tool_accounts (client_id, tool_name, account_label, api_key_encrypted, created_by_operator_id) VALUES ($1, $2, $3, $4, $5) RETURNING *', [clientId, toolName, accountLabel, encryptedKey, req.user.id]);
-        const account = result.rows[0];
-        res.status(201).json({
-            account: {
-                ...account,
-                api_key_encrypted: undefined
+        const account = await prisma_1.prisma.clientToolAccount.create({
+            data: {
+                client_id: clientId,
+                tool_name: toolName,
+                account_label: accountLabel,
+                api_key_encrypted: encryptedKey,
+                created_by_operator_id: req.user.id
+            },
+            select: {
+                id: true,
+                client_id: true,
+                tool_name: true,
+                account_label: true,
+                created_by_operator_id: true,
+                created_at: true
             }
         });
+        res.status(201).json({ account });
     }
     catch (err) {
         console.error('Create tool account error', err);
@@ -46,16 +80,16 @@ router.post('/accounts', async (req, res) => {
 router.delete('/accounts/:id', async (req, res) => {
     const { id } = req.params;
     try {
-        const result = await (0, db_1.query)('DELETE FROM client_tool_accounts WHERE id = $1 RETURNING id', [
-            id
-        ]);
-        if (result.rows.length === 0) {
-            res.status(404).json({ message: 'Tool account not found' });
-            return;
-        }
+        await prisma_1.prisma.clientToolAccount.delete({
+            where: { id }
+        });
         res.status(204).send();
     }
     catch (err) {
+        if (err.code === 'P2025') {
+            res.status(404).json({ message: 'Tool account not found' });
+            return;
+        }
         console.error('Delete tool account error', err);
         res.status(500).json({ message: 'Failed to delete tool account' });
     }

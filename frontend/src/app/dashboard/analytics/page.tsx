@@ -1,12 +1,8 @@
 "use client";
 
-import { Analytics } from "../../../components/dashboard/Analytics/Analytics";
-import { useRouter } from "next/navigation";
+import React from "react";
+import { Analytics } from "@/components/dashboard/Analytics/Analytics";
 
 export default function AnalyticsPage() {
-  const router = useRouter();
-
-  return (
-    <Analytics onBackToDashboard={() => router.push("/dashboard")} />
-  );
+   return <Analytics />;
 }

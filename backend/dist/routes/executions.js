@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
+const prisma_1 = require("../lib/prisma");
 const auth_1 = require("../middleware/auth");
-const db_1 = require("../config/db");
 const execution_engine_1 = require("../services/execution.engine");
 const router = (0, express_1.Router)();
 const engine = new execution_engine_1.ExecutionEngine();
@@ -10,15 +10,15 @@ router.use(auth_1.requireAuth);
 router.get('/', async (req, res) => {
     const { clientId } = req.query;
     try {
-        let sql = 'SELECT * FROM executions WHERE triggered_by_operator_id = $1 ORDER BY created_at DESC LIMIT 200';
-        const params = [req.user.id];
-        if (clientId) {
-            sql =
-                'SELECT * FROM executions WHERE triggered_by_operator_id = $1 AND client_id = $2 ORDER BY created_at DESC LIMIT 200';
-            params.push(clientId);
-        }
-        const result = await (0, db_1.query)(sql, params);
-        res.json({ executions: result.rows });
+        const executions = await prisma_1.prisma.execution.findMany({
+            where: {
+                triggered_by_operator_id: req.user.id,
+                client_id: clientId ? clientId : undefined
+            },
+            orderBy: { created_at: 'desc' },
+            take: 200
+        });
+        res.json({ executions });
     }
     catch (err) {
         console.error('List executions error', err);

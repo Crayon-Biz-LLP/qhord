@@ -10,6 +10,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { api } from "../../../lib/api";
+import { useAuth } from "../../../hooks/useAuth";
 
 type SettingsTab = "profile" | "workspace" | "team" | "integrations" | "outreach" | "ai" | "notifications" | "preferences" | "data" | "workflows" | "usage";
 
@@ -53,6 +54,7 @@ const GoldToggle = ({ enabled, onToggle }: { enabled: boolean; onToggle: () => v
 );
 
 export default function SettingsPage() {
+   const { refreshUser } = useAuth();
    const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
    const [twoFA, setTwoFA] = useState(false);
    
@@ -120,6 +122,7 @@ export default function SettingsPage() {
    const [twoFAVerificationCode, setTwoFAVerificationCode] = useState("");
    const [isVerifying2FA, setIsVerifying2FA] = useState(false);
    const [twoFAStep, setTwoFAStep] = useState<"initial" | "verify">("initial");
+   const [twoFAManualSecret, setTwoFAManualSecret] = useState("");
 
 
    const crms = [
@@ -179,8 +182,12 @@ export default function SettingsPage() {
                if (team) setTeamMembers(team);
                if (intData) setIntegrations(intData);
             }
-         } catch (error) {
+         } catch (error: any) {
             console.error("Failed to fetch settings", error);
+            const hint = error.response?.data?.hint;
+            if (hint) {
+               showToast(`Settings could not load. ${hint}`);
+            }
          } finally {
             setLoadingData(false);
          }
@@ -190,42 +197,64 @@ export default function SettingsPage() {
 
    const handleSave = async () => {
       setIsSaving(true);
+      let profileSaved = false;
+      let settingsSaved = false;
+
       try {
-         await Promise.all([
-            api.put('/auth/profile', { name, email }),
-            api.put('/settings', {
-               workspace: {
-                  name: workspaceName,
-                  domain: workspaceDomain,
-                  timezone: workspaceTimezone
-               },
-               settings: {
-                  ai_tone: aiTone,
-                  ai_personalization: aiPersonalization,
-                  auto_reply: autoReply,
-                  auto_pause: autoPause,
-                  auto_optimize: autoOptimize,
-                  auto_score: autoScore,
-                  daily_send_limit: dailySendLimit,
-                  inbox_rotation: inboxRotation,
-                  auto_pause_threshold: autoPauseThreshold,
-                  safety_mode: safetyMode,
-                  notifications: notificationEvents,
-                  daily_connection_limit: dailyConnectionLimit,
-                  daily_message_limit: dailyMessageLimit,
-                  linkedin_account: linkedinAccount,
-                  default_crm: selectedCRM,
-                   two_factor_enabled: twoFA
-               }
-            })
-         ]);
-         showToast("Changes saved successfully!");
-      } catch (error) {
-         console.error("Failed to save changes", error);
-         showToast("Error saving changes.");
-      } finally {
-         setIsSaving(false);
+         const profileRes = await api.put('/auth/profile', { name: name.trim(), email });
+         if (profileRes.data?.operator?.name) {
+            setName(profileRes.data.operator.name);
+         }
+         await refreshUser();
+         profileSaved = true;
+      } catch (error: any) {
+         console.error("Failed to save profile", error);
+         showToast(error.response?.data?.message || "Could not save name. Are you logged in?");
       }
+
+      try {
+         await api.put('/settings', {
+            workspace: {
+               name: workspaceName,
+               domain: workspaceDomain,
+               timezone: workspaceTimezone
+            },
+            settings: {
+               ai_tone: aiTone,
+               ai_personalization: aiPersonalization,
+               auto_reply: autoReply,
+               auto_pause: autoPause,
+               auto_optimize: autoOptimize,
+               auto_score: autoScore,
+               daily_send_limit: dailySendLimit,
+               inbox_rotation: inboxRotation,
+               auto_pause_threshold: autoPauseThreshold,
+               safety_mode: safetyMode,
+               notifications: notificationEvents,
+               daily_connection_limit: dailyConnectionLimit,
+               daily_message_limit: dailyMessageLimit,
+               linkedin_account: linkedinAccount,
+               default_crm: selectedCRM,
+               two_factor_enabled: twoFA
+            }
+         });
+         settingsSaved = true;
+      } catch (error: any) {
+         console.error("Failed to save settings", error);
+         const hint = error.response?.data?.hint || "";
+         showToast(
+            (error.response?.data?.message || "Settings save failed.") +
+            (hint ? ` ${hint}` : " Try: npx prisma db push")
+         );
+      }
+
+      if (profileSaved && settingsSaved) {
+         showToast("Changes saved successfully!");
+      } else if (profileSaved) {
+         showToast("Name saved. Other settings may need database migration (prisma db push).");
+      }
+
+      setIsSaving(false);
    };
 
    const handlePasswordChange = async () => {
@@ -260,12 +289,15 @@ export default function SettingsPage() {
    const handle2FASetup = async () => {
       try {
          const res = await api.post('/auth/2fa/setup');
-         setTwoFAQRCode(res.data.qrCodeUrl);
+         setTwoFAQRCode(res.data.qrCodeUrl || "");
+         setTwoFAManualSecret(res.data.secret || "");
          setTwoFAStep("verify");
+         setTwoFAVerificationCode("");
          setIs2FAModalOpen(true);
-      } catch (error) {
+      } catch (error: any) {
          console.error("Failed to setup 2FA", error);
-         showToast("Error setting up 2FA.");
+         const msg = error.response?.data?.message || error.response?.data?.detail;
+         showToast(msg ? `2FA setup failed: ${msg}` : "2FA setup failed. Run npx prisma db push in backend.");
       }
    };
 
@@ -1376,8 +1408,13 @@ export default function SettingsPage() {
                               
                               <div className="space-y-4">
                                  <p className="text-[11px] text-[#1a1510]/60 text-center font-medium">
-                                    Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.) and enter the 6-digit code below.
+                                    Scan this QR in Google Authenticator or Authy. Account name: <strong>Qhord</strong>. If scan fails, add manually with this key:
                                  </p>
+                                 {twoFAManualSecret && (
+                                    <p className="text-[10px] font-mono text-center break-all bg-white p-2 rounded-lg border border-[#1a1510]/10 select-all">
+                                       {twoFAManualSecret}
+                                    </p>
+                                 )}
                                  <div className="space-y-1.5">
                                     <label className="text-[9px] font-bold uppercase text-[#1a1510]/30 tracking-widest">Verification Code</label>
                                     <input 
