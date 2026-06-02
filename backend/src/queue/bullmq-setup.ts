@@ -13,7 +13,7 @@ const redisConnection = new IORedis(redisUrl, {
 
 // Create queue for campaign execution
 export const campaignQueue = new Queue('campaign-execution', {
-  connection: redisConnection,
+  connection: redisConnection as any,
   defaultJobOptions: {
     removeOnComplete: 100, // Keep last 100 completed jobs
     removeOnFail: 50,      // Keep last 50 failed jobs
@@ -28,7 +28,7 @@ export const campaignQueue = new Queue('campaign-execution', {
 
 // Queue events for monitoring
 export const campaignQueueEvents = new QueueEvents('campaign-execution', {
-  connection: redisConnection,
+  connection: redisConnection as any,
 });
 
 // Handle queue events for logging
