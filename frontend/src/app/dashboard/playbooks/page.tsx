@@ -1,15 +1,16 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
    Search, Plus, LayoutDashboard, Star, Download, Clock, ShieldCheck,
    BarChart3, Users, Zap, ExternalLink, Filter, ChevronRight,
    Layers, Database, Cpu, Mail, Target, MessageSquare, Bot,
    CreditCard, Sparkles, MoreVertical, Bookmark, CheckCircle2,
-   Linkedin, X, ArrowLeft, ChevronDown, XCircle, Rocket
+   Linkedin, X, ArrowLeft, ChevronDown, XCircle, Rocket, Loader2
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { api } from "../../../lib/api";
 
 // --- Types ---
 export interface PlaybookItem {
@@ -28,57 +29,23 @@ export interface PlaybookItem {
    replyRate: string;
 }
 
-// --- Mock Data ---
+// --- Category to Icons Map ---
+const mapCategoryToIcons = (category: string) => {
+  switch (category.toLowerCase()) {
+    case "saas":
+      return [Target, Database, Layers, Zap];
+    case "fintech":
+      return [ShieldCheck, Database, Layers, Zap];
+    case "agency":
+      return [Users, Zap, Layers];
+    default:
+      return [Target, Zap];
+  }
+};
+
 const CATEGORIES = ["All", "SaaS", "Fintech", "Agency", "E-Commerce", "B2B", "Enterprise", "LinkedIn", "PLG"];
 const TABS = ["Browse", "Recommended", "Active", "My Playbooks"];
 
-const PLAYBOOKS_DATA: PlaybookItem[] = [
-   {
-      id: "saas-sdr",
-      name: "SaaS SDR Playbook",
-      difficulty: "Intermediate",
-      description: "Complete outbound motion for SaaS companies targeting mid market. Includes ICP enrichment, multi-channel sequences, and automated follow-ups.",
-      creator: "Control Tower Team",
-      tools: [Target, Database, Layers, Zap],
-      rating: 4.8,
-      imports: "2.3K",
-      confidence: 82,
-      deployTime: "15 minutes",
-      credits: 40,
-      category: "SaaS",
-      replyRate: "8-12%"
-   },
-   {
-      id: "fintech-outreach",
-      name: "Fintech Outreach System",
-      difficulty: "Advanced",
-      description: "Targeted outreach for fintech decision makers with compliance-safe messaging and high-deliverability focus.",
-      creator: "Control Tower Team",
-      tools: [ShieldCheck, Database, Layers, Zap],
-      rating: 4.6,
-      imports: "1.9K",
-      confidence: 75,
-      deployTime: "25 minutes",
-      credits: 25,
-      category: "Fintech",
-      replyRate: "6-10%"
-   },
-   {
-      id: "agency-cold-email",
-      name: "Agency Cold Email Engine",
-      difficulty: "Beginner",
-      description: "High volume email outreach system for agencies. Optimized for scale with inbox rotation and warm-up.",
-      creator: "Control Tower Team",
-      tools: [Users, Zap, Layers],
-      rating: 4.9,
-      imports: "3.1K",
-      confidence: 88,
-      deployTime: "10 minutes",
-      credits: 15,
-      category: "Agency",
-      replyRate: "10-13%"
-   },
-];
 
 // --- Sub-components (Simplified for single-file integration) ---
 
@@ -232,15 +199,112 @@ export default function PlaybooksPage() {
    const [searchQuery, setSearchQuery] = useState("");
    const [selectedPlaybook, setSelectedPlaybook] = useState<PlaybookItem | null>(null);
    const [importPlaybook, setImportPlaybook] = useState<PlaybookItem | null>(null);
+   
+   const [playbooks, setPlaybooks] = useState<PlaybookItem[]>([]);
+   const [loading, setLoading] = useState(true);
+   const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+   // Form states for creating a new playbook
+   const [newName, setNewName] = useState("");
+   const [newCategory, setNewCategory] = useState("SaaS");
+   const [newDifficulty, setNewDifficulty] = useState<"Beginner" | "Intermediate" | "Advanced">("Intermediate");
+   const [newDescription, setNewDescription] = useState("");
+   const [newConfidence, setNewConfidence] = useState(80);
+   const [newReplyRate, setNewReplyRate] = useState("8-12%");
+   const [newDeployTime, setNewDeployTime] = useState("15 minutes");
+   const [newCredits, setNewCredits] = useState(20);
+   const [creating, setCreating] = useState(false);
+
+   const fetchPlaybooks = async () => {
+      setLoading(true);
+      try {
+         const res = await api.get("/playbooks");
+         if (res.data.success && Array.isArray(res.data.playbooks)) {
+            const mapped = res.data.playbooks.map((pb: any) => ({
+               id: pb.id,
+               name: pb.name,
+               difficulty: pb.difficulty as any,
+               description: pb.description,
+               creator: pb.creator || "Control Tower Team",
+               tools: mapCategoryToIcons(pb.category),
+               rating: pb.rating || 4.5,
+               imports: pb.imports || "0",
+               confidence: pb.confidence || 80,
+               deployTime: pb.deploy_time || "15 minutes",
+               credits: pb.credits || 20,
+               category: pb.category,
+               replyRate: pb.reply_rate || "8-12%",
+            }));
+            setPlaybooks(mapped);
+         }
+      } catch (err) {
+         console.error("Failed to load playbooks:", err);
+      } finally {
+         setLoading(false);
+      }
+   };
+
+   useEffect(() => {
+      fetchPlaybooks();
+   }, []);
+
+   const handleCreatePlaybook = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!newName || !newDescription) return;
+      setCreating(true);
+      try {
+         const res = await api.post("/playbooks", {
+            name: newName,
+            category: newCategory,
+            difficulty: newDifficulty,
+            description: newDescription,
+            confidence: newConfidence,
+            reply_rate: newReplyRate,
+            deploy_time: newDeployTime,
+            credits: newCredits
+         });
+         if (res.data.success) {
+            const pb = res.data.playbook;
+            const mapped: PlaybookItem = {
+               id: pb.id,
+               name: pb.name,
+               difficulty: pb.difficulty as any,
+               description: pb.description,
+               creator: pb.creator || "Control Tower Team",
+               tools: mapCategoryToIcons(pb.category),
+               rating: pb.rating || 4.5,
+               imports: pb.imports || "0",
+               confidence: pb.confidence || 80,
+               deployTime: pb.deploy_time || "15 minutes",
+               credits: pb.credits || 20,
+               category: pb.category,
+               replyRate: pb.reply_rate || "8-12%",
+            };
+            setPlaybooks(prev => [...prev, mapped]);
+            setIsCreateOpen(false);
+            // Reset form
+            setNewName("");
+            setNewDescription("");
+            setNewConfidence(80);
+            setNewReplyRate("8-12%");
+            setNewDeployTime("15 minutes");
+            setNewCredits(20);
+         }
+      } catch (err) {
+         console.error("Failed to create playbook:", err);
+      } finally {
+         setCreating(false);
+      }
+   };
 
    const filteredPlaybooks = useMemo(() => {
-      return PLAYBOOKS_DATA.filter(pb => {
-         const matchesCategory = activeCategory === "All" || pb.category === activeCategory;
+      return playbooks.filter(pb => {
+         const matchesCategory = activeCategory === "All" || pb.category.toLowerCase() === activeCategory.toLowerCase();
          const matchesSearch = pb.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             pb.description.toLowerCase().includes(searchQuery.toLowerCase());
          return matchesCategory && matchesSearch;
       });
-   }, [activeCategory, searchQuery]);
+   }, [playbooks, activeCategory, searchQuery]);
 
    return (
       <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#f7f8f9] text-[#1a1510] selection:bg-brand-gold/30 font-sans relative">
@@ -273,7 +337,10 @@ export default function PlaybooksPage() {
                   />
                </div>
 
-               <button className="h-10 px-4 sm:px-6 rounded-xl bg-[#1a1510] text-brand-gold text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl hover:translate-y-[-1px] transition-all whitespace-nowrap">
+               <button 
+                  onClick={() => setIsCreateOpen(true)}
+                  className="h-10 px-4 sm:px-6 rounded-xl bg-[#1a1510] text-brand-gold text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl hover:translate-y-[-1px] transition-all whitespace-nowrap"
+               >
                   <Plus size={14} strokeWidth={3} /> <span className="hidden sm:inline">Create</span>
                </button>
                <button
@@ -290,7 +357,7 @@ export default function PlaybooksPage() {
             {/* Metrics */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                {[
-                  { label: "Active", val: "2", icon: Bookmark },
+                  { label: "Total Playbooks", val: playbooks.length, icon: Bookmark },
                   { label: "Performance", val: "85%", icon: BarChart3 },
                   { label: "Imports", val: "12K+", icon: Download },
                   { label: "Confidence", val: "94%", icon: ShieldCheck },
@@ -341,68 +408,79 @@ export default function PlaybooksPage() {
             </div>
 
             {/* Playbook Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 pb-32">
-               {filteredPlaybooks.map((pb, idx) => (
-                  <motion.div
-                     key={pb.id}
-                     whileHover={{ y: -4 }}
-                     className="bg-white rounded-[2rem] sm:rounded-[2.5rem] border border-[#1a1510]/5 p-6 sm:p-8 flex flex-col group hover:shadow-xl transition-all relative overflow-hidden h-full"
-                  >
-                     <div className="flex-1 space-y-6">
-                        <div className="flex justify-between items-start gap-4">
-                           <h3 className="text-lg sm:text-xl font-black text-[#1a1510] tracking-tight leading-tight truncate">{pb.name}</h3>
-                           <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border shrink-0 ${pb.difficulty === "Beginner" ? "bg-emerald-50 text-emerald-500 border-emerald-100" : "bg-brand-gold/10 text-brand-gold border-brand-gold/20"}`}>
-                              {pb.difficulty}
-                           </span>
+            {loading ? (
+               <div className="flex items-center justify-center py-24">
+                  <Loader2 className="animate-spin text-brand-gold" size={32} />
+               </div>
+            ) : filteredPlaybooks.length === 0 ? (
+               <div className="flex flex-col items-center justify-center py-24 text-center">
+                  <Bookmark size={48} className="text-[#1a1510]/10 mb-4" />
+                  <p className="text-sm font-bold text-[#1a1510]/40">No playbooks found matching criteria.</p>
+               </div>
+            ) : (
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 pb-32">
+                  {filteredPlaybooks.map((pb, idx) => (
+                     <motion.div
+                        key={pb.id}
+                        whileHover={{ y: -4 }}
+                        className="bg-white rounded-[2rem] sm:rounded-[2.5rem] border border-[#1a1510]/5 p-6 sm:p-8 flex flex-col group hover:shadow-xl transition-all relative overflow-hidden h-full"
+                     >
+                        <div className="flex-1 space-y-6">
+                           <div className="flex justify-between items-start gap-4">
+                              <h3 className="text-lg sm:text-xl font-black text-[#1a1510] tracking-tight leading-tight truncate">{pb.name}</h3>
+                              <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border shrink-0 ${pb.difficulty === "Beginner" ? "bg-emerald-50 text-emerald-500 border-emerald-100" : "bg-brand-gold/10 text-brand-gold border-brand-gold/20"}`}>
+                                 {pb.difficulty}
+                              </span>
+                           </div>
+
+                           <p className="text-xs font-medium text-[#1a1510]/40 leading-relaxed line-clamp-3">
+                              {pb.description}
+                           </p>
+
+                           <div className="flex items-center justify-between pt-4 border-t border-[#1a1510]/5">
+                              <div className="flex items-center gap-2">
+                                 <div className="w-6 h-6 rounded-full bg-[#1a1510] flex items-center justify-center text-brand-gold text-[8px] font-black">CT</div>
+                                 <span className="text-[9px] font-bold text-[#1a1510]/30 uppercase tracking-widest">{pb.creator}</span>
+                              </div>
+                              <div className="flex items-center -space-x-1.5">
+                                 {pb.tools.map((Icon, i) => (
+                                    <div key={i} className="w-7 h-7 rounded-lg bg-[#f7f8f9] border border-[#1a1510]/5 flex items-center justify-center text-[#1a1510]/40 shadow-sm">
+                                       <Icon size={12} />
+                                    </div>
+                                 ))}
+                              </div>
+                           </div>
+
+                           <div className="grid grid-cols-2 gap-2">
+                              <div className="bg-[#f7f8f9]/50 rounded-xl p-3 border border-[#1a1510]/5 text-center">
+                                 <p className="text-[10px] font-black text-[#1a1510] leading-none mb-1">{pb.replyRate}</p>
+                                 <p className="text-[7px] font-bold text-[#1a1510]/20 uppercase tracking-widest">Reply Rate</p>
+                              </div>
+                              <div className="bg-[#f7f8f9]/50 rounded-xl p-3 border border-[#1a1510]/5 text-center">
+                                 <p className="text-[10px] font-black text-[#1a1510] leading-none mb-1">{pb.confidence}%</p>
+                                 <p className="text-[7px] font-bold text-[#1a1510]/20 uppercase tracking-widest">Confidence</p>
+                              </div>
+                           </div>
                         </div>
 
-                        <p className="text-xs font-medium text-[#1a1510]/40 leading-relaxed line-clamp-3">
-                           {pb.description}
-                        </p>
-
-                        <div className="flex items-center justify-between pt-4 border-t border-[#1a1510]/5">
-                           <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 rounded-full bg-[#1a1510] flex items-center justify-center text-brand-gold text-[8px] font-black">CT</div>
-                              <span className="text-[9px] font-bold text-[#1a1510]/30 uppercase tracking-widest">{pb.creator}</span>
-                           </div>
-                           <div className="flex items-center -space-x-1.5">
-                              {pb.tools.map((Icon, i) => (
-                                 <div key={i} className="w-7 h-7 rounded-lg bg-[#f7f8f9] border border-[#1a1510]/5 flex items-center justify-center text-[#1a1510]/40 shadow-sm">
-                                    <Icon size={12} />
-                                 </div>
-                              ))}
-                           </div>
+                        <div className="flex gap-3 mt-8">
+                           <button
+                              onClick={() => setSelectedPlaybook(pb)}
+                              className="flex-1 h-11 rounded-xl border border-[#1a1510]/10 text-[#1a1510] text-[9px] font-black uppercase tracking-widest hover:bg-[#f7f8f9] transition-all flex items-center justify-center gap-2"
+                           >
+                              Inspect
+                           </button>
+                           <button 
+                              onClick={() => setImportPlaybook(pb)}
+                              className="flex-[1.5] h-11 rounded-xl bg-[#1a1510] text-brand-gold text-[9px] font-black uppercase tracking-widest shadow-lg hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2"
+                           >
+                              Use
+                           </button>
                         </div>
-
-                        <div className="grid grid-cols-2 gap-2">
-                           <div className="bg-[#f7f8f9]/50 rounded-xl p-3 border border-[#1a1510]/5 text-center">
-                              <p className="text-[10px] font-black text-[#1a1510] leading-none mb-1">{pb.replyRate}</p>
-                              <p className="text-[7px] font-bold text-[#1a1510]/20 uppercase tracking-widest">Reply Rate</p>
-                           </div>
-                           <div className="bg-[#f7f8f9]/50 rounded-xl p-3 border border-[#1a1510]/5 text-center">
-                              <p className="text-[10px] font-black text-[#1a1510] leading-none mb-1">{pb.confidence}%</p>
-                              <p className="text-[7px] font-bold text-[#1a1510]/20 uppercase tracking-widest">Confidence</p>
-                           </div>
-                        </div>
-                     </div>
-
-                     <div className="flex gap-3 mt-8">
-                        <button
-                           onClick={() => setSelectedPlaybook(pb)}
-                           className="flex-1 h-11 rounded-xl border border-[#1a1510]/10 text-[#1a1510] text-[9px] font-black uppercase tracking-widest hover:bg-[#f7f8f9] transition-all flex items-center justify-center gap-2"
-                        >
-                           Inspect
-                        </button>
-                        <button 
-                           onClick={() => setImportPlaybook(pb)}
-                           className="flex-[1.5] h-11 rounded-xl bg-[#1a1510] text-brand-gold text-[9px] font-black uppercase tracking-widest shadow-lg hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2"
-                        >
-                           Use
-                        </button>
-                     </div>
-                  </motion.div>
-               ))}
-            </div>
+                     </motion.div>
+                  ))}
+               </div>
+            )}
          </main>
 
          <PlaybookInspect 
@@ -419,6 +497,89 @@ export default function PlaybooksPage() {
             isOpen={!!importPlaybook}
             onClose={() => setImportPlaybook(null)}
          />
+
+         {/* Create Playbook Modal */}
+         <AnimatePresence>
+            {isCreateOpen && (
+               <>
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsCreateOpen(false)} className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200]" />
+                  <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="fixed inset-4 m-auto w-full max-w-[600px] h-fit max-h-[90vh] bg-white rounded-[2rem] shadow-2xl z-[201] overflow-y-auto p-6 sm:p-8">
+                     <form onSubmit={handleCreatePlaybook} className="space-y-6">
+                        <div className="flex justify-between items-center">
+                           <h2 className="text-xl font-black text-[#1a1510]">Create Playbook Template</h2>
+                           <button type="button" onClick={() => setIsCreateOpen(false)} className="p-2 hover:bg-[#f7f8f9] rounded-xl"><X size={18} /></button>
+                        </div>
+
+                        <div className="space-y-4">
+                           <div className="space-y-2">
+                              <label className="text-[10px] font-black uppercase text-[#1a1510]/30">Playbook Name</label>
+                              <input required type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Enterprise SDR System" className="w-full h-12 px-4 bg-[#f7f8f9] rounded-xl outline-none focus:ring-2 ring-blue-500/10 text-xs font-bold" />
+                           </div>
+
+                           <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                 <label className="text-[10px] font-black uppercase text-[#1a1510]/30">Category</label>
+                                 <select value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="w-full h-12 px-4 bg-[#f7f8f9] rounded-xl outline-none text-xs font-bold">
+                                    <option value="SaaS">SaaS</option>
+                                    <option value="Fintech">Fintech</option>
+                                    <option value="Agency">Agency</option>
+                                    <option value="B2B">B2B</option>
+                                    <option value="E-Commerce">E-Commerce</option>
+                                    <option value="Enterprise">Enterprise</option>
+                                    <option value="LinkedIn">LinkedIn</option>
+                                    <option value="PLG">PLG</option>
+                                 </select>
+                              </div>
+                              <div className="space-y-2">
+                                 <label className="text-[10px] font-black uppercase text-[#1a1510]/30">Difficulty</label>
+                                 <select value={newDifficulty} onChange={(e) => setNewDifficulty(e.target.value as any)} className="w-full h-12 px-4 bg-[#f7f8f9] rounded-xl outline-none text-xs font-bold">
+                                    <option value="Beginner">Beginner</option>
+                                    <option value="Intermediate">Intermediate</option>
+                                    <option value="Advanced">Advanced</option>
+                                 </select>
+                              </div>
+                           </div>
+
+                           <div className="space-y-2">
+                              <label className="text-[10px] font-black uppercase text-[#1a1510]/30">Description</label>
+                              <textarea required value={newDescription} onChange={(e) => setNewDescription(e.target.value)} placeholder="Provide details of the GTM steps and automation setup..." className="w-full min-h-[80px] p-4 bg-[#f7f8f9] rounded-xl outline-none focus:ring-2 ring-blue-500/10 text-xs font-bold" />
+                           </div>
+
+                           <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                 <label className="text-[10px] font-black uppercase text-[#1a1510]/30">Confidence (%)</label>
+                                 <input type="number" min="0" max="100" value={newConfidence} onChange={(e) => setNewConfidence(parseInt(e.target.value, 10))} className="w-full h-12 px-4 bg-[#f7f8f9] rounded-xl outline-none text-xs font-bold" />
+                              </div>
+                              <div className="space-y-2">
+                                 <label className="text-[10px] font-black uppercase text-[#1a1510]/30">Reply Rate</label>
+                                 <input type="text" value={newReplyRate} onChange={(e) => setNewReplyRate(e.target.value)} className="w-full h-12 px-4 bg-[#f7f8f9] rounded-xl outline-none text-xs font-bold" />
+                              </div>
+                           </div>
+
+                           <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                 <label className="text-[10px] font-black uppercase text-[#1a1510]/30">Deploy Time</label>
+                                 <input type="text" value={newDeployTime} onChange={(e) => setNewDeployTime(e.target.value)} className="w-full h-12 px-4 bg-[#f7f8f9] rounded-xl outline-none text-xs font-bold" />
+                              </div>
+                              <div className="space-y-2">
+                                 <label className="text-[10px] font-black uppercase text-[#1a1510]/30">Credits Required</label>
+                                 <input type="number" min="0" value={newCredits} onChange={(e) => setNewCredits(parseInt(e.target.value, 10))} className="w-full h-12 px-4 bg-[#f7f8f9] rounded-xl outline-none text-xs font-bold" />
+                              </div>
+                           </div>
+                        </div>
+
+                        <div className="flex gap-3 pt-4 border-t border-[#1a1510]/5">
+                           <button type="button" onClick={() => setIsCreateOpen(false)} className="h-12 px-6 rounded-xl border border-[#1a1510]/10 text-[10px] font-black uppercase">Cancel</button>
+                           <button type="submit" disabled={creating} className="flex-1 h-12 bg-[#1a1510] text-brand-gold rounded-xl text-[10px] font-black uppercase shadow-lg flex items-center justify-center gap-2">
+                              {creating ? <Loader2 className="animate-spin" size={14} /> : "Save Template"}
+                           </button>
+                        </div>
+                     </form>
+                  </motion.div>
+               </>
+            )}
+         </AnimatePresence>
       </div>
    );
 }
+

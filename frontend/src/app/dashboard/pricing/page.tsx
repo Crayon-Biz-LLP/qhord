@@ -1,69 +1,39 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Zap, Sparkles, Crown, Building2, Check, Minus, ArrowRight,
   Coins, Users, Mail, Target, Bot, ShieldCheck, Globe, Database,
   Key, Settings, Headphones, ChevronDown, X, Star, Rocket,
-  TrendingUp, Shield, Cpu, LayoutDashboard, CreditCard
+  TrendingUp, Shield, Cpu, LayoutDashboard, CreditCard, Loader2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
+import { api } from "../../../lib/api";
 
-// --- Data Layer ---
-const PLANS = [
-  {
-    id: "starter",
-    name: "Starter",
-    tagline: "For individuals",
-    icon: Zap,
-    monthlyPrice: 149,
-    annualPrice: 119,
-    credits: "2,500",
-    popular: false,
-    cta: "Start Free",
-    ctaStyle: "outline" as const,
-    accentColor: "text-slate-500",
-    accentBg: "bg-slate-50",
-    platform: ["Unified dashboard", "Basic campaign builder", "Personal notes"],
-    ai: ["AI suggestions only"],
-    integrations: ["Basic enrichment"],
-  },
-  {
-    id: "growth",
-    name: "Growth",
-    tagline: "For teams scaling",
-    icon: Rocket,
-    monthlyPrice: 349,
-    annualPrice: 279,
-    credits: "8,000",
-    popular: true,
-    cta: "Upgrade Now",
-    ctaStyle: "primary" as const,
-    accentColor: "text-blue-600",
-    accentBg: "bg-blue-50",
-    platform: ["Multi-channel", "Advanced workflows", "Health monitoring"],
-    ai: ["Full AI Operator", "Sequence optimization"],
-    integrations: ["Full Stack Access"],
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    tagline: "High-scale AI",
-    icon: Crown,
-    monthlyPrice: 799,
-    annualPrice: 639,
-    credits: "20,000",
-    popular: false,
-    cta: "Go Pro",
-    ctaStyle: "outline" as const,
-    accentColor: "text-amber-600",
-    accentBg: "bg-amber-50",
-    platform: ["Unlimited campaigns", "Team permissions", "Priority"],
-    ai: ["Autonomous mode", "Predictive models"],
-    integrations: ["Custom orchestration"],
-  },
-];
+interface PlanItem {
+  id: string;
+  name: string;
+  tagline: string;
+  price: string;
+  credits: string;
+  features: string[];
+  is_custom: boolean;
+  button_text: string;
+  icon: any;
+  popular: boolean;
+  ctaStyle: "primary" | "outline";
+  accentColor: string;
+  accentBg: string;
+}
+
+const mapPlanIcon = (name: string) => {
+  const n = name.toLowerCase();
+  if (n.includes("starter")) return Zap;
+  if (n.includes("growth")) return Rocket;
+  if (n.includes("pro")) return Crown;
+  return Sparkles;
+};
 
 const COMPARISON_FEATURES = [
   { feature: "Credits / month", starter: "2,500", growth: "8,000", pro: "20,000" },
@@ -76,12 +46,65 @@ const COMPARISON_FEATURES = [
 export default function PricingPage() {
   const router = useRouter();
   const [isAnnual, setIsAnnual] = useState(false);
-  const [showBuyCredits, setShowBuyCredits] = useState(false);
+  const [plans, setPlans] = useState<PlanItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const fetchPlans = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get("/plans");
+      // The API returns the sorted plans array directly
+      if (Array.isArray(res.data)) {
+        const mapped = res.data.map((p: any) => {
+          const name = p.name || "";
+          return {
+            id: p.id,
+            name: p.name,
+            tagline: p.tagline || "",
+            price: p.price || "$0",
+            credits: p.credits || "0",
+            features: Array.isArray(p.features) ? p.features : JSON.parse(p.features || "[]"),
+            is_custom: p.is_custom || false,
+            button_text: p.button_text || "Choose Plan",
+            icon: mapPlanIcon(name),
+            popular: name.toLowerCase() === "growth",
+            ctaStyle: name.toLowerCase() === "growth" ? ("primary" as const) : ("outline" as const),
+            accentColor: name.toLowerCase() === "starter" ? "text-slate-500" : name.toLowerCase() === "growth" ? "text-blue-600" : "text-amber-600",
+            accentBg: name.toLowerCase() === "starter" ? "bg-slate-50" : name.toLowerCase() === "growth" ? "bg-blue-50" : "bg-amber-50"
+          };
+        });
+        setPlans(mapped);
+      }
+    } catch (err) {
+      console.error("Failed to load plans:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPlans();
+  }, []);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleSelectPlan = async (plan: PlanItem) => {
+    try {
+      const level = plan.name.toLowerCase();
+      const res = await api.post("/subscription/upgrade", { plan: level });
+      if (res.data.success) {
+        showToast(`Successfully upgraded to ${plan.name}! Transaction ID: ${res.data.transaction_id}`);
+      } else {
+        showToast(`Failed to upgrade to ${plan.name}`);
+      }
+    } catch (err) {
+      console.error("Upgrade request error:", err);
+      showToast("Upgrade failed. Please check backend integration.");
+    }
   };
 
   const renderCellValue = (val: string | boolean | null) => {
@@ -136,59 +159,79 @@ export default function PricingPage() {
           </div>
 
           {/* Pricing Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {PLANS.map((plan, idx) => (
-              <motion.div 
-                key={plan.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.1 }}
-                className={`relative bg-white rounded-[2.5rem] p-6 lg:p-8 border-2 transition-all group ${plan.popular ? "border-blue-500 shadow-xl" : "border-[#1a1510]/5 hover:border-[#1a1510]/10"}`}
-              >
-                {plan.popular && (
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full shadow-lg">
-                    Most Popular
-                  </div>
-                )}
-                <div className="space-y-6">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 lg:w-12 lg:h-12 rounded-2xl ${plan.accentBg} flex items-center justify-center ${plan.accentColor}`}>
-                      <plan.icon size={20} />
+          {loading ? (
+            <div className="flex justify-center items-center py-20">
+              <Loader2 className="animate-spin text-brand-gold" size={32} />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {plans.map((plan, idx) => {
+                // Calculate annual discount price if price is numeric (e.g. $149)
+                let displayPrice = plan.price;
+                if (isAnnual && plan.price.startsWith("$")) {
+                  const num = parseInt(plan.price.replace("$", ""), 10);
+                  if (!isNaN(num)) {
+                    displayPrice = `$${Math.round(num * 0.8)}`;
+                  }
+                }
+
+                return (
+                  <motion.div 
+                    key={plan.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.1 }}
+                    className={`relative bg-white rounded-[2.5rem] p-6 lg:p-8 border-2 transition-all group ${plan.popular ? "border-blue-500 shadow-xl" : "border-[#1a1510]/5 hover:border-[#1a1510]/10"}`}
+                  >
+                    {plan.popular && (
+                      <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full shadow-lg">
+                        Most Popular
+                      </div>
+                    )}
+                    <div className="space-y-6">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-10 h-10 lg:w-12 lg:h-12 rounded-2xl ${plan.accentBg} flex items-center justify-center ${plan.accentColor}`}>
+                          <plan.icon size={20} />
+                        </div>
+                        <div>
+                          <h3 className="text-lg lg:text-xl font-black tracking-tight">{plan.name}</h3>
+                          <p className="text-[10px] font-bold text-[#1a1510]/30 uppercase tracking-widest leading-none mt-1">{plan.tagline}</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-3xl lg:text-4xl font-black">{displayPrice}</span>
+                          <span className="text-[12px] font-bold text-[#1a1510]/30">/mo</span>
+                        </div>
+                        <p className="text-[11px] font-bold text-[#1a1510]/30 italic">{plan.credits} credits included</p>
+                      </div>
+
+                      <div className="h-px bg-[#1a1510]/5" />
+
+                      <ul className="space-y-3">
+                        {plan.features.map((f, i) => (
+                          <li key={i} className="flex items-start gap-3 text-[12px] font-medium text-[#1a1510]/70">
+                            <Check size={14} className="text-emerald-500 shrink-0 mt-0.5" />
+                            {f}
+                          </li>
+                        ))}
+                      </ul>
+
+                      <button 
+                        onClick={() => handleSelectPlan(plan)}
+                        className={`w-full h-12 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${plan.ctaStyle === 'primary' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-[#f7f8f9] text-[#1a1510] hover:bg-[#1a1510] hover:text-white'}`}
+                      >
+                        {plan.button_text}
+                      </button>
                     </div>
-                    <div>
-                      <h3 className="text-lg lg:text-xl font-black tracking-tight">{plan.name}</h3>
-                      <p className="text-[10px] font-bold text-[#1a1510]/30 uppercase tracking-widest leading-none mt-1">{plan.tagline}</p>
-                    </div>
-                  </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
 
-                  <div className="space-y-1">
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-3xl lg:text-4xl font-black">${isAnnual ? plan.annualPrice : plan.monthlyPrice}</span>
-                      <span className="text-[12px] font-bold text-[#1a1510]/30">/mo</span>
-                    </div>
-                    <p className="text-[11px] font-bold text-[#1a1510]/30 italic">{plan.credits} credits included</p>
-                  </div>
-
-                  <div className="h-px bg-[#1a1510]/5" />
-
-                  <ul className="space-y-3">
-                    {plan.platform.map((f, i) => (
-                      <li key={i} className="flex items-start gap-3 text-[12px] font-medium text-[#1a1510]/70">
-                        <Check size={14} className="text-emerald-500 shrink-0 mt-0.5" />
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-
-                  <button className={`w-full h-12 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${plan.ctaStyle === 'primary' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-[#f7f8f9] text-[#1a1510] hover:bg-[#1a1510] hover:text-white'}`}>
-                    {plan.cta}
-                  </button>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Comparison Table (Responsive) */}
+          {/* Comparison Table */}
           <div className="space-y-6 hidden sm:block">
             <h2 className="text-xl font-black uppercase tracking-widest text-[#1a1510]/20 text-center">Detailed Comparison</h2>
             <div className="bg-white border border-[#1a1510]/5 rounded-[2rem] overflow-hidden shadow-sm">
@@ -212,7 +255,7 @@ export default function PricingPage() {
       </main>
 
       {/* Buy Credits CTA */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#1a1510] text-brand-gold px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 border border-brand-gold/20 backdrop-blur-md">
+      <div className="fixed bottom-6 left-1/2 -translate-y-1/2 z-40 bg-[#1a1510] text-brand-gold px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 border border-brand-gold/20 backdrop-blur-md">
         <div className="flex items-center gap-2">
           <Coins size={16} />
           <span className="text-[11px] font-black uppercase tracking-widest">Need more power?</span>

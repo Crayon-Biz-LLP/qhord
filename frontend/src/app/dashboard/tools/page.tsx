@@ -203,6 +203,13 @@ export default function ToolsPage() {
                      ))}
                   </div>
 
+                  {!selectedClient && (
+                     <div className="p-5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold uppercase tracking-wider flex items-center gap-3 shadow-sm">
+                        <Shield className="text-amber-600 shrink-0" size={18} />
+                        <span>Please select a client to connect tools.</span>
+                     </div>
+                  )}
+
                   {/* 3. Tools Grid */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 pb-32">
                      {filteredTools.map((tool, idx) => (
@@ -270,7 +277,12 @@ export default function ToolsPage() {
                               ) : tool.status === 'active' ? (
                                  <button 
                                     onClick={() => handleConnectClick(tool)}
-                                    className="w-full h-11 rounded-xl sm:rounded-2xl bg-[#1a1510] text-brand-gold text-[9px] sm:text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl hover:translate-y-[-1px] transition-all"
+                                    disabled={!selectedClient}
+                                    className={`w-full h-11 rounded-xl sm:rounded-2xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${
+                                       selectedClient 
+                                          ? "bg-[#1a1510] text-brand-gold shadow-xl hover:translate-y-[-1px] cursor-pointer" 
+                                          : "bg-[#1a1510]/5 text-[#1a1510]/20 cursor-not-allowed border border-[#1a1510]/5"
+                                    }`}
                                  >
                                     <LinkIcon size={14} /> Connect
                                  </button>

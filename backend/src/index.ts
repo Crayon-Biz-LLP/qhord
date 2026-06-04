@@ -20,6 +20,9 @@ import settingsRoutes from './routes/settings';
 import leadsRoutes from './routes/leads';
 import dashboardRoutes from './routes/dashboard';
 import analyticsRoutes from './routes/analytics';
+import playbooksRoutes from './routes/playbooks';
+import dealsRoutes from './routes/deals';
+import inboxRoutes from './routes/inbox';
 import { prisma } from './lib/prisma';
 import { campaignWorker } from './workers/campaign-worker';
 
@@ -57,6 +60,9 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/leads', leadsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/playbooks', playbooksRoutes);
+app.use('/api/deals', dealsRoutes);
+app.use('/api/inbox', inboxRoutes);
 
 const port = parseInt(process.env.PORT || '4000', 10);
 

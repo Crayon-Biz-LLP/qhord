@@ -8,9 +8,10 @@ import {
   Database, Globe, Target, Layers, Sparkles, Bot
 } from "lucide-react";
 import { useAuth } from "../../../hooks/useAuth";
+import { api } from "../../../lib/api";
 
 export default function AIEnginePage() {
-  const { user } = useAuth();
+  const { user } = useAuth(true);
   const [metrics, setMetrics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -21,17 +22,9 @@ export default function AIEnginePage() {
 
   const fetchMetrics = async () => {
     try {
-      const token = localStorage.getItem("auth_token");
-      const response = await fetch("http://localhost:4000/ai-engine/metrics", {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
-      });
-      
-      const data = await response.json();
-      if (data.success) {
-        setMetrics(data.metrics);
+      const response = await api.get("/ai-engine/metrics");
+      if (response.data.success) {
+        setMetrics(response.data.metrics);
       }
     } catch (error) {
       console.error('Failed to fetch AI Engine metrics:', error);

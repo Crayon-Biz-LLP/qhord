@@ -1,10 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import {
   LayoutDashboard, Users, Activity, Settings, Bell, Search, Plus, Cpu, Zap, ShieldCheck,
   Terminal, BarChart3, Mail, Target, ListTodo, GraduationCap, Box, Computer,
   Sparkles, Bot, CreditCard, DollarSign, ChevronRight, User as UserIcon, LogOut, Globe, Building2, Workflow,
-  MessageSquare, TrendingUp
+  MessageSquare, TrendingUp, Bookmark, ChevronDown
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useClient } from "../../../contexts/ClientContext";
@@ -42,6 +42,7 @@ export const Sidebar = ({ onSignOut, activeView = 'dashboard', onViewChange }: S
   const { clients, selectedClient, setSelectedClient } = useClient();
   const { user } = useAuth();
   const { userCredits } = useCredits();
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   return (
     <aside className="w-72 border-r border-[#1a1510]/5 flex flex-col hidden md:flex bg-[#1a1510] relative z-20 shadow-[20px_0_40px_-20px_rgba(0,0,0,0.1)] overflow-y-auto scrollbar-hide shrink-0">
@@ -56,6 +57,76 @@ export const Sidebar = ({ onSignOut, activeView = 'dashboard', onViewChange }: S
           </div>
         </Link>
 
+        {/* Client Selector Dropdown */}
+        <div className="relative mb-6">
+          <button
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            className="w-full flex items-center justify-between p-3 bg-white/5 border border-white/5 hover:border-white/10 rounded-2xl transition-all text-left group"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-brand-gold/10 text-brand-gold flex items-center justify-center shrink-0">
+                <Building2 size={16} />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[8px] font-black text-white/30 uppercase tracking-widest leading-none">Active Client</span>
+                <span className="text-[11px] font-black text-white truncate mt-1 leading-none">
+                  {selectedClient ? selectedClient.name : "Select Client..."}
+                </span>
+              </div>
+            </div>
+            <ChevronDown 
+              size={14} 
+              className={`text-white/20 group-hover:text-white transition-transform shrink-0 ${isDropdownOpen ? 'rotate-180 text-brand-gold' : ''}`} 
+            />
+          </button>
+
+          {isDropdownOpen && (
+            <>
+              {/* Overlay background to close dropdown when clicked outside */}
+              <div className="fixed inset-0 z-40" onClick={() => setIsDropdownOpen(false)} />
+              
+              {/* Dropdown Menu */}
+              <div className="absolute left-0 right-0 mt-2 bg-[#221a12] border border-white/10 rounded-2xl shadow-2xl z-50 py-2 max-h-48 overflow-y-auto scrollbar-hide">
+                {clients.length === 0 ? (
+                  <div className="px-4 py-2 text-[10px] font-bold text-white/30 uppercase tracking-wider text-center">
+                    No clients found
+                  </div>
+                ) : (
+                  clients.map((c) => {
+                    const isSelected = selectedClient?.id === c.id;
+                    return (
+                      <button
+                        key={c.id}
+                        onClick={() => {
+                          setSelectedClient(c);
+                          setIsDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-2.5 text-[11px] font-bold transition-all truncate flex items-center justify-between ${
+                          isSelected 
+                            ? "text-brand-gold bg-white/5 font-black" 
+                            : "text-white/60 hover:text-white hover:bg-white/5"
+                        }`}
+                      >
+                        <span className="truncate">{c.name}</span>
+                        {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-brand-gold shrink-0 ml-2" />}
+                      </button>
+                    );
+                  })
+                )}
+                <div className="border-t border-white/5 mt-1 pt-1.5">
+                  <Link
+                    href="/dashboard/clients"
+                    onClick={() => setIsDropdownOpen(false)}
+                    className="w-full text-left px-4 py-2 text-[10px] font-black uppercase tracking-wider text-brand-gold hover:text-white hover:bg-white/5 transition-all flex items-center gap-1.5"
+                  >
+                    <Plus size={10} /> Establish New Client
+                  </Link>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
         {[
           {
             title: "NAVIGATION",
@@ -67,6 +138,10 @@ export const Sidebar = ({ onSignOut, activeView = 'dashboard', onViewChange }: S
               { icon: Workflow, label: "Workflows", id: 'workflows', href: '/dashboard/workflows' },
               { icon: DollarSign, label: "Deals", id: 'pipeline', href: '/dashboard/pipeline' },
               { icon: BarChart3, label: "Analytics", id: 'analytics', href: '/dashboard/analytics' },
+              { icon: Box, label: "Tools Config", id: 'tools', href: '/dashboard/tools' },
+              { icon: Bookmark, label: "Playbooks", id: 'playbooks', href: '/dashboard/playbooks' },
+              { icon: Zap, label: "APIs & Keys", id: 'apis', href: '/dashboard/apis' },
+              { icon: Globe, label: "Account Nodes", id: 'accounts', href: '/dashboard/accounts' },
             ]
           },
           {

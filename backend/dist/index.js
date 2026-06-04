@@ -25,6 +25,9 @@ const settings_1 = __importDefault(require("./routes/settings"));
 const leads_1 = __importDefault(require("./routes/leads"));
 const dashboard_1 = __importDefault(require("./routes/dashboard"));
 const analytics_1 = __importDefault(require("./routes/analytics"));
+const playbooks_1 = __importDefault(require("./routes/playbooks"));
+const deals_1 = __importDefault(require("./routes/deals"));
+const inbox_1 = __importDefault(require("./routes/inbox"));
 const prisma_1 = require("./lib/prisma");
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)({ origin: '*', credentials: true }));
@@ -58,6 +61,9 @@ app.use('/api/settings', settings_1.default);
 app.use('/api/leads', leads_1.default);
 app.use('/api/dashboard', dashboard_1.default);
 app.use('/api/analytics', analytics_1.default);
+app.use('/api/playbooks', playbooks_1.default);
+app.use('/api/deals', deals_1.default);
+app.use('/api/inbox', inbox_1.default);
 const port = parseInt(process.env.PORT || '4000', 10);
 app.listen(port, () => {
     // eslint-disable-next-line no-console

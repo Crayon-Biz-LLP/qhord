@@ -87,6 +87,13 @@ model Client {
   region                 String?
   status                 String   @default("Active")
   website                String?
+  icp_summary            String?
+  strategy_notes         String?
+  channels               Json?    @default("[\"Email\"]")
+  connected_tools        Json?    @default("[]")
+  approval_mode          String?  @default("Approval required")
+  max_daily_sends        Int?     @default(150)
+  require_crm_approval   Boolean? @default(true)
 
   tool_accounts      ClientToolAccount[]
   execution_contexts ExecutionContext[]
@@ -94,6 +101,8 @@ model Client {
   campaigns          Campaign[]
   leads              Lead[]
   credit             ClientCredit?
+  deals              Deal[]
+  inbox_messages     InboxMessage[]
 
   @@map("clients")
 }
@@ -328,3 +337,57 @@ model Notification {
 
   @@map("notifications")
 }
+
+model Playbook {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String
+  difficulty   String
+  description  String
+  creator      String   @default("Control Tower Team")
+  rating       Float    @default(4.5)
+  imports      String   @default("0")
+  confidence   Int      @default(80)
+  deploy_time  String   @default("15 minutes")
+  credits      Int      @default(20)
+  category     String
+  reply_rate   String   @default("8-12%")
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("playbooks")
+}
+
+model Deal {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  client_id  String   @db.Uuid
+  client     Client   @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  name       String
+  contact    String
+  amount     String
+  health     Int      @default(80)
+  stage      String   // "New Lead", "Engaged", "Meeting", "Proposal", "Closed"
+  auto       Boolean  @default(true)
+  avatar     String   @default("D")
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("deals")
+}
+
+model InboxMessage {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  client_id   String   @db.Uuid
+  client      Client   @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  sender      String
+  company     String
+  campaign    String
+  subject     String
+  body        String
+  tags        Json     @default("[]")
+  tool        String
+  unread      Boolean  @default(true)
+  sentiment   String   @default("Standard")
+  avatar      String   @default("U")
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("inbox_messages")
+}
+

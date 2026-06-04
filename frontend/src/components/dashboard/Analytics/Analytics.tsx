@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { TrendingUp, TrendingDown, BarChart3, Activity, Users, Mail, Target, Zap, Briefcase } from "lucide-react";
+import { api } from "../../../lib/api";
 
 interface AnalyticsData {
   totalExecutions: number;
@@ -19,16 +20,12 @@ export const Analytics = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = document.cookie
-      .split("; ")
-      .find(r => r.startsWith("token="))
-      ?.split("=")[1];
-    fetch("/api/analytics/summary", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(r => r.json())
+    api.get("/analytics/summary")
       .then(res => {
-        if (res.success) setData(res.data);
+        if (res.data.success) setData(res.data.data);
+      })
+      .catch(err => {
+        console.error("Failed to fetch analytics:", err);
       })
       .finally(() => setLoading(false));
   }, []);

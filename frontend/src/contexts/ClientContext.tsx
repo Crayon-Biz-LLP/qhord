@@ -13,6 +13,13 @@ interface Client {
   status?: string;
   website?: string | null;
   priority?: string;
+  icp_summary?: string | null;
+  strategy_notes?: string | null;
+  channels?: any;
+  connected_tools?: any;
+  approval_mode?: string | null;
+  max_daily_sends?: number | null;
+  require_crm_approval?: boolean | null;
 }
 
 interface ClientContextType {
