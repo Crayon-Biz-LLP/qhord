@@ -109,16 +109,11 @@ export default function DashboardHub() {
               </div>
               <div className="flex flex-col">
                  <span className="text-[11px] font-black uppercase tracking-widest text-[#1a1510]">Control Tower</span>
-                 <span className="text-[9px] font-bold text-[#1a1510]/30 uppercase tracking-widest">Active Node: Main</span>
               </div>
            </div>
         </div>
 
         <div className="flex items-center gap-6">
-            <div className="h-9 px-4 rounded-full bg-[#f7f8f9] border border-[#1a1510]/5 flex items-center gap-2">
-               <span className="text-[10px] font-bold text-emerald-600">● All systems live</span>
-            </div>
-            
            <div className="relative group">
               <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#1a1510]/30 group-focus-within:text-brand-gold transition-colors" />
               <input type="text" placeholder="Search Command..." className="h-9 w-64 pl-11 pr-4 rounded-full bg-[#f7f8f9] border border-[#1a1510]/10 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-brand-gold/20 transition-all opacity-100" />
@@ -130,7 +125,7 @@ export default function DashboardHub() {
                 <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-white"></span>
               </button>
               <button className="p-2 text-[#1a1510]/40 hover:text-brand-gold transition-colors"><Moon size={18} /></button>
-              <button className="h-9 px-5 rounded-full bg-[#1a1510] text-[#fdfbf7] text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all hover:translate-y-[-1px] shadow-lg shadow-[#1a1510]/10">
+              <button className="btn-shine h-9 px-5 rounded-none bg-[#1a1510] text-[#fdfbf7] text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all hover:translate-y-[-1px] shadow-lg shadow-[#1a1510]/10">
                  <Plus size={14} /> Quick Actions
               </button>
            </div>
@@ -141,80 +136,89 @@ export default function DashboardHub() {
       <main className="flex-1 overflow-y-auto p-8 lg:p-12 space-y-10 scrollbar-hide pb-32">
         
         {/* Welcome Section */}
-        <section className="flex items-end justify-between">
+        <section className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
           >
-             <h1 className="text-3xl font-black tracking-tighter text-[#1a1510] mb-2 leading-none">{greeting}, {user?.name || "Operator"}</h1>
-              <p className="text-sm font-medium text-[#1a1510]/40">{currentDate} — {dashboardMetrics?.totalLeads ? `${dashboardMetrics.totalLeads} leads collected` : 'GTM pipeline ready'}</p>
+            <div className="flex items-center gap-2 mb-2.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span className="text-[11px] font-semibold text-[#1a1510]/40 uppercase tracking-[0.18em]">{currentDate}</span>
+            </div>
+            <h1 className="text-[2rem] sm:text-[2.5rem] font-bold tracking-tight text-[#1a1510] leading-[1.05] whitespace-nowrap">
+              {greeting}, <span className="text-brand-gold">{user?.name || "Operator"}</span>
+            </h1>
+            <p className="text-sm text-[#1a1510]/45 mt-1.5">
+              {dashboardMetrics?.totalLeads ? `${dashboardMetrics.totalLeads} leads collected — pipeline is humming.` : 'Your GTM pipeline is ready. Let’s build something.'}
+            </p>
           </motion.div>
-          <div className="flex gap-4">
-             <button 
-                onClick={() => router.push('/dashboard/command')}
-                className="h-12 px-6 rounded-xl border border-[#1a1510]/10 text-xs font-black uppercase tracking-widest text-[#1a1510] flex items-center gap-2 hover:bg-white transition-all shadow-sm"
-             >
-                <Terminal size={14} /> Operating Room
-             </button>
-             <button 
-                onClick={() => setIsCreateModalOpen(true)}
-                className="h-12 px-6 rounded-xl bg-brand-gold text-[#1a1510] text-xs font-black uppercase tracking-widest flex items-center gap-3 shadow-lg shadow-brand-gold/20 hover:translate-y-[-1px] transition-all"
-              >
-                <Plus size={16} strokeWidth={3} /> New Campaign
-             </button>
+          <div className="flex gap-2.5 shrink-0">
+            <button
+              onClick={() => router.push('/dashboard/command')}
+              className="btn-shine btn-shine-dark h-11 px-5 rounded-none border border-[#1a1510]/10 bg-white text-xs font-semibold text-[#1a1510] flex items-center gap-2 hover:bg-[#1a1510]/[0.02] hover:border-[#1a1510]/20 transition-colors"
+            >
+              <Terminal size={15} /> Operating Room
+            </button>
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="btn-shine h-11 px-5 rounded-none bg-[#1a1510] text-white text-xs font-semibold flex items-center gap-2 hover:bg-[#2a2118] transition-colors"
+            >
+              <Plus size={15} strokeWidth={2.5} /> New Campaign
+            </button>
           </div>
         </section>
 
-        {/* Global Performance Header - Premium Style */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Global Performance Header */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
            {[
-              { label: "Active Campaigns", val: dashboardMetrics?.activeCampaigns || "0", color: "text-emerald-500", icon: Layers },
-              { label: "Total Leads", val: dashboardMetrics?.totalLeads || "0", color: "text-blue-500", icon: Users },
-              { label: "Total Emails Sent", val: dashboardMetrics?.totalEmails || "0", color: "text-brand-gold", icon: Target },
-              { label: "Total Campaigns", val: dashboardMetrics?.totalCampaigns || "0", color: "text-blue-500", icon: Bot },
+              { label: "Active Campaigns", val: dashboardMetrics?.activeCampaigns || "0", icon: Layers },
+              { label: "Total Leads", val: dashboardMetrics?.totalLeads || "0", icon: Users },
+              { label: "Total Emails Sent", val: dashboardMetrics?.totalEmails || "0", icon: Target },
+              { label: "Total Campaigns", val: dashboardMetrics?.totalCampaigns || "0", icon: Bot },
            ].map((stat, i) => (
-              <motion.div 
-                key={i} 
-                initial={{ opacity: 0, y: 20 }}
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.1 }}
-                className="bg-white border border-[#1a1510]/5 rounded-[2rem] p-8 shadow-sm group hover:border-brand-gold/20 transition-all"
+                transition={{ delay: i * 0.06 }}
+                className="group bg-white border border-[#1a1510]/[0.07] rounded-2xl p-5 shadow-[0_1px_2px_rgba(26,21,16,0.04)] hover:shadow-[0_8px_24px_rgba(26,21,16,0.06)] hover:-translate-y-0.5 transition-all duration-200"
               >
-                 <div className="flex items-center gap-3 mb-6">
-                    <div className={`w-10 h-10 rounded-xl bg-[#f7f8f9] flex items-center justify-center ${stat.color}`}>
-                       <stat.icon size={18} />
-                    </div>
-                    <span className="text-[10px] font-bold text-[#1a1510]/40 uppercase tracking-widest">{stat.label}</span>
+                 <div className="flex items-center justify-between mb-4">
+                    <span className="text-[11px] font-semibold text-[#1a1510]/40 uppercase tracking-wider">{stat.label}</span>
+                    <stat.icon size={18} strokeWidth={2} className="text-[#1a1510]/30 group-hover:text-[#1a1510]/60 transition-colors" />
                  </div>
-                 <h3 className="text-4xl font-black text-[#1a1510] tracking-tighter">{stat.val}</h3>
+                 <div className="flex items-baseline gap-2">
+                    <h3 className="text-[2.5rem] font-bold text-[#1a1510] tracking-tight tabular-nums leading-none">{stat.val}</h3>
+                    <span className="text-[11px] font-medium text-[#1a1510]/25 mb-1">total</span>
+                 </div>
               </motion.div>
            ))}
         </div>
 
-        {/* AI Prompt Bar - Premium Style */}
-        <div className="relative group">
-           <div className="absolute inset-0 bg-brand-gold/5 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-all" />
-           <div className="relative bg-white border border-[#1a1510]/5 rounded-[2.5rem] p-5 flex items-center gap-5 shadow-sm">
-              <div className={`w-14 h-14 rounded-2xl bg-[#f7f8f9] flex items-center justify-center text-brand-gold ${isCreating ? 'animate-pulse' : ''}`}>
-                 {isCreating ? <RefreshCw size={28} className="animate-spin" /> : <Wand2 size={28} />}
-              </div>
-              <input 
-                 type="text" 
+        {/* AI Prompt Bar */}
+        <div className="bg-white border border-[#1a1510]/[0.07] rounded-2xl p-3 flex items-center gap-3 focus-within:border-brand-gold/40 focus-within:ring-2 focus-within:ring-brand-gold/10 transition-all">
+           <div className={`w-11 h-11 rounded-xl bg-brand-gold/10 flex items-center justify-center text-brand-gold shrink-0 ${isCreating ? 'animate-pulse' : ''}`}>
+              {isCreating ? <RefreshCw size={20} className="animate-spin" /> : <Wand2 size={20} />}
+           </div>
+           <div className="flex-1 min-w-0">
+              <span className="block text-[10px] font-semibold text-[#1a1510]/35 uppercase tracking-wider">AI Campaign Builder</span>
+              <input
+                 type="text"
                  value={promptInput}
                  onChange={(e) => setPromptInput(e.target.value)}
                  onKeyPress={(e) => e.key === 'Enter' && createCampaign(promptInput)}
-                 placeholder="Describe what you want to build... e.g. 'Send 100 B2B leads from Apollo to Smartlead with 2-day warmup'"
-                 className="flex-1 bg-transparent border-none focus:ring-0 text-base font-medium placeholder:text-[#1a1510]/20"
+                 placeholder="Describe what you want to build… e.g. ‘Send 100 B2B leads from Apollo to Smartlead with 2-day warmup’"
+                 className="w-full bg-transparent border-none focus:ring-0 p-0 text-[15px] text-[#1a1510] placeholder:text-[#1a1510]/25"
                  disabled={isCreating}
               />
-              <button 
-                 onClick={() => createCampaign(promptInput)}
-                 disabled={!promptInput.trim() || isCreating}
-                 className="h-12 px-10 rounded-2xl bg-[#1a1510] text-brand-gold text-xs font-black uppercase tracking-widest shadow-xl hover:translate-y-[-1px] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                 {isCreating ? 'Creating...' : 'Generate'}
-              </button>
            </div>
+           <button
+              onClick={() => createCampaign(promptInput)}
+              disabled={!promptInput.trim() || isCreating}
+              className="btn-shine h-11 px-7 rounded-none bg-[#1a1510] text-white text-xs font-semibold flex items-center gap-2 hover:bg-[#2a2118] transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+           >
+              {isCreating ? 'Creating…' : <>Generate <Sparkles size={14} /></>}
+           </button>
         </div>
 
         {/* Live Result Display */}
@@ -290,40 +294,40 @@ export default function DashboardHub() {
         )}
 
         {/* Two-Column Deep Context */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
            {/* Left Column: Campaigns & Operator */}
-           <div className="lg:col-span-2 space-y-10">
+           <div className="lg:col-span-2 space-y-6">
                {/* Recent Executions */}
-               <section className="bg-white rounded-[2.5rem] border border-[#1a1510]/5 shadow-sm overflow-hidden p-8 space-y-8">
+               <section className="bg-white rounded-2xl border border-[#1a1510]/[0.07] p-6 space-y-5">
                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                       <div className="w-12 h-12 rounded-2xl bg-brand-gold/10 flex items-center justify-center text-brand-gold">
-                          <Activity size={24} />
+                    <div className="flex items-center gap-3">
+                       <div className="w-10 h-10 rounded-lg bg-brand-gold/10 flex items-center justify-center text-brand-gold">
+                          <Activity size={19} />
                        </div>
                        <div>
                           <div className="flex items-center gap-2">
-                             <h2 className="text-lg font-black tracking-tight text-[#1a1510]">Recent Pipeline Runs</h2>
-                             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                             <h2 className="text-[15px] font-semibold tracking-tight text-[#1a1510]">Recent Pipeline Runs</h2>
+                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                           </div>
-                          <p className="text-[11px] font-bold text-[#1a1510]/30 uppercase tracking-widest mt-1">Real execution logs</p>
+                          <p className="text-[11px] font-medium text-[#1a1510]/35 mt-0.5">Real execution logs</p>
                        </div>
                     </div>
-                    <button onClick={() => router.push('/dashboard/executions')} className="text-[10px] font-black text-brand-gold uppercase tracking-widest hover:underline">View All</button>
+                    <button onClick={() => router.push('/dashboard/executions')} className="text-[11px] font-semibold text-brand-gold hover:underline">View all</button>
                  </div>
 
                  <div className="space-y-2">
                     {recentExecutions.length === 0 ? (
                        <p className="text-sm text-[#1a1510]/40 text-center py-6">No executions yet. Run a pipeline from Workflows.</p>
                     ) : recentExecutions.map((exe, i) => (
-                       <div key={i} className="flex items-center gap-4 p-4 bg-[#fcfcfc] border border-[#1a1510]/5 rounded-xl">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black ${exe.status === 'success' ? 'bg-emerald-50 text-emerald-600' : exe.status === 'error' ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-400'}`}>
+                       <div key={i} className="flex items-center gap-3 p-3.5 bg-[#fafafa] border border-[#1a1510]/[0.05] rounded-xl">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${exe.status === 'success' ? 'bg-emerald-50 text-emerald-600' : exe.status === 'error' ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-400'}`}>
                              {exe.status === 'success' ? '✓' : exe.status === 'error' ? '✗' : '○'}
                           </div>
                           <div className="flex-1 min-w-0">
-                             <p className="text-xs font-black text-[#1a1510] truncate">{exe.tool_name}.{exe.action}</p>
-                             <p className="text-[10px] text-[#1a1510]/40 truncate">{new Date(exe.created_at).toLocaleString()}</p>
+                             <p className="text-[13px] font-semibold text-[#1a1510] truncate">{exe.tool_name}.{exe.action}</p>
+                             <p className="text-[11px] text-[#1a1510]/40 truncate">{new Date(exe.created_at).toLocaleString()}</p>
                           </div>
-                          <span className={`text-[9px] font-bold px-2 py-1 rounded-md uppercase ${exe.status === 'success' ? 'bg-emerald-50 text-emerald-600' : exe.status === 'error' ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-500'}`}>
+                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-md ${exe.status === 'success' ? 'bg-emerald-50 text-emerald-600' : exe.status === 'error' ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-500'}`}>
                              {exe.status}
                           </span>
                        </div>
@@ -332,28 +336,28 @@ export default function DashboardHub() {
                </section>
 
                {/* Recent Campaigns */}
-               <section className="bg-white rounded-[2.5rem] border border-[#1a1510]/5 shadow-sm p-8 space-y-6">
+               <section className="bg-white rounded-2xl border border-[#1a1510]/[0.07] p-6 space-y-5">
                   <div className="flex items-center justify-between">
                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-[#f7f8f9] rounded-xl text-[#1a1510]"><Activity size={20} /></div>
-                        <h2 className="text-base font-black tracking-tight text-[#1a1510]">Recent Campaigns</h2>
+                        <div className="w-10 h-10 flex items-center justify-center bg-[#f7f8f9] rounded-lg text-[#1a1510]/70"><Activity size={19} /></div>
+                        <h2 className="text-[15px] font-semibold tracking-tight text-[#1a1510]">Recent Campaigns</h2>
                      </div>
-                     <button onClick={() => router.push('/dashboard/campaigns')} className="text-[10px] font-black text-brand-gold uppercase tracking-widest hover:underline flex items-center gap-1">All Campaigns <ChevronRight size={14} /></button>
+                     <button onClick={() => router.push('/dashboard/campaigns')} className="text-[11px] font-semibold text-brand-gold hover:underline flex items-center gap-1">All campaigns <ChevronRight size={14} /></button>
                   </div>
                   
                   <div className="space-y-3">
                      {recentCampaigns.length === 0 ? (
                        <p className="text-sm text-[#1a1510]/40 text-center py-6">No campaigns yet. Run a pipeline from Workflows.</p>
                      ) : recentCampaigns.map((cp, i) => (
-                        <div key={i} className="flex items-center gap-4 p-4 rounded-xl bg-[#fcfcfc] border border-[#1a1510]/5">
-                           <div className="w-9 h-9 rounded-lg bg-white border border-[#1a1510]/10 flex items-center justify-center text-brand-gold font-black text-xs uppercase">
+                        <div key={i} className="flex items-center gap-3 p-3.5 rounded-xl bg-[#fafafa] border border-[#1a1510]/[0.05]">
+                           <div className="w-9 h-9 rounded-lg bg-white border border-[#1a1510]/10 flex items-center justify-center text-brand-gold font-bold text-xs uppercase">
                               {cp.name?.charAt(0) || 'C'}
                            </div>
                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-black text-[#1a1510] truncate">{cp.name}</p>
-                              <p className="text-[10px] text-[#1a1510]/40">{(cp.manifest as any)?.steps?.length || 0} steps · {cp.status}</p>
+                              <p className="text-[13px] font-semibold text-[#1a1510] truncate">{cp.name}</p>
+                              <p className="text-[11px] text-[#1a1510]/40">{(cp.manifest as any)?.steps?.length || 0} steps · {cp.status}</p>
                            </div>
-                           <span className={`text-[9px] font-bold px-2 py-1 rounded-md uppercase ${cp.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : cp.status === 'executing' ? 'bg-blue-50 text-blue-600' : cp.status === 'approved' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-500'}`}>
+                           <span className={`text-[10px] font-medium px-2 py-0.5 rounded-md ${cp.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : cp.status === 'executing' ? 'bg-blue-50 text-blue-600' : cp.status === 'approved' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-500'}`}>
                               {cp.status}
                            </span>
                         </div>
@@ -363,48 +367,48 @@ export default function DashboardHub() {
            </div>
 
             {/* Right Column: Quick Run */}
-            <div className="space-y-10">
-               <section className="bg-white rounded-[2.5rem] border border-[#1a1510]/5 shadow-sm p-8 space-y-6">
+            <div className="space-y-6">
+               <section className="bg-white rounded-2xl border border-[#1a1510]/[0.07] p-6 space-y-5">
                   <div className="flex items-center gap-3">
-                     <div className="p-2 bg-orange-50 rounded-xl text-orange-500"><Zap size={20} /></div>
-                     <h2 className="text-base font-black tracking-tight text-[#1a1510]">Quick Pipeline</h2>
+                     <div className="w-10 h-10 flex items-center justify-center bg-orange-50 rounded-lg text-orange-500"><Zap size={19} /></div>
+                     <h2 className="text-[15px] font-semibold tracking-tight text-[#1a1510]">Quick Pipeline</h2>
                   </div>
-                  <div className="space-y-3">
+                  <div className="space-y-2.5">
                      <input
                         value={promptInput}
                         onChange={(e) => setPromptInput(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && createCampaign(promptInput)}
-                        placeholder="e.g. find 5 leads from hunter..."
-                        className="w-full h-12 px-5 rounded-2xl bg-[#f7f8f9] border border-[#1a1510]/5 text-sm font-medium outline-none focus:ring-1 focus:ring-brand-gold/20"
+                        placeholder="e.g. find 5 leads from hunter…"
+                        className="w-full h-11 px-4 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-sm outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all"
                      />
                      <button
                         onClick={() => router.push('/dashboard/workflows')}
-                        className="w-full h-12 rounded-2xl bg-[#1a1510] text-brand-gold text-xs font-black uppercase tracking-widest shadow-xl hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2"
+                        className="btn-shine w-full h-11 rounded-none bg-[#1a1510] text-white text-xs font-semibold hover:bg-[#2a2118] transition-colors flex items-center justify-center gap-2"
                      >
-                        <Sparkles size={16} /> Open Workflows
+                        <Sparkles size={15} /> Open Workflows
                      </button>
                   </div>
-                  <div className="p-4 rounded-2xl bg-[#fcfcfc] border border-[#1a1510]/5">
-                     <p className="text-[10px] font-bold text-[#1a1510]/30 uppercase tracking-widest mb-2">TOOLS READY</p>
-                     <div className="flex flex-wrap gap-2">
+                  <div className="p-4 rounded-xl bg-[#fafafa] border border-[#1a1510]/[0.05]">
+                     <p className="text-[10px] font-semibold text-[#1a1510]/35 uppercase tracking-wider mb-2.5">Tools ready</p>
+                     <div className="flex flex-wrap gap-1.5">
                         {['Hunter', 'BetterContacts', 'Brevo', 'Calendly'].map(t => (
-                           <span key={t} className="text-[9px] font-bold px-3 py-1.5 rounded-lg bg-white border border-[#1a1510]/5 text-[#1a1510]">{t}</span>
+                           <span key={t} className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-white border border-[#1a1510]/[0.07] text-[#1a1510]/70">{t}</span>
                         ))}
                      </div>
                   </div>
                </section>
 
-               <section className="bg-white rounded-[2.5rem] border border-[#1a1510]/5 shadow-sm p-8 space-y-6">
+               <section className="bg-white rounded-2xl border border-[#1a1510]/[0.07] p-6 space-y-5">
                   <div className="flex items-center gap-3">
-                     <div className="p-2 bg-blue-50 rounded-xl text-blue-500"><Users size={20} /></div>
-                     <h2 className="text-base font-black tracking-tight text-[#1a1510]">Leads</h2>
+                     <div className="w-10 h-10 flex items-center justify-center bg-blue-50 rounded-lg text-blue-500"><Users size={19} /></div>
+                     <h2 className="text-[15px] font-semibold tracking-tight text-[#1a1510]">Leads</h2>
                   </div>
-                  <div className="text-center">
-                     <p className="text-4xl font-black text-[#1a1510]">{dashboardMetrics?.totalLeads || '0'}</p>
-                     <p className="text-[10px] font-bold text-[#1a1510]/30 uppercase tracking-widest mt-1">Total Collected</p>
+                  <div className="text-center py-2">
+                     <p className="text-4xl font-bold text-[#1a1510] tabular-nums">{dashboardMetrics?.totalLeads || '0'}</p>
+                     <p className="text-[11px] font-medium text-[#1a1510]/35 uppercase tracking-wider mt-1">Total collected</p>
                   </div>
-                  <button onClick={() => router.push('/dashboard/leads')} className="w-full h-12 rounded-2xl border border-[#1a1510]/5 text-[10px] font-black uppercase tracking-widest text-[#1a1510] hover:bg-[#f7f8f9] transition-all">
-                     View Leads
+                  <button onClick={() => router.push('/dashboard/leads')} className="btn-shine btn-shine-dark w-full h-11 rounded-none border border-[#1a1510]/10 text-xs font-semibold text-[#1a1510] hover:bg-[#f7f8f9] transition-colors">
+                     View leads
                   </button>
                </section>
             </div>

@@ -12,6 +12,8 @@ import {
 import { useRouter } from "next/navigation";
 import { useClient } from "../../../contexts/ClientContext";
 import { api } from "../../../lib/api";
+import { Loader } from "../../../components/ui/Loader";
+import { DealsIcon } from "../../../components/ui/icons/DealsIcon";
 
 interface DealItem {
    id: string;
@@ -38,7 +40,7 @@ export default function PipelinePage() {
    const [deals, setDeals] = useState<DealItem[]>([]);
    const [loading, setLoading] = useState(true);
    const [searchQuery, setSearchQuery] = useState("");
-   
+
    // Create Deal Modal States
    const [isCreateOpen, setIsCreateOpen] = useState(false);
    const [newName, setNewName] = useState("");
@@ -135,7 +137,7 @@ export default function PipelinePage() {
       let weighted = 0;
       let wins = 0;
       let aiCount = 0;
-      
+
       deals.forEach(d => {
          const val = parseAmount(d.amount);
          total += val;
@@ -158,7 +160,7 @@ export default function PipelinePage() {
    }, [deals]);
 
    const filteredDeals = useMemo(() => {
-      return deals.filter(d => 
+      return deals.filter(d =>
          d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
          d.contact.toLowerCase().includes(searchQuery.toLowerCase())
       );
@@ -181,178 +183,163 @@ export default function PipelinePage() {
       <div className="flex-1 flex flex-col h-full bg-[#f7f8f9] text-[#1a1510] font-sans selection:bg-brand-gold/30">
 
          {/* 1. Header Navigation */}
-         <nav className="h-20 border-b border-[#1a1510]/5 bg-white flex items-center justify-between px-4 sm:px-8 shrink-0 z-50 shadow-sm relative">
+         <nav className="h-16 border-b border-[#1a1510]/[0.07] bg-white flex items-center justify-between px-4 sm:px-8 shrink-0 z-50 relative">
             <div className="flex items-center gap-6 min-w-0">
                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-[#1a1510] text-brand-gold rounded-xl shadow-lg shrink-0">
-                     <BarChart3 size={18} />
+                  <div className="w-9 h-9 bg-[#1a1510] text-brand-gold rounded-lg flex items-center justify-center shrink-0">
+                     <DealsIcon size={16} />
                   </div>
                   <div className="hidden sm:block truncate">
-                     <h2 className="text-sm font-black tracking-tight text-[#1a1510] uppercase truncate">Pipeline</h2>
-                     <p className="text-[10px] font-bold text-[#1a1510]/30 uppercase tracking-widest mt-0.5 truncate">
-                        {selectedClient ? `${selectedClient.name} Deal Sync` : "Real-time GTM deal sync"}
+                     <h2 className="text-[13px] font-bold tracking-tight text-[#1a1510] uppercase">Deals</h2>
+                     <p className="text-[11px] font-medium text-[#1a1510]/40 truncate">
+                        {selectedClient ? `${selectedClient.name} · deal sync` : "Real-time deal sync"}
                      </p>
                   </div>
                </div>
             </div>
 
-            <div className="flex items-center gap-3 sm:gap-4">
-               <button 
+            <div className="flex items-center gap-2.5">
+               <button
                   onClick={() => setIsCreateOpen(true)}
                   disabled={!selectedClient}
-                  className="h-10 px-4 sm:px-6 rounded-xl bg-[#1a1510] text-brand-gold text-[10px] font-black uppercase tracking-widest shadow-xl hover:translate-y-[-1px] transition-all flex items-center gap-2 disabled:opacity-55"
+                  className="btn-shine h-10 px-4 sm:px-5 rounded-none bg-[#1a1510] text-white text-xs font-semibold flex items-center gap-2 hover:bg-[#2a2118] transition-colors disabled:opacity-50"
                >
-                  <Plus size={14} /> <span className="hidden xs:inline">New Deal</span><span className="xs:hidden">New</span>
+                  <Plus size={15} /> <span className="hidden xs:inline">New Deal</span><span className="xs:hidden">New</span>
                </button>
                <button
                   onClick={() => router.push('/dashboard')}
-                  className="h-10 px-3 sm:px-5 rounded-xl border border-[#1a1510]/10 text-[10px] font-black uppercase tracking-widest text-[#1a1510] flex items-center gap-2 hover:bg-[#f7f8f9] transition-all"
+                  className="btn-shine btn-shine-dark h-10 px-4 sm:px-5 rounded-none border border-[#1a1510]/10 text-xs font-semibold text-[#1a1510] flex items-center gap-2 hover:bg-[#1a1510]/[0.02] transition-colors"
                >
-                  <LayoutDashboard size={14} /> <span className="hidden sm:inline">Back</span>
+                  <LayoutDashboard size={15} /> <span className="hidden sm:inline">Back</span>
                </button>
             </div>
          </nav>
 
-         <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-8 overflow-y-auto scrollbar-hide pb-32">
+         <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto scrollbar-hide pb-32">
             {!selectedClient ? (
-               <div className="flex flex-col items-center justify-center py-24 text-center">
-                  <Activity size={48} className="text-[#1a1510]/10 mb-4" />
-                  <p className="text-sm font-bold text-[#1a1510]/40">Please establish/select a Client from the sidebar first.</p>
+               <div className="flex-1 flex flex-col items-center justify-center text-center py-24">
+                  <div className="w-14 h-14 rounded-2xl bg-[#f7f8f9] text-[#1a1510]/25 flex items-center justify-center mb-4"><Activity size={26} /></div>
+                  <p className="text-[15px] font-semibold text-[#1a1510]">Select a client first</p>
+                  <p className="text-[13px] text-[#1a1510]/40 mt-1">Choose a client from the sidebar to view their pipeline.</p>
                </div>
             ) : loading ? (
                <div className="flex items-center justify-center py-24">
-                  <Loader2 className="animate-spin text-brand-gold" size={32} />
+                  <Loader size={36} />
                </div>
             ) : (
                <>
                   {/* 2. Metric Ribbon */}
-                  <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 w-full">
+                  <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 w-full">
                      {kpis.map((kpi, i) => (
                         <motion.div
                            key={i}
-                           initial={{ opacity: 0, y: 10 }}
+                           initial={{ opacity: 0, y: 12 }}
                            animate={{ opacity: 1, y: 0 }}
                            transition={{ delay: i * 0.05 }}
-                           className={`bg-white p-4 lg:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[#1a1510]/5 flex flex-col justify-between h-28 lg:h-32 group transition-all shadow-sm hover:shadow-md ${i > 3 ? 'hidden lg:flex' : 'flex'}`}
+                           className={`group bg-white border border-[#1a1510]/[0.07] rounded-2xl p-5 shadow-[0_1px_2px_rgba(26,21,16,0.04)] hover:shadow-[0_8px_24px_rgba(26,21,16,0.07)] hover:-translate-y-0.5 transition-all duration-200 ${i > 3 ? 'hidden lg:block' : ''}`}
                         >
-                           <div className="flex justify-between items-start">
-                              <span className="text-[8px] lg:text-[9px] font-black text-[#1a1510]/30 tracking-widest uppercase truncate">{kpi.label}</span>
-                              <div className={`p-1.5 rounded-lg ${kpi.bg} ${kpi.color} shadow-sm shrink-0`}>
-                                 <kpi.icon size={12} />
-                              </div>
+                           <div className="mb-5">
+                              <span className="text-[10px] font-semibold text-[#1a1510]/40 tracking-wider uppercase leading-tight">{kpi.label}</span>
                            </div>
-
-                           <div className="mt-1 lg:mt-2">
-                              <h3 className="text-lg lg:text-2xl font-black text-[#1a1510] tracking-tighter leading-none">{kpi.value}</h3>
-                              <p className="text-[7px] lg:text-[8px] font-bold uppercase tracking-wider text-emerald-500 mt-1 truncate">
-                                 {kpi.change}
-                              </p>
+                           <h3 className="text-[2.25rem] font-bold text-[#1a1510] tracking-tight tabular-nums leading-none">{kpi.value}</h3>
+                           <div className="mt-4 pt-3 border-t border-[#1a1510]/[0.06]">
+                              <p className="text-[11px] font-medium text-[#1a1510]/40 truncate">{kpi.change}</p>
                            </div>
                         </motion.div>
                      ))}
                   </section>
 
                   {/* 3. Search & Filter Bar */}
-                  <section className="flex flex-col sm:flex-row items-center gap-3 w-full bg-white p-2 rounded-[1.5rem] sm:rounded-3xl border border-[#1a1510]/5 shadow-sm">
+                  <section className="flex flex-col sm:flex-row items-center gap-2.5 w-full bg-white p-3 rounded-2xl border border-[#1a1510]/[0.07]">
                      <div className="flex-1 relative group w-full">
-                        <Search size={16} className="absolute left-5 top-1/2 -translate-y-1/2 text-[#1a1510]/20 group-focus-within:text-brand-gold transition-colors" />
+                        <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#1a1510]/25 group-focus-within:text-brand-gold transition-colors" />
                         <input
                            type="text"
                            value={searchQuery}
                            onChange={(e) => setSearchQuery(e.target.value)}
-                           placeholder="Search deals by name or contact..."
-                           className="w-full h-10 sm:h-11 pl-12 pr-4 rounded-2xl bg-transparent text-[#1a1510] focus:outline-none transition-all text-xs font-medium"
+                           placeholder="Search deals by name or contact…"
+                           className="w-full h-10 pl-10 pr-4 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] text-[#1a1510] focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/25"
                         />
                      </div>
-                     <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
-                        <button onClick={fetchDeals} className="flex-1 sm:flex-none h-10 px-5 rounded-xl bg-[#1a1510] text-brand-gold text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg">
-                           <RefreshCw size={14} /> Refresh
-                        </button>
-                     </div>
+                     <button onClick={fetchDeals} className="btn-shine w-full sm:w-auto h-10 px-5 rounded-none bg-[#1a1510] text-white text-xs font-semibold transition-colors hover:bg-[#2a2118] flex items-center justify-center gap-2 shrink-0">
+                        <RefreshCw size={14} /> Refresh
+                     </button>
                   </section>
 
-                  {/* 4. Strategic Pipeline Board */}
-                  <section className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 w-full pb-32">
+                  {/* 4. Pipeline Board */}
+                  <section className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-5 w-full pb-32">
                      {pipelineStages.map((stage, i) => (
-                        <div key={stage.key} className="flex flex-col gap-4">
+                        <div key={stage.key} className="flex flex-col gap-3">
                            {/* Lane Header */}
-                           <div className="space-y-3 px-1">
+                           <div className="space-y-2.5 px-1">
                               <div className="flex items-center justify-between">
                                  <div className="flex items-center gap-2">
-                                    <h4 className="text-[10px] font-black text-[#1a1510] tracking-widest uppercase">{stage.title}</h4>
-                                    <span className="px-1.5 py-0.5 rounded bg-[#1a1510]/5 text-[8px] font-black text-[#1a1510]/30">{stage.count}</span>
+                                    <h4 className="text-[11px] font-semibold text-[#1a1510] tracking-wider uppercase">{stage.title}</h4>
+                                    <span className="px-1.5 py-0.5 rounded-md bg-[#1a1510]/5 text-[10px] font-medium text-[#1a1510]/40">{stage.count}</span>
                                  </div>
-                                 <span className="text-[10px] font-black text-[#1a1510] tracking-tighter">{stage.value}</span>
+                                 <span className="text-[12px] font-semibold text-[#1a1510] tabular-nums">{stage.value}</span>
                               </div>
-                              <div className="h-1 w-full bg-[#1a1510]/5 rounded-full overflow-hidden">
+                              <div className="h-1 w-full bg-[#1a1510]/[0.06] rounded-full overflow-hidden">
                                  <motion.div
                                     initial={{ width: 0 }}
                                     animate={{ width: "100%" }}
                                     transition={{ delay: i * 0.1 }}
-                                    className={`h-full ${stage.color} opacity-60 rounded-full`}
+                                    className={`h-full ${stage.color} opacity-70 rounded-full`}
                                  />
                               </div>
                            </div>
 
                            {/* Deal Cards */}
-                           <div className="space-y-4">
+                           <div className="space-y-3">
                               {stage.deals.map((deal) => (
                                  <motion.div
                                     key={deal.id}
-                                    whileHover={{ y: -4 }}
-                                    className="bg-white p-5 rounded-[1.5rem] border border-[#1a1510]/5 shadow-sm hover:shadow-xl transition-all relative group overflow-hidden"
+                                    whileHover={{ y: -2 }}
+                                    className="bg-white p-4 rounded-xl border border-[#1a1510]/[0.07] shadow-[0_1px_2px_rgba(26,21,16,0.04)] hover:shadow-[0_8px_24px_rgba(26,21,16,0.07)] transition-all relative group"
                                  >
-                                    <div className="absolute top-2 right-2 p-1 px-1.5 rounded bg-brand-gold/10 text-brand-gold text-[7px] font-black uppercase opacity-0 group-hover:opacity-100 transition-opacity">
-                                       {deal.health}% Prob
-                                    </div>
-
-                                    <div className="flex items-center gap-3 mb-4">
-                                       <div className="w-8 h-8 rounded-xl bg-[#1a1510] text-brand-gold flex items-center justify-center font-black text-[12px] shrink-0">
+                                    <div className="flex items-center gap-3 mb-3.5">
+                                       <div className="w-9 h-9 rounded-lg bg-[#1a1510] text-brand-gold flex items-center justify-center font-semibold text-[12px] shrink-0">
                                           {deal.avatar || "D"}
                                        </div>
                                        <div className="min-w-0 flex-1">
-                                          <h5 className="text-[12px] font-black text-[#1a1510] truncate">{deal.name}</h5>
+                                          <h5 className="text-[13px] font-semibold text-[#1a1510] truncate">{deal.name}</h5>
                                           <div className="flex items-center gap-1.5">
-                                             <span className="text-[8px] font-bold text-[#1a1510]/20 uppercase truncate">{deal.contact}</span>
-                                             {deal.auto && <Zap size={8} className="text-brand-gold fill-brand-gold" />}
+                                             <span className="text-[11px] font-medium text-[#1a1510]/40 truncate">{deal.contact}</span>
+                                             {deal.auto && <Zap size={10} className="text-brand-gold fill-brand-gold shrink-0" />}
                                           </div>
                                        </div>
                                     </div>
 
                                     {/* Action stage change menu */}
-                                    <div className="mb-3">
-                                       <select
-                                          value={deal.stage}
-                                          onChange={(e) => handleUpdateStage(deal.id, e.target.value)}
-                                          className="w-full text-[9px] font-black uppercase tracking-wider bg-[#f7f8f9] border-none rounded-lg p-1.5 text-[#1a1510]/50 focus:text-[#1a1510] outline-none font-bold"
-                                       >
-                                          {STAGE_CONFIGS.map(sc => (
-                                             <option key={sc.key} value={sc.key}>{sc.title}</option>
-                                          ))}
-                                       </select>
-                                    </div>
+                                    <select
+                                       value={deal.stage}
+                                       onChange={(e) => handleUpdateStage(deal.id, e.target.value)}
+                                       className="w-full text-[11px] font-medium bg-[#f7f8f9] border border-[#1a1510]/[0.06] rounded-lg px-2.5 py-1.5 text-[#1a1510]/60 focus:text-[#1a1510] outline-none mb-3 cursor-pointer"
+                                    >
+                                       {STAGE_CONFIGS.map(sc => (
+                                          <option key={sc.key} value={sc.key}>{sc.title}</option>
+                                       ))}
+                                    </select>
 
-                                    <div className="flex items-end justify-between pt-3 border-t border-[#1a1510]/5">
+                                    <div className="flex items-end justify-between pt-3 border-t border-[#1a1510]/[0.06]">
                                        <div>
-                                          <p className="text-[7px] font-black text-[#1a1510]/20 uppercase tracking-widest">Value</p>
-                                          <p className="text-lg font-black text-[#1a1510] tracking-tighter leading-none">{deal.amount}</p>
+                                          <p className="text-[10px] font-medium text-[#1a1510]/35 uppercase tracking-wider">Value</p>
+                                          <p className="text-lg font-bold text-[#1a1510] tracking-tight tabular-nums leading-none mt-0.5">{deal.amount}</p>
                                        </div>
-                                       <div className="text-right">
-                                          <div className="flex items-center gap-1 justify-end">
-                                             <div className={`w-1 h-1 rounded-full ${deal.health > 80 ? 'bg-emerald-500' : 'bg-brand-gold'}`} />
-                                             <span className="text-[10px] font-black text-[#1a1510]">{deal.health}%</span>
-                                          </div>
+                                       <div className="flex items-center gap-1.5">
+                                          <div className={`w-1.5 h-1.5 rounded-full ${deal.health > 80 ? 'bg-emerald-500' : 'bg-brand-gold'}`} />
+                                          <span className="text-[12px] font-semibold text-[#1a1510] tabular-nums">{deal.health}%</span>
                                        </div>
                                     </div>
                                  </motion.div>
                               ))}
 
-                              <button 
+                              <button
                                  onClick={() => {
                                     setNewStage(stage.key);
                                     setIsCreateOpen(true);
                                  }}
-                                 className="w-full h-12 border-2 border-dashed border-[#1a1510]/5 rounded-2xl bg-white/40 text-[8px] font-black uppercase tracking-widest text-[#1a1510]/10 hover:border-brand-gold/30 hover:text-brand-gold transition-all flex items-center justify-center gap-2 group"
+                                 className="w-full h-11 border border-dashed border-[#1a1510]/12 rounded-xl text-[11px] font-medium uppercase tracking-wider text-[#1a1510]/30 hover:border-brand-gold/40 hover:text-brand-gold hover:bg-white transition-all flex items-center justify-center gap-2 group"
                               >
                                  <Plus size={14} className="group-hover:rotate-90 transition-transform" /> Add
                               </button>
@@ -368,33 +355,33 @@ export default function PipelinePage() {
          <AnimatePresence>
             {isCreateOpen && (
                <>
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsCreateOpen(false)} className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200]" />
-                  <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="fixed inset-4 m-auto w-full max-w-[500px] h-fit bg-white rounded-[2rem] shadow-2xl z-[201] p-6 sm:p-8">
-                     <form onSubmit={handleCreateDeal} className="space-y-6">
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsCreateOpen(false)} className="fixed inset-0 bg-[#1a1510]/40 backdrop-blur-sm z-[200]" />
+                  <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="fixed inset-4 m-auto w-full max-w-[480px] h-fit bg-white rounded-2xl shadow-2xl border border-[#1a1510]/[0.06] z-[201] p-6 sm:p-7">
+                     <form onSubmit={handleCreateDeal} className="space-y-5">
                         <div className="flex justify-between items-center">
-                           <h2 className="text-xl font-black text-[#1a1510]">Add Deal Opportunity</h2>
-                           <button type="button" onClick={() => setIsCreateOpen(false)} className="p-2 hover:bg-[#f7f8f9] rounded-xl"><X size={18} /></button>
+                           <h2 className="text-lg font-bold text-[#1a1510]">Add Deal</h2>
+                           <button type="button" onClick={() => setIsCreateOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-lg text-[#1a1510]/40 hover:text-[#1a1510] hover:bg-[#f7f8f9] transition-colors"><X size={18} /></button>
                         </div>
 
                         <div className="space-y-4">
-                           <div className="space-y-2">
-                              <label className="text-[10px] font-black uppercase text-[#1a1510]/30">Opportunity / Deal Name</label>
-                              <input required type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. GrowthCo Expansion" className="w-full h-12 px-4 bg-[#f7f8f9] rounded-xl outline-none focus:ring-2 ring-blue-500/10 text-xs font-bold" />
+                           <div className="space-y-1.5">
+                              <label className="text-[12px] font-semibold text-[#1a1510]/60">Deal name</label>
+                              <input required type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. GrowthCo Expansion" className="w-full h-11 px-4 bg-[#f7f8f9] border border-[#1a1510]/[0.07] rounded-xl outline-none focus:bg-white focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 text-[13px] transition-all placeholder:text-[#1a1510]/30" />
                            </div>
 
-                           <div className="space-y-2">
-                              <label className="text-[10px] font-black uppercase text-[#1a1510]/30">Primary Contact Name</label>
-                              <input required type="text" value={newContact} onChange={(e) => setNewContact(e.target.value)} placeholder="e.g. Alex Kim" className="w-full h-12 px-4 bg-[#f7f8f9] rounded-xl outline-none focus:ring-2 ring-blue-500/10 text-xs font-bold" />
+                           <div className="space-y-1.5">
+                              <label className="text-[12px] font-semibold text-[#1a1510]/60">Primary contact</label>
+                              <input required type="text" value={newContact} onChange={(e) => setNewContact(e.target.value)} placeholder="e.g. Alex Kim" className="w-full h-11 px-4 bg-[#f7f8f9] border border-[#1a1510]/[0.07] rounded-xl outline-none focus:bg-white focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 text-[13px] transition-all placeholder:text-[#1a1510]/30" />
                            </div>
 
-                           <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                 <label className="text-[10px] font-black uppercase text-[#1a1510]/30">Deal Amount</label>
-                                 <input required type="text" value={newAmount} onChange={(e) => setNewAmount(e.target.value)} placeholder="e.g. $18.5K" className="w-full h-12 px-4 bg-[#f7f8f9] rounded-xl outline-none focus:ring-2 ring-blue-500/10 text-xs font-bold" />
+                           <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1.5">
+                                 <label className="text-[12px] font-semibold text-[#1a1510]/60">Amount</label>
+                                 <input required type="text" value={newAmount} onChange={(e) => setNewAmount(e.target.value)} placeholder="e.g. $18.5K" className="w-full h-11 px-4 bg-[#f7f8f9] border border-[#1a1510]/[0.07] rounded-xl outline-none focus:bg-white focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 text-[13px] transition-all placeholder:text-[#1a1510]/30" />
                               </div>
-                              <div className="space-y-2">
-                                 <label className="text-[10px] font-black uppercase text-[#1a1510]/30">Pipeline Stage</label>
-                                 <select value={newStage} onChange={(e) => setNewStage(e.target.value)} className="w-full h-12 px-4 bg-[#f7f8f9] rounded-xl outline-none text-xs font-bold">
+                              <div className="space-y-1.5">
+                                 <label className="text-[12px] font-semibold text-[#1a1510]/60">Stage</label>
+                                 <select value={newStage} onChange={(e) => setNewStage(e.target.value)} className="w-full h-11 px-4 bg-[#f7f8f9] border border-[#1a1510]/[0.07] rounded-xl outline-none text-[13px] cursor-pointer">
                                     {STAGE_CONFIGS.map(sc => (
                                        <option key={sc.key} value={sc.key}>{sc.title}</option>
                                     ))}
@@ -402,23 +389,21 @@ export default function PipelinePage() {
                               </div>
                            </div>
 
-                           <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                 <label className="text-[10px] font-black uppercase text-[#1a1510]/30">Win Probability (%)</label>
-                                 <input type="number" min="0" max="100" value={newHealth} onChange={(e) => setNewHealth(parseInt(e.target.value, 10))} className="w-full h-12 px-4 bg-[#f7f8f9] rounded-xl outline-none text-xs font-bold" />
+                           <div className="grid grid-cols-2 gap-3 items-end">
+                              <div className="space-y-1.5">
+                                 <label className="text-[12px] font-semibold text-[#1a1510]/60">Win probability (%)</label>
+                                 <input type="number" min="0" max="100" value={newHealth} onChange={(e) => setNewHealth(parseInt(e.target.value, 10))} className="w-full h-11 px-4 bg-[#f7f8f9] border border-[#1a1510]/[0.07] rounded-xl outline-none focus:bg-white focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 text-[13px] transition-all" />
                               </div>
-                              <div className="space-y-2 flex flex-col justify-end pb-3">
-                                 <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[#1a1510]">
-                                    <input type="checkbox" checked={newAuto} onChange={(e) => setNewAuto(e.target.checked)} className="rounded text-brand-gold focus:ring-brand-gold w-4 h-4" />
-                                    AI Autonomous Sync
-                                 </label>
-                              </div>
+                              <label className="flex items-center gap-2 cursor-pointer text-[13px] font-medium text-[#1a1510] h-11">
+                                 <input type="checkbox" checked={newAuto} onChange={(e) => setNewAuto(e.target.checked)} className="rounded text-brand-gold focus:ring-brand-gold w-4 h-4" />
+                                 AI autonomous sync
+                              </label>
                            </div>
                         </div>
 
-                        <div className="flex gap-3 pt-4 border-t border-[#1a1510]/5">
-                           <button type="button" onClick={() => setIsCreateOpen(false)} className="h-12 px-6 rounded-xl border border-[#1a1510]/10 text-[10px] font-black uppercase">Cancel</button>
-                           <button type="submit" disabled={creating} className="flex-1 h-12 bg-[#1a1510] text-brand-gold rounded-xl text-[10px] font-black uppercase shadow-lg flex items-center justify-center gap-2">
+                        <div className="flex gap-2.5 pt-4 border-t border-[#1a1510]/[0.07]">
+                           <button type="button" onClick={() => setIsCreateOpen(false)} className="h-11 px-5 rounded-none border border-[#1a1510]/10 text-xs font-semibold text-[#1a1510] hover:bg-[#f7f8f9] transition-colors">Cancel</button>
+                           <button type="submit" disabled={creating} className="btn-shine flex-1 h-11 rounded-none bg-[#1a1510] text-white text-xs font-semibold hover:bg-[#2a2118] transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
                               {creating ? <Loader2 className="animate-spin" size={14} /> : "Save Deal"}
                            </button>
                         </div>

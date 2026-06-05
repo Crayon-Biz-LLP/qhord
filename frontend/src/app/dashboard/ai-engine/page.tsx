@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../../hooks/useAuth";
 import { api } from "../../../lib/api";
+import { Loader } from "../../../components/ui/Loader";
 
 export default function AIEnginePage() {
   const { user } = useAuth(true);
@@ -42,7 +43,7 @@ export default function AIEnginePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-gold"></div>
+        <Loader size={36} />
       </div>
     );
   }

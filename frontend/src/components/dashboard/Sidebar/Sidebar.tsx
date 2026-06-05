@@ -4,12 +4,22 @@ import {
   LayoutDashboard, Users, Activity, Settings, Bell, Search, Plus, Cpu, Zap, ShieldCheck,
   Terminal, BarChart3, Mail, Target, ListTodo, GraduationCap, Box, Computer,
   Sparkles, Bot, CreditCard, DollarSign, ChevronRight, User as UserIcon, LogOut, Globe, Building2, Workflow,
-  MessageSquare, TrendingUp, Bookmark, ChevronDown
+  MessageSquare, TrendingUp, Bookmark, ChevronDown,
+  Briefcase, Inbox, GitBranch, Handshake, LineChart, Wrench, BookOpen, KeyRound, Network, Megaphone, BrainCircuit, Wallet
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useClient } from "../../../contexts/ClientContext";
 import { useAuth } from "../../../hooks/useAuth";
 import { useCredits } from "../../../contexts/CreditContext";
+import { DataSourceIcon } from "../../ui/icons/DataSourceIcon";
+import { ClientAccountsIcon } from "../../ui/icons/ClientAccountsIcon";
+import { InboxIcon } from "../../ui/icons/InboxIcon";
+import { AccountNodesIcon } from "../../ui/icons/AccountNodesIcon";
+import { LeadSourceIcon } from "../../ui/icons/LeadSourceIcon";
+import { WorkflowsIcon } from "../../ui/icons/WorkflowsIcon";
+import { DealsIcon } from "../../ui/icons/DealsIcon";
+import { AnalyticsIcon } from "../../ui/icons/AnalyticsIcon";
+import { ToolsIcon } from "../../ui/icons/ToolsIcon";
 
 export type DashboardView = 
   | 'dashboard' 
@@ -45,38 +55,40 @@ export const Sidebar = ({ onSignOut, activeView = 'dashboard', onViewChange }: S
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   return (
-    <aside className="w-72 border-r border-[#1a1510]/5 flex flex-col hidden md:flex bg-[#1a1510] relative z-20 shadow-[20px_0_40px_-20px_rgba(0,0,0,0.1)] overflow-y-auto scrollbar-hide shrink-0">
-      <div className="p-6 space-y-8">
-        <Link href="/dashboard" className="flex items-center gap-3 px-2 mb-8 group">
-          <div className="w-10 h-10 bg-brand-gold rounded-2xl flex items-center justify-center shadow-lg shadow-brand-gold/20 flex-shrink-0 group-hover:rotate-6 transition-transform cursor-pointer">
-            <Cpu className="text-[#1a1510]" size={24} />
+    <aside className="w-64 border-r border-white/[0.06] flex flex-col hidden md:flex bg-gradient-to-b from-[#201810] via-[#1a1510] to-[#16110c] relative z-20 overflow-y-auto scrollbar-hide shrink-0">
+      {/* decorative top glow */}
+      <div className="pointer-events-none absolute -top-20 left-1/2 -translate-x-1/2 w-64 h-64 bg-brand-gold/10 rounded-full blur-[100px]" />
+      <div className="relative p-4 space-y-6">
+        <Link href="/dashboard" className="flex items-center gap-2.5 px-2 pt-1 group">
+          <div className="w-9 h-9 bg-brand-gold rounded-xl flex items-center justify-center shadow-lg shadow-brand-gold/20 flex-shrink-0 group-hover:scale-105 transition-transform">
+            <Cpu className="text-[#1a1510]" size={20} />
           </div>
           <div className="flex flex-col">
-            <span className="text-xl font-black tracking-tighter text-white leading-none">Qhord</span>
-            <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] mt-1">GTM COMMAND CENTRE</span>
+            <span className="text-[17px] font-bold tracking-tight text-white leading-none">Qhord</span>
+            <span className="text-[9px] font-semibold text-white/30 uppercase tracking-[0.18em] mt-1">GTM Command Centre</span>
           </div>
         </Link>
 
         {/* Client Selector Dropdown */}
-        <div className="relative mb-6">
+        <div className="relative">
           <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="w-full flex items-center justify-between p-3 bg-white/5 border border-white/5 hover:border-white/10 rounded-2xl transition-all text-left group"
+            className="w-full flex items-center justify-between p-2.5 bg-white/[0.04] border border-white/[0.06] hover:border-white/15 rounded-xl transition-colors text-left group"
           >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-brand-gold/10 text-brand-gold flex items-center justify-center shrink-0">
-                <Building2 size={16} />
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-brand-gold/15 text-brand-gold flex items-center justify-center shrink-0">
+                <Building2 size={15} />
               </div>
               <div className="flex flex-col min-w-0">
-                <span className="text-[8px] font-black text-white/30 uppercase tracking-widest leading-none">Active Client</span>
-                <span className="text-[11px] font-black text-white truncate mt-1 leading-none">
-                  {selectedClient ? selectedClient.name : "Select Client..."}
+                <span className="text-[9px] font-semibold text-white/35 uppercase tracking-wider leading-none">Active Client</span>
+                <span className="text-[13px] font-semibold text-white truncate mt-1 leading-none">
+                  {selectedClient ? selectedClient.name : "Select Client…"}
                 </span>
               </div>
             </div>
-            <ChevronDown 
-              size={14} 
-              className={`text-white/20 group-hover:text-white transition-transform shrink-0 ${isDropdownOpen ? 'rotate-180 text-brand-gold' : ''}`} 
+            <ChevronDown
+              size={15}
+              className={`text-white/30 group-hover:text-white transition-transform shrink-0 ${isDropdownOpen ? 'rotate-180 text-brand-gold' : ''}`}
             />
           </button>
 
@@ -84,11 +96,11 @@ export const Sidebar = ({ onSignOut, activeView = 'dashboard', onViewChange }: S
             <>
               {/* Overlay background to close dropdown when clicked outside */}
               <div className="fixed inset-0 z-40" onClick={() => setIsDropdownOpen(false)} />
-              
+
               {/* Dropdown Menu */}
-              <div className="absolute left-0 right-0 mt-2 bg-[#221a12] border border-white/10 rounded-2xl shadow-2xl z-50 py-2 max-h-48 overflow-y-auto scrollbar-hide">
+              <div className="absolute left-0 right-0 mt-2 bg-[#221a12] border border-white/10 rounded-xl shadow-2xl z-50 py-1.5 max-h-52 overflow-y-auto scrollbar-hide">
                 {clients.length === 0 ? (
-                  <div className="px-4 py-2 text-[10px] font-bold text-white/30 uppercase tracking-wider text-center">
+                  <div className="px-4 py-2 text-[12px] font-medium text-white/35 text-center">
                     No clients found
                   </div>
                 ) : (
@@ -101,10 +113,10 @@ export const Sidebar = ({ onSignOut, activeView = 'dashboard', onViewChange }: S
                           setSelectedClient(c);
                           setIsDropdownOpen(false);
                         }}
-                        className={`w-full text-left px-4 py-2.5 text-[11px] font-bold transition-all truncate flex items-center justify-between ${
-                          isSelected 
-                            ? "text-brand-gold bg-white/5 font-black" 
-                            : "text-white/60 hover:text-white hover:bg-white/5"
+                        className={`w-full text-left px-3.5 py-2 text-[13px] font-medium transition-colors truncate flex items-center justify-between ${
+                          isSelected
+                            ? "text-brand-gold bg-white/5"
+                            : "text-white/55 hover:text-white hover:bg-white/5"
                         }`}
                       >
                         <span className="truncate">{c.name}</span>
@@ -113,13 +125,13 @@ export const Sidebar = ({ onSignOut, activeView = 'dashboard', onViewChange }: S
                     );
                   })
                 )}
-                <div className="border-t border-white/5 mt-1 pt-1.5">
+                <div className="border-t border-white/5 mt-1 pt-1">
                   <Link
                     href="/dashboard/clients"
                     onClick={() => setIsDropdownOpen(false)}
-                    className="w-full text-left px-4 py-2 text-[10px] font-black uppercase tracking-wider text-brand-gold hover:text-white hover:bg-white/5 transition-all flex items-center gap-1.5"
+                    className="w-full text-left px-3.5 py-2 text-[12px] font-semibold text-brand-gold hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2"
                   >
-                    <Plus size={10} /> Establish New Client
+                    <Plus size={13} /> Add new client
                   </Link>
                 </div>
               </div>
@@ -131,40 +143,37 @@ export const Sidebar = ({ onSignOut, activeView = 'dashboard', onViewChange }: S
           {
             title: "NAVIGATION",
             items: [
-              { icon: Terminal, label: "Command Center", id: 'command', href: '/dashboard/command' },
-              { icon: Building2, label: "Client Accounts", id: 'clients', href: '/dashboard/clients' },
-              { icon: Mail, label: "Unibox", id: 'inbox', href: '/dashboard/inbox' },
-              { icon: Globe, label: "Lead Source", id: 'leads', href: '/dashboard/leads' },
-              { icon: Workflow, label: "Workflows", id: 'workflows', href: '/dashboard/workflows' },
-              { icon: DollarSign, label: "Deals", id: 'pipeline', href: '/dashboard/pipeline' },
-              { icon: BarChart3, label: "Analytics", id: 'analytics', href: '/dashboard/analytics' },
-              { icon: Box, label: "Tools Config", id: 'tools', href: '/dashboard/tools' },
-              { icon: Bookmark, label: "Playbooks", id: 'playbooks', href: '/dashboard/playbooks' },
-              { icon: Zap, label: "APIs & Keys", id: 'apis', href: '/dashboard/apis' },
-              { icon: Globe, label: "Account Nodes", id: 'accounts', href: '/dashboard/accounts' },
+              { icon: DataSourceIcon, label: "Command Center", id: 'command', href: '/dashboard/command' },
+              { icon: ClientAccountsIcon, label: "Client Accounts", id: 'clients', href: '/dashboard/clients' },
+              { icon: InboxIcon, label: "Unibox", id: 'inbox', href: '/dashboard/inbox' },
+              { icon: LeadSourceIcon, label: "Lead Source", id: 'leads', href: '/dashboard/leads' },
+              { icon: WorkflowsIcon, label: "Workflows", id: 'workflows', href: '/dashboard/workflows' },
+              { icon: DealsIcon, label: "Deals", id: 'pipeline', href: '/dashboard/pipeline' },
+              { icon: AnalyticsIcon, label: "Analytics", id: 'analytics', href: '/dashboard/analytics' },
+              { icon: ToolsIcon, label: "Tools Config", id: 'tools', href: '/dashboard/tools' },
+              { icon: BookOpen, label: "Playbooks", id: 'playbooks', href: '/dashboard/playbooks' },
+              { icon: KeyRound, label: "APIs & Keys", id: 'apis', href: '/dashboard/apis' },
+              { icon: AccountNodesIcon, label: "Account Nodes", id: 'accounts', href: '/dashboard/accounts' },
             ]
           },
           {
             title: "INTELLIGENCE",
             items: [
-              { icon: Sparkles, label: "AI SDR", id: 'ai-sdr', href: '/dashboard/ai-sdr' },
+              { icon: Megaphone, label: "AI SDR", id: 'ai-sdr', href: '/dashboard/ai-sdr' },
               { icon: Bot, label: "AI Operator", id: 'ai-operator', href: '/dashboard/ai-operator' },
-              { icon: Cpu, label: "AI Engine", id: 'ai-engine', href: '/dashboard/ai-engine' },
+              { icon: BrainCircuit, label: "AI Engine", id: 'ai-engine', href: '/dashboard/ai-engine' },
             ]
           },
           {
             title: "SYSTEM",
             items: [
               { icon: Settings, label: "Settings", id: 'settings', href: '/dashboard/settings' },
-              { icon: CreditCard, label: "Billing", id: 'billing', href: '/dashboard/billing' },
+              { icon: Wallet, label: "Billing", id: 'billing', href: '/dashboard/billing' },
             ]
           }
         ].map((section, idx) => (
           <div key={idx} className="space-y-1">
-            <div className="flex items-center justify-between px-4 mb-2">
-              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">{section.title}</span>
-              <ChevronRight size={10} className="text-white/10" />
-            </div>
+            <span className="block px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/25">{section.title}</span>
             <div className="space-y-0.5">
               {section.items.map((item, i) => {
                 const isActive = item.id === activeView;
@@ -178,19 +187,21 @@ export const Sidebar = ({ onSignOut, activeView = 'dashboard', onViewChange }: S
                         onViewChange(item.id as DashboardView);
                       }
                     }}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[11px] font-bold tracking-tight transition-all ${isActive
-                      ? "bg-brand-gold text-[#1a1510] shadow-[0_10px_20px_-5px_rgba(185,155,123,0.3)]"
-                      : "text-white/40 hover:text-white hover:bg-white/5"
+                    className={`group relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold uppercase tracking-wider transition-all duration-200 ${isActive
+                      ? "bg-gradient-to-r from-brand-gold to-[#cba87f] text-[#1a1510] shadow-[0_8px_20px_-6px_rgba(185,155,123,0.5)]"
+                      : "text-white/45 hover:text-white hover:bg-white/[0.05]"
                       }`}
                   >
-                    <item.icon size={18} className={isActive ? "text-[#1a1510]" : "text-white/20 group-hover:text-white"} />
-                    {item.label}
                     {isActive && (
-                      <motion.div
-                        layoutId="activePill"
-                        className="ml-auto w-1.5 h-1.5 rounded-full bg-[#1a1510]"
+                      <motion.span
+                        layoutId="activeBar"
+                        className="absolute -left-4 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full bg-brand-gold"
                       />
                     )}
+                    <span className={`flex items-center justify-center w-6 h-6 rounded-md transition-colors shrink-0 ${isActive ? "bg-[#1a1510]/10" : "bg-white/[0.04] group-hover:bg-white/[0.08]"}`}>
+                      <item.icon size={14} className={isActive ? "text-[#1a1510]" : "text-white/45 group-hover:text-white transition-colors"} />
+                    </span>
+                    {item.label}
                   </Link>
                 );
               })}
@@ -199,28 +210,32 @@ export const Sidebar = ({ onSignOut, activeView = 'dashboard', onViewChange }: S
         ))}
       </div>
 
-      <div className="mt-auto p-6 space-y-4">
-        <div className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">{userCredits.toLocaleString()} credits</span>
-            <Link href="/dashboard/billing" className="text-[9px] font-black text-brand-gold uppercase tracking-widest">Upgrade</Link>
+      <div className="relative mt-auto p-4 space-y-3 border-t border-white/[0.06]">
+        <div className="relative p-3.5 rounded-xl bg-gradient-to-br from-brand-gold/[0.12] to-white/[0.02] border border-brand-gold/15 space-y-2.5 overflow-hidden">
+          <div className="absolute -top-8 -right-6 w-24 h-24 bg-brand-gold/15 rounded-full blur-2xl" />
+          <div className="relative flex items-center justify-between">
+            <div className="flex flex-col">
+              <span className="text-[15px] font-bold text-white leading-none">{userCredits.toLocaleString()}</span>
+              <span className="text-[10px] font-medium text-white/40 uppercase tracking-wider mt-1">Credits left</span>
+            </div>
+            <Link href="/dashboard/billing" className="px-3 py-1.5 rounded-lg bg-brand-gold text-[#1a1510] text-[10px] font-bold uppercase tracking-wider hover:bg-[#cba87f] transition-colors">Upgrade</Link>
           </div>
-          <div className="w-full h-1.5 rounded-full bg-white/5 overflow-hidden">
-             <div className="h-full bg-brand-gold rounded-full" style={{ width: `${Math.min((userCredits / 2000) * 100, 100)}%` }}></div>
+          <div className="relative w-full h-1.5 rounded-full bg-white/[0.08] overflow-hidden">
+             <div className="h-full bg-gradient-to-r from-brand-gold to-[#cba87f] rounded-full" style={{ width: `${Math.min((userCredits / 2000) * 100, 100)}%` }}></div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 px-2">
-          <div className="w-10 h-10 rounded-xl bg-brand-gold flex items-center justify-center text-[#1a1510] font-black text-xs shadow-lg shadow-brand-gold/10">
+        <div className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-white/[0.04] transition-colors">
+          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-gold to-[#a98b6c] flex items-center justify-center text-[#1a1510] font-bold text-[12px] shrink-0">
             {user?.name?.substring(0, 2).toUpperCase() || "SM"}
           </div>
           <div className="flex flex-col min-w-0">
-            <span className="text-xs font-black text-white truncate">{user?.name || "Sarah Mitchell"}</span>
-            <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest truncate">Growth Team</span>
+            <span className="text-[13px] font-semibold text-white truncate">{user?.name || "Sarah Mitchell"}</span>
+            <span className="text-[11px] font-medium text-white/35 truncate">Growth Team</span>
           </div>
-          <button 
+          <button
             onClick={onSignOut}
-            className="ml-auto p-2 text-white/20 hover:text-white transition-colors"
+            className="ml-auto p-2 rounded-lg text-white/30 hover:text-white hover:bg-white/[0.08] transition-colors shrink-0"
           >
             <LogOut size={16} />
           </button>

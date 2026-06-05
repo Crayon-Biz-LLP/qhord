@@ -7,6 +7,7 @@ import {
   ChevronRight, ArrowRight, Activity, Layers, Zap, ShieldCheck, Bot, Eye, Edit, Trash2,
   Filter, Search, MoreHorizontal, TrendingUp, BarChart3, DollarSign
 } from "lucide-react";
+import { Loader } from "../ui/Loader";
 
 interface Campaign {
   id: string;
@@ -158,7 +159,7 @@ export function ApprovalDashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-gold"></div>
+        <Loader size={36} />
       </div>
     );
   }

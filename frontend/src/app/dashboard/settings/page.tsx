@@ -323,37 +323,35 @@ export default function SettingsPage() {
 
    return (
       <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#f7f8f9] text-[#1a1510] font-sans selection:bg-[#b99b7b]/30">
-         {/* Top Header Match Sidebar height roughly */}
-         <nav className="h-14 border-b border-[#1a1510]/5 bg-white flex items-center justify-between px-6 shrink-0 z-50 shadow-sm relative">
+         {/* Top Header */}
+         <nav className="h-16 border-b border-[#1a1510]/[0.07] bg-white flex items-center justify-between px-4 sm:px-8 shrink-0 z-50 relative">
             <div className="flex items-center gap-3">
-               <div className="p-1.5 bg-[#1a1510] text-[#b99b7b] rounded-lg shadow-md shrink-0">
-                  <Settings size={16} />
+               <div className="w-9 h-9 bg-[#1a1510] text-[#b99b7b] rounded-lg flex items-center justify-center shrink-0">
+                  <Settings size={17} />
                </div>
                <div className="hidden sm:block truncate">
-                  <h2 className="text-[11px] font-bold tracking-tight text-[#1a1510] uppercase truncate">Settings</h2>
-                  <p className="text-[9px] font-bold text-[#1a1510]/30 uppercase tracking-widest mt-0.5 truncate">
-                     Control your entire revenue engine
-                  </p>
+                  <h2 className="text-[13px] font-bold tracking-tight text-[#1a1510] uppercase truncate">Settings</h2>
+                  <p className="text-[11px] font-medium text-[#1a1510]/40 truncate">Manage your account &amp; workspace</p>
                </div>
             </div>
          </nav>
-         
+
          <main className="flex-1 flex overflow-hidden">
             {/* Sidebar Nav */}
-            <aside className="hidden lg:flex w-64 border-r border-[#1a1510]/5 bg-white flex-col shrink-0 overflow-hidden">
-               <div className="p-4 space-y-1 overflow-y-auto scrollbar-hide">
+            <aside className="hidden lg:flex w-60 border-r border-[#1a1510]/[0.07] bg-white flex-col shrink-0 overflow-hidden">
+               <div className="p-3 space-y-0.5 overflow-y-auto scrollbar-hide">
                   {NAV_ITEMS.map((item) => (
                      <button
                         key={item.id}
                         onClick={() => setActiveTab(item.id)}
-                        className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${activeTab === item.id
-                              ? "bg-[#1a1510] text-white shadow-md shadow-[#1a1510]/10"
-                              : "text-[#1a1510]/30 hover:text-[#1a1510] hover:bg-[#f7f8f9]"
+                        className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-[13px] font-medium transition-colors ${activeTab === item.id
+                              ? "bg-[#1a1510] text-white"
+                              : "text-[#1a1510]/50 hover:text-[#1a1510] hover:bg-[#f7f8f9]"
                            }`}
                      >
-                        <item.icon size={14} />
+                        <item.icon size={16} className={activeTab === item.id ? "text-[#b99b7b]" : ""} />
                         {item.label}
-                        {item.notify && <div className="w-1 h-1 rounded-full bg-[#b99b7b] ml-auto" />}
+                        {item.notify && <div className="w-1.5 h-1.5 rounded-full bg-[#b99b7b] ml-auto" />}
                      </button>
                   ))}
                </div>
@@ -366,32 +364,32 @@ export default function SettingsPage() {
                   {activeTab === "profile" && (
                      <div className="space-y-8">
                         {/* Profile Hub */}
-                        <div className="space-y-4">
-                           <h3 className="text-base font-bold tracking-tight uppercase">Profile & Security</h3>
-                           <div className="bg-white border border-[#1a1510]/5 rounded-2xl p-5 sm:p-6 space-y-6 shadow-sm">
+                        <div className="space-y-3">
+                           <h3 className="text-[15px] font-semibold tracking-tight text-[#1a1510]">Profile</h3>
+                           <div className="bg-white border border-[#1a1510]/[0.07] rounded-2xl p-5 sm:p-6 space-y-6">
                               {loadingData ? (
                                  <div className="flex gap-4 animate-pulse">
-                                    <div className="flex-1 h-10 bg-[#1a1510]/5 rounded-lg"></div>
-                                    <div className="flex-1 h-10 bg-[#1a1510]/5 rounded-lg"></div>
+                                    <div className="flex-1 h-11 bg-[#1a1510]/5 rounded-xl"></div>
+                                    <div className="flex-1 h-11 bg-[#1a1510]/5 rounded-xl"></div>
                                  </div>
                               ) : (
                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="space-y-1.5">
-                                       <label className="text-[9px] font-bold uppercase text-[#1a1510]/30 tracking-widest">Full Name</label>
-                                       <input 
-                                          type="text" 
-                                          value={name} 
+                                       <label className="text-[12px] font-semibold text-[#1a1510]/60">Full name</label>
+                                       <input
+                                          type="text"
+                                          value={name}
                                           onChange={(e) => setName(e.target.value)}
-                                          className="w-full h-10 px-4 bg-[#f7f8f9] rounded-lg border border-transparent focus:bg-white focus:border-[#1a1510]/5 focus:outline-none transition-all text-[13px] font-medium text-[#1a1510]" 
+                                          className="w-full h-11 px-4 bg-[#f7f8f9] rounded-xl border border-[#1a1510]/[0.07] focus:bg-white focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 focus:outline-none transition-all text-[13px] text-[#1a1510]"
                                        />
                                     </div>
                                     <div className="space-y-1.5">
-                                       <label className="text-[9px] font-bold uppercase text-[#1a1510]/30 tracking-widest">Email Address</label>
-                                       <input 
-                                          type="email" 
-                                          value={email} 
+                                       <label className="text-[12px] font-semibold text-[#1a1510]/60">Email address</label>
+                                       <input
+                                          type="email"
+                                          value={email}
                                           disabled
-                                          className="w-full h-10 px-4 bg-[#f7f8f9] rounded-lg border border-transparent text-[13px] font-medium text-[#1a1510]/50 cursor-not-allowed" 
+                                          className="w-full h-11 px-4 bg-[#f7f8f9] rounded-xl border border-[#1a1510]/[0.07] text-[13px] text-[#1a1510]/50 cursor-not-allowed"
                                        />
                                     </div>
                                  </div>
@@ -400,60 +398,51 @@ export default function SettingsPage() {
                         </div>
 
                         {/* Security Section */}
-                        <div className="space-y-4">
-                           <div className="flex items-center gap-2 text-[#1a1510]">
-                              <Shield size={16} className="text-[#1a1510]/50" />
-                              <h3 className="text-base font-bold tracking-tight uppercase">Security</h3>
-                           </div>
+                        <div className="space-y-3">
+                           <h3 className="text-[15px] font-semibold tracking-tight text-[#1a1510]">Security</h3>
 
                            <div className="space-y-3">
                               {/* Password */}
-                              <div className="bg-white border border-[#1a1510]/5 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between group hover:shadow-sm transition-all">
+                              <div className="bg-white border border-[#1a1510]/[0.07] rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                  <div className="flex items-center gap-3">
-                                    <div className="w-9 h-9 rounded-lg bg-[#b99b7b]/10 flex items-center justify-center text-[#b99b7b]"><Lock size={16} /></div>
+                                    <div className="w-9 h-9 rounded-lg bg-[#f7f8f9] flex items-center justify-center text-[#1a1510]/50"><Lock size={16} /></div>
                                     <div>
-                                       <p className="text-[12px] font-bold">Password</p>
-                                       <p className="text-[9px] font-bold text-[#1a1510]/30 uppercase tracking-widest mt-0.5">Last changed 30 days ago</p>
+                                       <p className="text-[14px] font-semibold text-[#1a1510]">Password</p>
+                                       <p className="text-[12px] font-medium text-[#1a1510]/40 mt-0.5">Last changed 30 days ago</p>
                                     </div>
                                  </div>
-                                 <button 
+                                 <button
                                     onClick={() => setIsPasswordModalOpen(true)}
-                                    className="mt-3 sm:mt-0 px-4 h-8 bg-[#f7f8f9] text-[8px] font-bold uppercase tracking-widest rounded-lg hover:bg-[#1a1510] hover:text-white transition-all text-[#1a1510]"
+                                    className="btn-shine btn-shine-dark px-4 h-9 rounded-none border border-[#1a1510]/10 text-xs font-semibold text-[#1a1510] hover:bg-[#1a1510]/[0.02] transition-colors"
                                  >
-                                    Change Password
+                                    Change password
                                  </button>
                               </div>
 
                               {/* 2FA */}
-                              <div className="bg-white border border-[#1a1510]/5 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between group hover:shadow-sm transition-all">
+                              <div className="bg-white border border-[#1a1510]/[0.07] rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                  <div className="flex items-center gap-3">
-                                    <div className="w-9 h-9 rounded-lg bg-[#b99b7b]/10 flex items-center justify-center text-[#b99b7b]"><Fingerprint size={16} /></div>
+                                    <div className="w-9 h-9 rounded-lg bg-[#f7f8f9] flex items-center justify-center text-[#1a1510]/50"><Fingerprint size={16} /></div>
                                     <div>
-                                       <p className="text-[12px] font-bold">Two-Factor Authentication</p>
-                                       <p className="text-[9px] font-bold text-[#1a1510]/30 uppercase tracking-widest mt-0.5 hidden sm:block">Add an extra layer of security</p>
+                                       <p className="text-[14px] font-semibold text-[#1a1510]">Two-Factor Authentication</p>
+                                       <p className="text-[12px] font-medium text-[#1a1510]/40 mt-0.5 hidden sm:block">Add an extra layer of security</p>
                                     </div>
                                  </div>
-                                  <div className="mt-3 sm:mt-0">
-                                    <GoldToggle enabled={twoFA} onToggle={() => {
-                                       if (!twoFA) {
-                                          handle2FASetup();
-                                       } else {
-                                          setTwoFA(false); // Simplistic off, can add confirm later
-                                       }
-                                    }} />
-                                 </div>
+                                 <GoldToggle enabled={twoFA} onToggle={() => {
+                                    if (!twoFA) { handle2FASetup(); } else { setTwoFA(false); }
+                                 }} />
                               </div>
 
                               {/* SSO */}
-                              <div className="bg-white border border-[#1a1510]/5 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between group hover:shadow-sm transition-all">
+                              <div className="bg-white border border-[#1a1510]/[0.07] rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                  <div className="flex items-center gap-3">
-                                    <div className="w-9 h-9 rounded-lg bg-[#1a1510]/5 flex items-center justify-center text-[#1a1510]"><Building2 size={16} /></div>
+                                    <div className="w-9 h-9 rounded-lg bg-[#f7f8f9] flex items-center justify-center text-[#1a1510]/50"><Building2 size={16} /></div>
                                     <div>
-                                       <p className="text-[12px] font-bold">SSO</p>
-                                       <p className="text-[9px] font-bold text-[#1a1510]/30 uppercase tracking-widest mt-0.5">Sign in with Google, Microsoft, or Okta</p>
+                                       <p className="text-[14px] font-semibold text-[#1a1510]">SSO</p>
+                                       <p className="text-[12px] font-medium text-[#1a1510]/40 mt-0.5">Sign in with Google, Microsoft, or Okta</p>
                                     </div>
                                  </div>
-                                 <span className="mt-3 sm:mt-0 px-2.5 py-1 bg-[#1a1510]/5 text-[#1a1510] text-[8px] font-bold uppercase tracking-widest rounded-md">
+                                 <span className="px-2.5 py-1 bg-[#f7f8f9] text-[#1a1510]/60 text-[10px] font-medium uppercase tracking-wide rounded-md">
                                     Enterprise
                                  </span>
                               </div>
@@ -461,25 +450,24 @@ export default function SettingsPage() {
                         </div>
 
                         {/* Active Sessions */}
-                        <div className="space-y-4">
-                           <h3 className="text-base font-bold tracking-tight uppercase">Active Sessions</h3>
-                           <div className="bg-white border border-[#1a1510]/5 rounded-2xl overflow-hidden shadow-sm">
+                        <div className="space-y-3">
+                           <h3 className="text-[15px] font-semibold tracking-tight text-[#1a1510]">Active Sessions</h3>
+                           <div className="bg-white border border-[#1a1510]/[0.07] rounded-2xl overflow-hidden">
                               {SESSIONS.map((s, i) => (
-                                 <div key={i} className="p-5 flex items-center justify-between border-b border-[#1a1510]/5 last:border-0 group hover:bg-[#f7f8f9] transition-all">
+                                 <div key={i} className="p-5 flex items-center justify-between border-b border-[#1a1510]/[0.06] last:border-0 group hover:bg-[#fafafa] transition-colors">
                                     <div className="flex items-center gap-3">
-                                       <s.icon size={16} className="text-[#1a1510]/20" />
+                                       <s.icon size={17} className="text-[#1a1510]/30" />
                                        <div>
-                                          <p className="text-[12px] font-bold">{s.device}</p>
-                                          <p className="text-[10px] font-medium text-[#1a1510]/30">{s.location}</p>
+                                          <p className="text-[14px] font-semibold text-[#1a1510]">{s.device}</p>
+                                          <p className="text-[12px] font-medium text-[#1a1510]/40">{s.location}</p>
                                        </div>
                                     </div>
-                                    {!s.current && (
-                                       <button className="text-[8px] font-bold text-red-500 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
+                                    {!s.current ? (
+                                       <button className="text-[11px] font-semibold text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
                                           Revoke
                                        </button>
-                                    )}
-                                    {s.current && (
-                                       <span className="text-[7px] font-bold uppercase tracking-widest text-[#1a1510]/40 bg-[#f7f8f9] px-2 py-0.5 rounded">
+                                    ) : (
+                                       <span className="text-[10px] font-medium uppercase tracking-wide text-[#1a1510]/45 bg-[#f7f8f9] px-2 py-0.5 rounded-md">
                                           Current
                                        </span>
                                     )}
@@ -489,13 +477,13 @@ export default function SettingsPage() {
                         </div>
 
                         {/* Save Button */}
-                        <div className="pt-2">
-                           <button 
+                        <div className="pt-1">
+                           <button
                               onClick={handleSave}
                               disabled={isSaving}
-                              className="px-6 py-3 bg-[#1a1510] text-[#b99b7b] text-[10px] font-bold uppercase tracking-[0.15em] rounded-lg shadow-lg hover:translate-y-[-1px] transition-all disabled:opacity-50"
+                              className="btn-shine px-6 h-11 rounded-none bg-[#1a1510] text-white text-xs font-semibold hover:bg-[#2a2118] transition-colors disabled:opacity-50"
                            >
-                              {isSaving ? "Saving..." : "Save Changes"}
+                              {isSaving ? "Saving…" : "Save Changes"}
                            </button>
                         </div>
                      </div>

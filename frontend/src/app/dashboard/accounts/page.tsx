@@ -11,6 +11,8 @@ import {
 import { useRouter } from "next/navigation";
 import { useClient } from "../../../contexts/ClientContext";
 import { api } from "../../../lib/api";
+import { Loader } from "../../../components/ui/Loader";
+import { AccountNodesIcon } from "../../../components/ui/icons/AccountNodesIcon";
 
 const TOOLS = [
   { name: "Apollo", icon: Globe, color: "text-blue-500" },
@@ -78,210 +80,205 @@ export default function AccountsPage() {
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#f7f8f9] text-[#1a1510] font-sans selection:bg-brand-gold/30">
       
       {/* 1. Header Navigation */}
-      <nav className="h-20 border-b border-[#1a1510]/5 bg-white flex items-center justify-between px-4 sm:px-8 shrink-0 z-50 shadow-sm relative">
+      <nav className="h-16 border-b border-[#1a1510]/[0.07] bg-white flex items-center justify-between px-4 sm:px-8 shrink-0 z-50 relative">
         <div className="flex items-center gap-3 truncate">
-          <div className="p-2 bg-[#1a1510] text-brand-gold rounded-xl shadow-lg shrink-0">
-            <Globe size={18} />
+          <div className="w-9 h-9 bg-[#1a1510] text-brand-gold rounded-lg flex items-center justify-center shrink-0">
+            <AccountNodesIcon size={16} />
           </div>
           <div className="hidden sm:block truncate">
-            <h2 className="text-sm font-black tracking-tight text-[#1a1510] uppercase truncate">Accounts / Clients</h2>
-            <p className="text-[10px] font-bold text-[#1a1510]/30 uppercase tracking-widest mt-0.5 truncate">
-               {clients.length} registered client nodes
+            <h2 className="text-[13px] font-bold tracking-tight text-[#1a1510] uppercase truncate">Accounts</h2>
+            <p className="text-[11px] font-medium text-[#1a1510]/40 truncate">
+               {clients.length} registered client{clients.length !== 1 ? 's' : ''}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 sm:gap-4">
+        <div className="flex items-center gap-2.5 sm:gap-3">
           {!isCreating && (
-            <button 
+            <button
               onClick={() => setIsCreating(true)}
-              className="h-10 px-4 sm:px-6 rounded-xl bg-[#1a1510] text-brand-gold text-[10px] font-black uppercase tracking-widest shadow-xl hover:translate-y-[-1px] transition-all flex items-center gap-2"
+              className="btn-shine h-10 px-4 sm:px-5 rounded-none bg-[#1a1510] text-white text-xs font-semibold flex items-center gap-2 hover:bg-[#2a2118] transition-colors"
             >
-              <Plus size={14} /> <span className="hidden xs:inline">New Account</span>
+              <Plus size={15} /> <span className="hidden xs:inline">New Account</span>
             </button>
           )}
-          <button 
+          <button
             onClick={() => isCreating ? setIsCreating(false) : router.push('/dashboard')}
-            className="h-10 px-3 sm:px-5 rounded-xl border border-[#1a1510]/10 text-[10px] font-black uppercase tracking-widest text-[#1a1510] flex items-center gap-2 hover:bg-[#f7f8f9] transition-all shrink-0"
+            className="btn-shine btn-shine-dark h-10 px-4 sm:px-5 rounded-none border border-[#1a1510]/10 text-xs font-semibold text-[#1a1510] flex items-center gap-2 hover:bg-[#1a1510]/[0.02] transition-colors shrink-0"
           >
-            {isCreating ? <X size={14} /> : <LayoutDashboard size={14} />} 
+            {isCreating ? <X size={15} /> : <LayoutDashboard size={15} />}
             <span className="hidden sm:inline">{isCreating ? "Cancel" : "Back"}</span>
           </button>
         </div>
       </nav>
 
       <main className="flex-1 overflow-y-auto scrollbar-hide">
-        <div className="max-w-6xl mx-auto p-4 sm:p-8 space-y-12">
-          
+        <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+
           <AnimatePresence mode="wait">
             {!isCreating ? (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-12">
-                
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6">
+
                 {/* Metrics */}
-                <div className="flex md:grid md:grid-cols-5 gap-4 overflow-x-auto scrollbar-hide pb-2 md:pb-0">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                   {kpis.map((kpi, i) => (
-                    <div key={i} className="bg-white p-4 sm:p-5 rounded-3xl border border-[#1a1510]/5 flex flex-col justify-between h-32 sm:h-36 min-w-[140px] md:min-w-0 flex-1 hover:shadow-md transition-all">
-                       <div className="flex justify-between items-start">
-                          <span className="text-[7px] sm:text-[8px] font-black text-[#1a1510]/30 uppercase tracking-widest truncate">{kpi.label}</span>
-                          <div className="p-1.5 rounded-lg bg-brand-gold/10 text-brand-gold shrink-0">
-                             <kpi.icon size={14} />
-                          </div>
-                       </div>
-                       <div>
-                          <h4 className="text-xl sm:text-2xl font-black truncate">{kpi.value}</h4>
-                          <p className="text-[7px] sm:text-[8px] font-bold text-emerald-500 uppercase tracking-widest mt-1 truncate">{kpi.change}</p>
-                       </div>
+                    <div key={i} className="group bg-white border border-[#1a1510]/[0.07] rounded-2xl p-5 shadow-[0_1px_2px_rgba(26,21,16,0.04)] hover:shadow-[0_8px_24px_rgba(26,21,16,0.07)] hover:-translate-y-0.5 transition-all duration-200">
+                       <span className="text-[11px] font-semibold text-[#1a1510]/40 uppercase tracking-wider truncate">{kpi.label}</span>
+                       <h4 className="text-[2rem] font-bold text-[#1a1510] tracking-tight tabular-nums leading-none mt-4">{kpi.value}</h4>
+                       <p className="text-[11px] font-medium text-[#1a1510]/40 mt-2 truncate">{kpi.change}</p>
                     </div>
                   ))}
                 </div>
 
                 {/* Search Bar */}
                 <div className="relative group">
-                   <Search size={18} className="absolute left-6 top-1/2 -translate-y-1/2 text-[#1a1510]/20 group-focus-within:text-brand-gold transition-colors" />
-                   <input 
-                      type="text" 
+                   <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#1a1510]/25 group-focus-within:text-brand-gold transition-colors" />
+                   <input
+                      type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search account nodes by name or industry..."
-                      className="w-full h-14 pl-14 pr-6 rounded-2xl bg-white border border-[#1a1510]/5 text-sm font-medium focus:outline-none transition-all shadow-sm"
+                      placeholder="Search accounts by name or industry…"
+                      className="w-full h-12 pl-11 pr-4 rounded-xl bg-white border border-[#1a1510]/[0.07] text-[14px] focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/25"
                    />
                 </div>
 
                 {/* Account Cards */}
                 {loading ? (
                   <div className="flex justify-center items-center py-20">
-                    <Loader2 className="animate-spin text-brand-gold" size={32} />
+                    <Loader size={36} />
                   </div>
                 ) : filteredClients.length === 0 ? (
-                  <div className="text-center py-20">
-                    <Globe size={48} className="mx-auto text-[#1a1510]/10 mb-4" />
-                    <p className="text-sm font-bold text-[#1a1510]/30">No account nodes registered yet.</p>
+                  <div className="flex flex-col items-center text-center py-20">
+                    <div className="w-14 h-14 rounded-2xl bg-[#f7f8f9] text-[#1a1510]/25 flex items-center justify-center mb-4"><Globe size={26} /></div>
+                    <p className="text-[15px] font-semibold text-[#1a1510]">No accounts yet</p>
+                    <p className="text-[13px] text-[#1a1510]/40 mt-1">Create your first client account to get started.</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 pb-32">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-32">
                     {filteredClients.map((account) => (
-                      <motion.div 
+                      <motion.div
                         key={account.id}
-                        whileHover={{ y: -4 }}
-                        className="bg-white border border-[#1a1510]/5 rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 shadow-sm group hover:shadow-xl transition-all"
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-white border border-[#1a1510]/[0.07] rounded-2xl p-6 group shadow-[0_1px_2px_rgba(26,21,16,0.04)] hover:shadow-[0_8px_24px_rgba(26,21,16,0.07)] hover:border-[#1a1510]/15 transition-all"
                       >
-                        <div className="flex justify-between items-start mb-6">
-                          <div className="flex items-center gap-4 truncate">
-                             <div className="w-12 h-12 lg:w-14 lg:h-14 rounded-2xl bg-[#1a1510] text-brand-gold flex items-center justify-center shrink-0 shadow-lg">
-                                <Building2 size={24} />
+                        <div className="flex justify-between items-start gap-3">
+                          <div className="flex items-center gap-3 truncate">
+                             <div className="w-12 h-12 rounded-xl bg-[#1a1510] text-brand-gold flex items-center justify-center shrink-0">
+                                <Building2 size={22} />
                              </div>
                              <div className="truncate">
-                                <h3 className="text-lg font-black truncate">{account.name}</h3>
-                                <span className="text-[10px] font-black uppercase text-[#1a1510]/30 tracking-widest truncate">
-                                   {account.industry || "General"} • {account.account_owner || "Sarah M."}
+                                <h3 className="text-[17px] font-bold text-[#1a1510] tracking-tight truncate">{account.name}</h3>
+                                <span className="text-[12px] font-medium text-[#1a1510]/40 truncate">
+                                   {account.industry || "General"} · {account.account_owner || "Sarah M."}
                                 </span>
                              </div>
                           </div>
                           <div className="text-right shrink-0">
-                             <p className="text-xs font-black text-brand-gold uppercase tracking-wider">{account.status || "Active"}</p>
-                             <p className="text-[8px] font-black uppercase text-[#1a1510]/10 tracking-widest mt-1">{account.region || "North America"}</p>
+                             <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-600">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> {account.status || "Active"}
+                             </span>
+                             <p className="text-[11px] font-medium text-[#1a1510]/35 mt-1">{account.region || "North America"}</p>
                           </div>
                         </div>
 
-                        <div className="pt-6 border-t border-[#1a1510]/5 flex justify-between items-center">
-                          <p className="text-[9px] font-black text-[#1a1510]/20 uppercase tracking-widest">
-                             Priority: <span className="text-[#1a1510] font-bold">{account.priority}</span>
+                        <div className="mt-5 pt-4 border-t border-[#1a1510]/[0.06] flex justify-between items-center">
+                          <p className="text-[12px] font-medium text-[#1a1510]/40">
+                             Priority: <span className="text-[#1a1510] font-semibold">{account.priority}</span>
                           </p>
-                          <button 
+                          <button
                              onClick={() => {
                                localStorage.setItem("selected_client_id", account.id);
                                window.location.href = "/dashboard";
                              }}
-                             className="text-[9px] font-black text-brand-gold uppercase tracking-widest flex items-center gap-1 group-hover:translate-x-1 transition-transform"
+                             className="text-[12px] font-semibold text-brand-gold flex items-center gap-1 hover:gap-2 transition-all"
                           >
-                             Set Active Client <ChevronRight size={14} />
+                             Set Active <ChevronRight size={14} />
                           </button>
                         </div>
                       </motion.div>
                     ))}
-                    
+
                     {/* Plus Card */}
-                    <button 
+                    <button
                       onClick={() => setIsCreating(true)}
-                      className="border-2 border-dashed border-[#1a1510]/10 rounded-[2.5rem] p-12 flex flex-col items-center justify-center text-center group hover:border-brand-gold/40 transition-all bg-white/40 min-h-[200px]"
+                      className="border border-dashed border-[#1a1510]/12 rounded-2xl p-12 flex flex-col items-center justify-center text-center group hover:border-brand-gold/40 hover:bg-white transition-all min-h-[148px]"
                     >
-                      <div className="w-14 h-14 bg-[#1a1510] rounded-2xl flex items-center justify-center text-brand-gold mb-4 group-hover:scale-110 transition-transform">
-                        <Plus size={28} />
+                      <div className="w-11 h-11 bg-[#1a1510] rounded-xl flex items-center justify-center text-brand-gold mb-3 group-hover:scale-105 transition-transform">
+                        <Plus size={22} />
                       </div>
-                      <span className="text-xs font-black uppercase tracking-widest text-[#1a1510]/20 group-hover:text-[#1a1510]/40 transition-colors">Setup New Client Node</span>
+                      <span className="text-[13px] font-semibold text-[#1a1510]/40 group-hover:text-[#1a1510]/60 transition-colors">Add new account</span>
                     </button>
                   </div>
                 )}
 
               </motion.div>
             ) : (
-              <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
-                <div className="flex items-center gap-4 mb-4">
-                  <button onClick={() => setIsCreating(false)} className="p-2 rounded-xl hover:bg-[#f7f8f9] transition-colors"><ArrowLeft size={20} /></button>
-                  <h3 className="text-xl font-black uppercase tracking-tight">New Account Node</h3>
+              <motion.div initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }} className="space-y-6">
+                <div className="flex items-center gap-3">
+                  <button onClick={() => setIsCreating(false)} className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[#f7f8f9] text-[#1a1510]/50 hover:text-[#1a1510] transition-colors"><ArrowLeft size={18} /></button>
+                  <h3 className="text-xl font-bold tracking-tight text-[#1a1510]">New Account</h3>
                 </div>
 
-                <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-2 gap-8 pb-32">
-                   <div className="bg-white border border-[#1a1510]/5 rounded-[2.5rem] p-6 sm:p-10 space-y-8 shadow-sm">
-                      <div className="space-y-4">
-                         <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase text-[#1a1510]/30 ml-1">Account / Client Name *</label>
-                            <input required type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Nike Enterprise" className="w-full h-14 px-6 rounded-2xl bg-[#f7f8f9] border border-transparent focus:bg-white focus:outline-none transition-all text-xs font-bold" />
+                <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-32">
+                   <div className="bg-white border border-[#1a1510]/[0.07] rounded-2xl p-6 sm:p-7 space-y-4">
+                      <div className="space-y-1.5">
+                         <label className="text-[12px] font-semibold text-[#1a1510]/60">Account name *</label>
+                         <input required type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Nike Enterprise" className="w-full h-11 px-4 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all text-[13px] placeholder:text-[#1a1510]/30" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                         <div className="space-y-1.5">
+                            <label className="text-[12px] font-semibold text-[#1a1510]/60">Industry</label>
+                            <select value={industry} onChange={(e) => setIndustry(e.target.value)} className="w-full h-11 px-4 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] outline-none cursor-pointer text-[13px]">
+                              <option value="Technology">Technology</option>
+                              <option value="SaaS">SaaS</option>
+                              <option value="Fintech">Fintech</option>
+                              <option value="Healthcare">Healthcare</option>
+                              <option value="Retail">Retail</option>
+                              <option value="Agency">Agency</option>
+                            </select>
                          </div>
-                         <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                               <label className="text-[10px] font-black uppercase text-[#1a1510]/30 ml-1">Industry / Segment</label>
-                               <select value={industry} onChange={(e) => setIndustry(e.target.value)} className="w-full h-14 px-6 rounded-2xl bg-[#f7f8f9] border border-transparent outline-none appearance-none cursor-pointer text-xs font-bold">
-                                 <option value="Technology">Technology</option>
-                                 <option value="SaaS">SaaS</option>
-                                 <option value="Fintech">Fintech</option>
-                                 <option value="Healthcare">Healthcare</option>
-                                 <option value="Retail">Retail</option>
-                                 <option value="Agency">Agency</option>
-                               </select>
-                            </div>
-                            <div className="space-y-2">
-                               <label className="text-[10px] font-black uppercase text-[#1a1510]/30 ml-1">Region</label>
-                               <select value={region} onChange={(e) => setRegion(e.target.value)} className="w-full h-14 px-6 rounded-2xl bg-[#f7f8f9] border border-transparent outline-none appearance-none cursor-pointer text-xs font-bold">
-                                 <option value="North America">North America</option>
-                                 <option value="EMEA">EMEA</option>
-                                 <option value="APAC">APAC</option>
-                                 <option value="LATAM">LATAM</option>
-                               </select>
-                            </div>
+                         <div className="space-y-1.5">
+                            <label className="text-[12px] font-semibold text-[#1a1510]/60">Region</label>
+                            <select value={region} onChange={(e) => setRegion(e.target.value)} className="w-full h-11 px-4 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] outline-none cursor-pointer text-[13px]">
+                              <option value="North America">North America</option>
+                              <option value="EMEA">EMEA</option>
+                              <option value="APAC">APAC</option>
+                              <option value="LATAM">LATAM</option>
+                            </select>
                          </div>
-                         <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                               <label className="text-[10px] font-black uppercase text-[#1a1510]/30 ml-1">Account Owner</label>
-                               <input type="text" value={owner} onChange={(e) => setOwner(e.target.value)} className="w-full h-14 px-6 rounded-2xl bg-[#f7f8f9] border border-transparent focus:bg-white focus:outline-none transition-all text-xs font-bold" />
-                            </div>
-                            <div className="space-y-2">
-                               <label className="text-[10px] font-black uppercase text-[#1a1510]/30 ml-1">Website URL</label>
-                               <input type="text" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="e.g. nike.com" className="w-full h-14 px-6 rounded-2xl bg-[#f7f8f9] border border-transparent focus:bg-white focus:outline-none transition-all text-xs font-bold" />
-                            </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                         <div className="space-y-1.5">
+                            <label className="text-[12px] font-semibold text-[#1a1510]/60">Account owner</label>
+                            <input type="text" value={owner} onChange={(e) => setOwner(e.target.value)} className="w-full h-11 px-4 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all text-[13px]" />
+                         </div>
+                         <div className="space-y-1.5">
+                            <label className="text-[12px] font-semibold text-[#1a1510]/60">Website</label>
+                            <input type="text" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="e.g. nike.com" className="w-full h-11 px-4 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all text-[13px] placeholder:text-[#1a1510]/30" />
                          </div>
                       </div>
                    </div>
 
-                   <div className="bg-white border border-[#1a1510]/5 rounded-[2.5rem] p-6 sm:p-10 space-y-8 shadow-sm">
-                      <h4 className="text-[10px] font-black uppercase tracking-widest text-[#1a1510]/20">Inherited Tools Config</h4>
-                      <div className="grid grid-cols-2 gap-3">
+                   <div className="bg-white border border-[#1a1510]/[0.07] rounded-2xl p-6 sm:p-7 space-y-4">
+                      <h4 className="text-[12px] font-semibold text-[#1a1510]/50 uppercase tracking-wider">Inherited tools</h4>
+                      <div className="grid grid-cols-1 gap-2.5">
                          {TOOLS.map((tool, i) => (
-                            <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-[#f7f8f9] border border-transparent">
-                               <div className="flex items-center gap-3">
-                                  <tool.icon size={14} className={tool.color} />
-                                  <span className="text-[10px] font-black uppercase tracking-widest">{tool.name}</span>
+                            <div key={i} className="flex items-center justify-between p-3.5 rounded-xl bg-[#fafafa] border border-[#1a1510]/[0.05]">
+                               <div className="flex items-center gap-2.5">
+                                  <tool.icon size={15} className="text-[#1a1510]/50" />
+                                  <span className="text-[13px] font-medium text-[#1a1510]">{tool.name}</span>
                                </div>
-                               <div className="w-8 h-4 bg-emerald-500 rounded-full flex items-center justify-end px-1"><div className="w-2.5 h-2.5 bg-white rounded-full" /></div>
+                               <div className="w-8 h-5 bg-emerald-500 rounded-full flex items-center justify-end px-1"><div className="w-3 h-3 bg-white rounded-full" /></div>
                             </div>
                          ))}
                       </div>
                    </div>
 
-                   <div className="lg:col-span-2 flex justify-end gap-3 pt-6">
-                      <button type="button" onClick={() => setIsCreating(false)} className="px-8 h-12 rounded-xl text-[10px] font-black uppercase tracking-widest text-[#1a1510]/40">Cancel</button>
-                      <button type="submit" disabled={saving} className="px-10 h-12 bg-[#1a1510] text-brand-gold rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-2">
-                         {saving ? <Loader2 className="animate-spin" size={14} /> : "Save Account Node"}
+                   <div className="lg:col-span-2 flex justify-end gap-2.5 pt-2">
+                      <button type="button" onClick={() => setIsCreating(false)} className="px-6 h-11 rounded-none border border-[#1a1510]/10 text-xs font-semibold text-[#1a1510] hover:bg-[#f7f8f9] transition-colors">Cancel</button>
+                      <button type="submit" disabled={saving} className="btn-shine px-8 h-11 rounded-none bg-[#1a1510] text-white text-xs font-semibold hover:bg-[#2a2118] transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+                         {saving ? <Loader2 className="animate-spin" size={14} /> : "Save Account"}
                       </button>
                    </div>
                 </form>

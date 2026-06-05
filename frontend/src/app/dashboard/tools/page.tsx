@@ -14,6 +14,8 @@ import { useRouter } from "next/navigation";
 
 import { api } from "../../../lib/api";
 import { ConnectModal } from "../../../components/dashboard/Tools/ConnectModal";
+import { Loader } from "../../../components/ui/Loader";
+import { ToolsIcon } from "../../../components/ui/icons/ToolsIcon";
 
 import { useClient } from "../../../contexts/ClientContext";
 
@@ -141,61 +143,59 @@ export default function ToolsPage() {
       <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#f7f8f9] text-[#1a1510] font-sans selection:bg-brand-gold/30">
 
          {/* 1. Header Navigation */}
-         <nav className="h-20 border-b border-[#1a1510]/5 bg-white flex items-center justify-between px-4 sm:px-8 shrink-0 z-50 shadow-sm relative">
+         <nav className="h-16 border-b border-[#1a1510]/[0.07] bg-white flex items-center justify-between px-4 sm:px-8 shrink-0 z-50 relative">
             <div className="flex items-center gap-6 min-w-0">
                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-[#1a1510] text-brand-gold rounded-xl shadow-lg shrink-0">
-                     <Box size={18} />
+                  <div className="w-9 h-9 bg-[#1a1510] text-brand-gold rounded-lg flex items-center justify-center shrink-0">
+                     <ToolsIcon size={16} />
                   </div>
                   <div className="hidden sm:block truncate">
-                     <h2 className="text-sm font-black tracking-tight text-[#1a1510] uppercase truncate">Tools</h2>
-                     <p className="text-[10px] font-bold text-[#1a1510]/30 uppercase tracking-widest mt-0.5 truncate">
-                        Connect GTM stack
-                     </p>
+                     <h2 className="text-[13px] font-bold tracking-tight text-[#1a1510] uppercase truncate">Tools</h2>
+                     <p className="text-[11px] font-medium text-[#1a1510]/40 truncate">Connect your GTM stack</p>
                   </div>
                </div>
             </div>
 
-            <div className="flex items-center gap-3 sm:gap-6">
+            <div className="flex items-center gap-2.5 sm:gap-3">
                <div className="relative group hidden md:block">
-                  <Search size={16} className="absolute left-6 top-1/2 -translate-y-1/2 text-[#1a1510]/20 group-focus-within:text-brand-gold transition-colors" />
+                  <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#1a1510]/25 group-focus-within:text-brand-gold transition-colors" />
                   <input
                      type="text"
                      value={searchQuery}
                      onChange={(e) => setSearchQuery(e.target.value)}
-                     placeholder="Search tools..."
-                     className="h-10 w-48 lg:w-72 pl-12 pr-4 rounded-xl bg-[#f7f8f9] border border-transparent text-xs font-medium focus:bg-white focus:outline-none transition-all shadow-inner"
+                     placeholder="Search tools…"
+                     className="h-10 w-48 lg:w-64 pl-10 pr-4 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/25"
                   />
                </div>
 
                <button
                   onClick={() => router.push('/dashboard')}
-                  className="h-10 px-3 sm:px-5 rounded-xl border border-[#1a1510]/10 text-[10px] font-black uppercase tracking-widest text-[#1a1510] flex items-center gap-2 hover:bg-[#f7f8f9] transition-all"
+                  className="btn-shine btn-shine-dark h-10 px-4 sm:px-5 rounded-none border border-[#1a1510]/10 text-xs font-semibold text-[#1a1510] flex items-center gap-2 hover:bg-[#1a1510]/[0.02] transition-colors"
                >
-                  <LayoutDashboard size={14} /> <span className="hidden sm:inline">Back</span>
+                  <LayoutDashboard size={15} /> <span className="hidden sm:inline">Back</span>
                </button>
             </div>
          </nav>
 
-         <main className="flex-1 p-4 sm:p-6 lg:p-10 space-y-8 overflow-y-auto scrollbar-hide pb-32">
+         <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto scrollbar-hide pb-32">
             {loading ? (
                <div className="flex-1 flex items-center justify-center py-40">
                   <div className="flex flex-col items-center gap-4">
-                     <RefreshCw className="animate-spin text-brand-gold" size={40} />
-                     <p className="text-xs font-black uppercase tracking-[0.3em] text-[#1a1510]/30">Calibrating Nexus...</p>
+                     <Loader size={40} />
+                     <p className="text-[13px] font-medium text-[#1a1510]/40">Loading tools…</p>
                   </div>
                </div>
             ) : (
                <>
                   {/* 2. Category Rail */}
-                  <div className="flex items-center gap-2 p-1 bg-white rounded-2xl border border-[#1a1510]/5 w-fit shadow-sm overflow-x-auto scrollbar-hide max-w-full">
+                  <div className="flex items-center gap-1 p-1 bg-white rounded-xl border border-[#1a1510]/[0.07] w-fit overflow-x-auto scrollbar-hide max-w-full">
                      {CATEGORIES.slice(0, 5).map((cat) => (
                         <button
                            key={cat}
                            onClick={() => setActiveCategory(cat)}
-                           className={`h-9 px-4 sm:px-6 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeCategory === cat
-                              ? "bg-[#1a1510] text-brand-gold shadow-lg"
-                              : "text-[#1a1510]/30 hover:text-[#1a1510] hover:bg-[#f7f8f9]"
+                           className={`h-9 px-4 sm:px-5 rounded-lg text-[11px] font-semibold uppercase tracking-wider transition-all whitespace-nowrap ${activeCategory === cat
+                              ? "bg-[#1a1510] text-white"
+                              : "text-[#1a1510]/35 hover:text-[#1a1510]/60"
                               }`}
                         >
                            {cat}
@@ -204,97 +204,89 @@ export default function ToolsPage() {
                   </div>
 
                   {!selectedClient && (
-                     <div className="p-5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold uppercase tracking-wider flex items-center gap-3 shadow-sm">
-                        <Shield className="text-amber-600 shrink-0" size={18} />
-                        <span>Please select a client to connect tools.</span>
+                     <div className="p-4 rounded-xl bg-amber-50 border border-amber-100 text-amber-700 text-[13px] font-medium flex items-center gap-3">
+                        <Shield className="text-amber-600 shrink-0" size={17} />
+                        <span>Select a client to connect tools.</span>
                      </div>
                   )}
 
                   {/* 3. Tools Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 pb-32">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-32">
                      {filteredTools.map((tool, idx) => (
                         <motion.div
                            key={tool.id}
-                           initial={{ opacity: 0, scale: 0.95 }}
-                           animate={{ opacity: 1, scale: 1 }}
-                           transition={{ duration: 0.4, delay: idx * 0.05 }}
-                           className="bg-white rounded-[2rem] sm:rounded-[2.5rem] border border-[#1a1510]/5 p-6 sm:p-8 flex flex-col justify-between h-[300px] group hover:shadow-xl transition-all relative overflow-hidden"
+                           initial={{ opacity: 0, y: 12 }}
+                           animate={{ opacity: 1, y: 0 }}
+                           transition={{ duration: 0.3, delay: idx * 0.03 }}
+                           className="bg-white rounded-2xl border border-[#1a1510]/[0.07] p-5 flex flex-col group shadow-[0_1px_2px_rgba(26,21,16,0.04)] hover:shadow-[0_8px_24px_rgba(26,21,16,0.07)] hover:border-[#1a1510]/15 transition-all"
                         >
-                           <div className="space-y-6">
-                              {/* Card Header */}
-                              <div className="flex justify-between items-start">
-                                 <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-[#f7f8f9] flex items-center justify-center text-brand-gold border border-[#1a1510]/5 shrink-0 group-hover:scale-110 transition-transform">
-                                       <tool.icon size={20} />
-                                    </div>
-                                    <div className="truncate">
-                                       <h3 className="text-base sm:text-lg font-black text-[#1a1510] tracking-tight leading-none mb-1.5 truncate">{tool.name}</h3>
-                                       <div className="flex gap-2">
-                                          <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border truncate inline-block ${tool.category === 'Prospecting & Data' ? 'bg-blue-50 text-blue-500 border-blue-100' : 'bg-[#1a1510]/5 text-[#1a1510]/40 border-transparent'}`}>
-                                             {tool.category}
-                                          </span>
-                                          {tool.status === 'comingSoon' && (
-                                             <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border border-orange-200 bg-orange-50 text-orange-600 truncate inline-block">
-                                                Coming Soon
-                                             </span>
-                                          )}
-                                          {tool.status === 'disabled' && (
-                                             <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border border-red-200 bg-red-50 text-red-600 truncate inline-block">
-                                                Disabled
-                                             </span>
-                                          )}
-                                       </div>
-                                    </div>
+                           {/* Card Header */}
+                           <div className="flex justify-between items-start gap-3">
+                              <div className="flex items-center gap-3 min-w-0">
+                                 <div className="w-11 h-11 rounded-xl bg-[#f7f8f9] flex items-center justify-center text-[#1a1510]/50 shrink-0">
+                                    <tool.icon size={20} />
                                  </div>
-                                 <div className="flex items-center gap-1.5 shrink-0">
-                                    <div className={`w-1.5 h-1.5 rounded-full ${tool.isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-[#1a1510]/10'}`} />
+                                 <div className="min-w-0">
+                                    <h3 className="text-[15px] font-semibold text-[#1a1510] tracking-tight leading-none mb-1.5 truncate">{tool.name}</h3>
+                                    <div className="flex flex-wrap gap-1.5">
+                                       <span className="px-1.5 py-0.5 rounded text-[9px] font-medium uppercase tracking-wide bg-[#f7f8f9] text-[#1a1510]/45">
+                                          {tool.category}
+                                       </span>
+                                       {tool.status === 'comingSoon' && (
+                                          <span className="px-1.5 py-0.5 rounded text-[9px] font-medium uppercase tracking-wide bg-amber-50 text-amber-600">
+                                             Soon
+                                          </span>
+                                       )}
+                                       {tool.status === 'disabled' && (
+                                          <span className="px-1.5 py-0.5 rounded text-[9px] font-medium uppercase tracking-wide bg-red-50 text-red-600">
+                                             Disabled
+                                          </span>
+                                       )}
+                                    </div>
                                  </div>
                               </div>
-
-                              {/* Description */}
-                              <p className="text-[11px] sm:text-[12px] font-medium text-[#1a1510]/40 leading-relaxed italic line-clamp-2">
-                                 {tool.description}
-                              </p>
+                              {tool.isConnected && (
+                                 <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-emerald-600 shrink-0 mt-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live
+                                 </span>
+                              )}
                            </div>
 
-                           {/* Action Node */}
-                           <div className="mt-8">
+                           {/* Description */}
+                           <p className="text-[13px] text-[#1a1510]/45 leading-relaxed line-clamp-2 mt-4 flex-1">
+                              {tool.description}
+                           </p>
+
+                           {/* Action */}
+                           <div className="mt-5">
                               {tool.isConnected ? (
-                                 <div className="space-y-4">
-                                    <div className="flex items-center justify-between text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-[#1a1510]/20 px-1">
-                                       <span>Flow Sync</span>
-                                       <span className="text-brand-gold truncate max-w-[120px]">{tool.syncStat}</span>
-                                    </div>
-                                    <div className="flex gap-2">
-                                       <button className="flex-1 h-11 rounded-xl sm:rounded-2xl border border-[#1a1510]/10 text-[#1a1510] text-[9px] sm:text-[10px] font-black uppercase tracking-widest hover:bg-[#1a1510] hover:text-brand-gold transition-all">
-                                          Manage
-                                       </button>
-                                       <button className="w-11 h-11 rounded-xl sm:rounded-2xl bg-[#f7f8f9] flex items-center justify-center text-[#1a1510]/40 hover:text-[#1a1510] transition-colors shrink-0">
-                                          <ChevronRight size={18} />
-                                       </button>
-                                    </div>
+                                 <div className="flex gap-2">
+                                    <button className="btn-shine btn-shine-dark flex-1 h-10 rounded-none border border-[#1a1510]/10 text-[#1a1510] text-xs font-semibold hover:bg-[#1a1510]/[0.02] transition-colors">
+                                       Manage
+                                    </button>
+                                    <button className="w-10 h-10 rounded-lg bg-[#f7f8f9] border border-[#1a1510]/[0.07] flex items-center justify-center text-[#1a1510]/40 hover:text-[#1a1510] transition-colors shrink-0">
+                                       <ChevronRight size={17} />
+                                    </button>
                                  </div>
                               ) : tool.status === 'active' ? (
-                                 <button 
+                                 <button
                                     onClick={() => handleConnectClick(tool)}
                                     disabled={!selectedClient}
-                                    className={`w-full h-11 rounded-xl sm:rounded-2xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${
-                                       selectedClient 
-                                          ? "bg-[#1a1510] text-brand-gold shadow-xl hover:translate-y-[-1px] cursor-pointer" 
-                                          : "bg-[#1a1510]/5 text-[#1a1510]/20 cursor-not-allowed border border-[#1a1510]/5"
+                                    className={`w-full h-10 rounded-none text-xs font-semibold flex items-center justify-center gap-2 transition-colors ${
+                                       selectedClient
+                                          ? "btn-shine bg-[#1a1510] text-white hover:bg-[#2a2118] cursor-pointer"
+                                          : "bg-[#f7f8f9] text-[#1a1510]/25 cursor-not-allowed border border-[#1a1510]/[0.07]"
                                     }`}
                                  >
                                     <LinkIcon size={14} /> Connect
                                  </button>
                               ) : (
-                                 <div title={tool.status === 'comingSoon' ? "This integration is coming soon" : "This integration is currently disabled"}>
-                                    <button 
-                                       onClick={() => handleDisabledConnectClick(tool)}
-                                       className="w-full h-11 rounded-xl sm:rounded-2xl bg-[#f7f8f9] text-[#1a1510]/30 border border-[#1a1510]/10 text-[9px] sm:text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:bg-[#1a1510]/5"
-                                    >
-                                       <LinkIcon size={14} /> {tool.status === 'comingSoon' ? "Coming Soon" : "Disabled"}
-                                    </button>
-                                 </div>
+                                 <button
+                                    onClick={() => handleDisabledConnectClick(tool)}
+                                    className="w-full h-10 rounded-none bg-[#f7f8f9] text-[#1a1510]/35 border border-[#1a1510]/[0.07] text-xs font-semibold flex items-center justify-center gap-2 cursor-default"
+                                 >
+                                    {tool.status === 'comingSoon' ? "Coming Soon" : "Disabled"}
+                                 </button>
                               )}
                            </div>
                         </motion.div>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Sidebar } from "../../../components/Sidebar";
 import { useAuth } from "../../../hooks/useAuth";
 import { api } from "../../../lib/api";
+import { Loader } from "../../../components/ui/Loader";
 import type { Execution } from "../../../types";
 
 export default function ExecutionsPage() {
@@ -25,7 +26,7 @@ export default function ExecutionsPage() {
   }, [user]);
 
   if (loading) {
-    return <div className="flex min-h-screen items-center justify-center text-slate-300">Loading...</div>;
+    return <div className="flex min-h-screen items-center justify-center bg-[#fdfbf7]"><Loader size={40} /></div>;
   }
 
   if (!user) {

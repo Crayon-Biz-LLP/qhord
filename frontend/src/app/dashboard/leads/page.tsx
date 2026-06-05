@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { Loader } from "@/components/ui/Loader";
+import { LeadSourceIcon } from "@/components/ui/icons/LeadSourceIcon";
 
 interface Lead {
    id: string;
@@ -44,80 +46,71 @@ export default function LeadsPage() {
       <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#f7f8f9] text-[#1a1510] font-sans selection:bg-brand-gold/30">
 
          {/* 1. Header Navigation */}
-         <nav className="h-20 border-b border-[#1a1510]/5 bg-white flex items-center justify-between px-4 sm:px-8 shrink-0 z-50 shadow-sm relative">
+         <nav className="h-16 border-b border-[#1a1510]/[0.07] bg-white flex items-center justify-between px-4 sm:px-8 shrink-0 z-50 relative">
             <div className="flex items-center gap-6 min-w-0">
                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-[#1a1510] text-brand-gold rounded-xl shadow-lg shrink-0">
-                     <Users size={18} />
+                  <div className="w-9 h-9 bg-[#1a1510] text-brand-gold rounded-lg flex items-center justify-center shrink-0">
+                     <LeadSourceIcon size={16} />
                   </div>
                   <div className="hidden sm:block truncate">
-                     <h2 className="text-sm font-black tracking-tight text-[#1a1510] uppercase truncate">Leads</h2>
-                     <p className="text-[10px] font-bold text-[#1a1510]/30 uppercase tracking-widest mt-0.5 truncate">
-                        Master node hub • Active
-                     </p>
+                     <h2 className="text-[13px] font-bold tracking-tight text-[#1a1510] uppercase">Leads</h2>
+                     <p className="text-[11px] font-medium text-[#1a1510]/40 truncate">All collected leads</p>
                   </div>
                </div>
             </div>
 
-            <div className="flex items-center gap-3 sm:gap-6">
-               <div className="flex items-center gap-2">
-                  <button className="h-10 px-4 sm:px-6 rounded-xl bg-white border border-[#1a1510]/5 text-[#1a1510] text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-[#f7f8f9] transition-all whitespace-nowrap hidden md:flex">
-                     <Download size={14} /> <span className="hidden lg:inline">Export</span>
-                  </button>
-                  <button className="h-10 px-4 sm:px-6 rounded-xl bg-[#1a1510] text-brand-gold text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl hover:translate-y-[-1px] transition-all whitespace-nowrap">
-                     <Sparkles size={14} /> <span className="hidden lg:inline">AI Researcher</span><span className="lg:hidden">AI</span>
-                  </button>
-                  <div className="w-[1px] h-6 bg-[#1a1510]/10 mx-1 hidden sm:block" />
-                  <button
-                     onClick={() => router.push('/dashboard')}
-                     className="h-10 px-4 sm:px-6 rounded-xl bg-white border border-[#1a1510]/5 text-[#1a1510]/40 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:text-[#1a1510] transition-all group"
-                  >
-                     <LayoutDashboard size={14} className="group-hover:text-brand-gold transition-colors" /> <span className="hidden sm:inline">Back</span>
-                  </button>
-               </div>
+            <div className="flex items-center gap-2.5">
+               <button className="btn-shine btn-shine-dark h-10 px-4 sm:px-5 rounded-none bg-white border border-[#1a1510]/10 text-[#1a1510] text-xs font-semibold items-center gap-2 hover:bg-[#1a1510]/[0.02] transition-colors whitespace-nowrap hidden md:flex">
+                  <Download size={15} /> <span className="hidden lg:inline">Export</span>
+               </button>
+               <button className="btn-shine h-10 px-4 sm:px-5 rounded-none bg-[#1a1510] text-white text-xs font-semibold flex items-center gap-2 hover:bg-[#2a2118] transition-colors whitespace-nowrap">
+                  <Sparkles size={15} /> <span className="hidden lg:inline">AI Researcher</span><span className="lg:hidden">AI</span>
+               </button>
+               <button
+                  onClick={() => router.push('/dashboard')}
+                  className="btn-shine btn-shine-dark h-10 px-4 sm:px-5 rounded-none bg-white border border-[#1a1510]/10 text-[#1a1510] text-xs font-semibold flex items-center gap-2 hover:bg-[#1a1510]/[0.02] transition-colors"
+               >
+                  <LayoutDashboard size={15} /> <span className="hidden sm:inline">Back</span>
+               </button>
             </div>
          </nav>
 
-         <main className="flex-1 p-4 sm:p-6 lg:p-10 space-y-10 overflow-y-auto scrollbar-hide pb-32">
+         <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto scrollbar-hide pb-32">
 
             {/* 2. Metric Ribbon */}
-            <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 w-full">
+            <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 w-full">
                {[
-                  { label: "TOTAL AUDIENCE", value: String(leads.length), icon: Users, color: "text-[#1a1510]", bg: "bg-[#1a1510]/5" },
-                  { label: "SOURCED FROM HUNTER", value: String(leads.filter(l => l.source === 'hunter').length), icon: ShieldCheck, color: "text-emerald-500", bg: "bg-emerald-50" },
-                  { label: "ENRICHED", value: String(leads.filter(l => l.enriched).length), icon: Zap, color: "text-brand-gold", bg: "bg-brand-gold/5" },
-                  { label: "RECENTLY ADDED", value: leads.length > 0 ? "+" + leads.filter(l => Date.now() - new Date(l.created_at).getTime() < 86400000).length : "0", icon: UserPlus, color: "text-blue-500", bg: "bg-blue-50" },
+                  { label: "Total Audience", value: String(leads.length), icon: Users },
+                  { label: "Sourced from Hunter", value: String(leads.filter(l => l.source === 'hunter').length), icon: ShieldCheck },
+                  { label: "Enriched", value: String(leads.filter(l => l.enriched).length), icon: Zap },
+                  { label: "Recently Added", value: leads.length > 0 ? "+" + leads.filter(l => Date.now() - new Date(l.created_at).getTime() < 86400000).length : "0", icon: UserPlus },
                ].map((stat, i) => (
                   <motion.div
                      key={i}
-                     initial={{ opacity: 0, scale: 0.95 }}
-                     animate={{ opacity: 1, scale: 1 }}
-                     transition={{ delay: i * 0.05 }}
-                     className="bg-white p-5 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] border border-[#1a1510]/5 flex flex-col justify-between h-32 sm:h-36 lg:h-40 group transition-all shadow-sm hover:shadow-xl relative overflow-hidden"
+                     initial={{ opacity: 0, y: 12 }}
+                     animate={{ opacity: 1, y: 0 }}
+                     transition={{ delay: i * 0.06 }}
+                     className="group bg-white border border-[#1a1510]/[0.07] rounded-2xl p-5 shadow-[0_1px_2px_rgba(26,21,16,0.04)] hover:shadow-[0_8px_24px_rgba(26,21,16,0.07)] hover:-translate-y-0.5 transition-all duration-200"
                   >
-                     <div className="flex justify-between items-start z-10">
-                        <span className="text-[8px] sm:text-[9px] font-black text-[#1a1510]/30 tracking-widest uppercase truncate">{stat.label}</span>
-                        <div className={`p-2 rounded-xl ${stat.bg} ${stat.color} shadow-lg shadow-black/5 group-hover:scale-110 transition-transform`}>
-                           <stat.icon size={16} />
-                        </div>
+                     <div className="flex items-center justify-between mb-5">
+                        <span className="text-[11px] font-semibold text-[#1a1510]/40 uppercase tracking-wider truncate">{stat.label}</span>
+                        <stat.icon size={18} strokeWidth={1.75} className="text-[#1a1510]/25 group-hover:text-[#1a1510]/50 transition-colors shrink-0" />
                      </div>
-                     <div className="mt-2 z-10">
-                        <h3 className="text-2xl sm:text-3xl lg:text-4xl font-black text-[#1a1510] tracking-tighter leading-none">{stat.value}</h3>
-                     </div>
+                     <h3 className="text-[2.5rem] font-bold text-[#1a1510] tracking-tight tabular-nums leading-none">{stat.value}</h3>
                   </motion.div>
                ))}
             </section>
 
-            {/* 3. Strategic Filter & Search Hub */}
-            <div className="bg-white rounded-[2rem] sm:rounded-[3rem] border border-[#1a1510]/5 shadow-sm p-4 sm:p-2 flex flex-col md:flex-row items-center justify-between gap-4 md:pr-8">
-               <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto scrollbar-hide pb-2 md:pb-0">
+            {/* 3. Filter & Search */}
+            <div className="bg-white rounded-2xl border border-[#1a1510]/[0.07] p-3 flex flex-col md:flex-row items-center justify-between gap-3">
+               <div className="flex items-center gap-1 p-1 bg-[#f7f8f9] rounded-xl overflow-x-auto w-full md:w-auto scrollbar-hide">
                   {["All Leads", "High ICP", "New Source", "In Outreach"].map((tab) => (
                      <button
                         key={tab}
                         onClick={() => setActiveFilter(tab)}
-                        className={`h-10 sm:h-12 px-6 sm:px-8 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeFilter === tab
-                           ? "bg-[#1a1510] text-brand-gold shadow-2xl scale-100"
-                           : "text-[#1a1510]/30 hover:text-[#1a1510] hover:bg-[#f7f8f9]"
+                        className={`px-5 py-2 rounded-lg text-[11px] font-semibold uppercase tracking-wider transition-all whitespace-nowrap ${activeFilter === tab
+                           ? "bg-white text-[#1a1510] shadow-sm"
+                           : "text-[#1a1510]/35 hover:text-[#1a1510]/60"
                            }`}
                      >
                         {tab}
@@ -125,82 +118,88 @@ export default function LeadsPage() {
                   ))}
                </div>
 
-               <div className="flex items-center gap-4 sm:gap-6 w-full md:w-auto justify-end">
+               <div className="flex items-center gap-2.5 w-full md:w-auto justify-end">
                   <div className="relative group flex-1 md:flex-none">
-                     <Search size={16} className="absolute left-6 top-1/2 -translate-y-1/2 text-[#1a1510]/20 group-focus-within:text-brand-gold transition-colors" />
+                     <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#1a1510]/25 group-focus-within:text-brand-gold transition-colors" />
                      <input
                         type="text"
-                        placeholder="Lead search..."
-                        className="h-10 sm:h-12 w-full md:w-48 lg:w-64 pl-14 pr-6 rounded-full bg-[#f7f8f9] border border-transparent text-xs font-medium focus:bg-white focus:outline-none transition-all shadow-inner"
+                        placeholder="Search leads…"
+                        className="h-10 w-full md:w-56 lg:w-64 pl-10 pr-4 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/25"
                      />
                   </div>
-                  <button className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#1a1510] hover:text-brand-gold transition-all shrink-0">
-                     <Filter size={18} /> <span className="hidden sm:inline">Filters</span>
-                     <span className="w-5 h-5 rounded-full bg-[#1a1510] text-brand-gold flex items-center justify-center text-[9px] font-black">2</span>
+                  <button className="h-10 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-xs font-semibold text-[#1a1510]/60 hover:text-[#1a1510] hover:border-[#1a1510]/20 transition-colors flex items-center gap-2 shrink-0">
+                     <Filter size={15} /> <span className="hidden sm:inline">Filters</span>
+                     <span className="w-5 h-5 rounded-md bg-[#1a1510] text-white flex items-center justify-center text-[10px] font-semibold">2</span>
                   </button>
                </div>
             </div>
 
-            {/* 4. Lead Orchestration Table Area */}
-            <div className="bg-white rounded-[2rem] sm:rounded-[3rem] border border-[#1a1510]/5 shadow-sm overflow-hidden relative">
+            {/* 4. Leads Table */}
+            <div className="bg-white rounded-2xl border border-[#1a1510]/[0.07] overflow-hidden">
                <div className="overflow-x-auto scrollbar-hide">
                   <table className="w-full text-left border-collapse whitespace-nowrap">
                      <thead>
-                        <tr className="border-b border-[#1a1510]/[0.03] bg-[#fcfcfc]/50">
-                           <th className="p-6 sm:p-8 w-[60px]"><input type="checkbox" className="w-5 h-5 rounded-lg border-[#1a1510]/10 text-brand-gold cursor-pointer" /></th>
-                           <th className="py-6 sm:py-8 px-4 text-[9px] font-black uppercase tracking-widest text-[#1a1510]/20">Identity</th>
-                           <th className="py-6 sm:py-8 px-4 text-[9px] font-black uppercase tracking-widest text-[#1a1510]/20 text-center">ICP</th>
-                           <th className="py-6 sm:py-8 px-4 text-[9px] font-black uppercase tracking-widest text-[#1a1510]/20">Source</th>
-                           <th className="py-6 sm:py-8 px-4 text-[9px] font-black uppercase tracking-widest text-[#1a1510]/20">Status</th>
-                           <th className="py-6 sm:py-8 px-6 text-[9px] font-black uppercase tracking-widest text-[#1a1510]/20 text-right">Actions</th>
+                        <tr className="border-b border-[#1a1510]/[0.07] bg-[#fafafa]">
+                           <th className="py-4 px-6 w-[56px]"><input type="checkbox" className="w-4 h-4 rounded border-[#1a1510]/15 text-brand-gold cursor-pointer" /></th>
+                           <th className="py-4 px-4 text-[10px] font-semibold uppercase tracking-wider text-[#1a1510]/35">Identity</th>
+                           <th className="py-4 px-4 text-[10px] font-semibold uppercase tracking-wider text-[#1a1510]/35 text-center">ICP</th>
+                           <th className="py-4 px-4 text-[10px] font-semibold uppercase tracking-wider text-[#1a1510]/35">Source</th>
+                           <th className="py-4 px-4 text-[10px] font-semibold uppercase tracking-wider text-[#1a1510]/35">Status</th>
+                           <th className="py-4 px-6 text-[10px] font-semibold uppercase tracking-wider text-[#1a1510]/35 text-right">Actions</th>
                         </tr>
                      </thead>
-                     <tbody className="divide-y divide-[#1a1510]/[0.03]">
+                     <tbody className="divide-y divide-[#1a1510]/[0.06]">
                   {loading ? (
-                     <tr><td colSpan={6} className="p-12 text-center text-xs text-[#1a1510]/40">Loading leads...</td></tr>
+                     <tr><td colSpan={6}><div className="flex items-center justify-center py-16"><Loader size={36} /></div></td></tr>
                   ) : filteredLeads.length === 0 ? (
-                     <tr><td colSpan={6} className="p-12 text-center text-xs text-[#1a1510]/40">No leads yet. Run a pipeline to start collecting them.</td></tr>
+                     <tr><td colSpan={6}>
+                        <div className="flex flex-col items-center justify-center text-center py-16 px-6">
+                           <div className="w-12 h-12 rounded-xl bg-[#f7f8f9] text-[#1a1510]/25 flex items-center justify-center mb-3"><Users size={22} /></div>
+                           <p className="text-[15px] font-semibold text-[#1a1510]">No leads yet</p>
+                           <p className="text-[13px] text-[#1a1510]/40 mt-1">Run a pipeline to start collecting leads.</p>
+                        </div>
+                     </td></tr>
                   ) : filteredLeads.map((lead, i) => (
                      <motion.tr
                         key={lead.id}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.03 }}
-                        className="group hover:bg-[#f7f8f9]/30 transition-all cursor-default"
+                        className="group hover:bg-[#fafafa] transition-colors cursor-default"
                      >
-                        <td className="p-6 sm:p-8"><input type="checkbox" className="w-5 h-5 rounded-lg border-[#1a1510]/10 text-brand-gold cursor-pointer" /></td>
-                        <td className="py-6 px-4">
-                           <div className="flex items-center gap-4">
-                              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-[#1a1510] text-brand-gold flex items-center justify-center text-[10px] font-black shadow-lg group-hover:scale-110 transition-transform shrink-0">
+                        <td className="py-4 px-6"><input type="checkbox" className="w-4 h-4 rounded border-[#1a1510]/15 text-brand-gold cursor-pointer" /></td>
+                        <td className="py-4 px-4">
+                           <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-[#1a1510] text-brand-gold flex items-center justify-center text-[11px] font-semibold shrink-0">
                                  {lead.first_name?.[0]}{lead.last_name?.[0]}
                               </div>
                               <div className="truncate">
-                                 <h4 className="text-xs sm:text-[14px] font-black text-[#1a1510] leading-tight truncate">{lead.first_name} {lead.last_name}</h4>
-                                 <p className="text-[10px] font-bold text-[#1a1510]/30 mt-0.5 truncate">{lead.title || '—'} @{lead.company_name || lead.domain}</p>
-                                 <p className="text-[9px] text-[#1a1510]/20 mt-0.5 truncate">{lead.email}</p>
+                                 <h4 className="text-[13px] font-semibold text-[#1a1510] leading-tight truncate">{lead.first_name} {lead.last_name}</h4>
+                                 <p className="text-[12px] font-medium text-[#1a1510]/45 mt-0.5 truncate">{lead.title || '—'} @ {lead.company_name || lead.domain}</p>
+                                 <p className="text-[11px] text-[#1a1510]/30 mt-0.5 truncate">{lead.email}</p>
                               </div>
                            </div>
                         </td>
-                        <td className="py-6 px-4 text-center">
-                           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-600">
-                              <Star size={10} className="fill-emerald-600" />
-                              {lead.industry ? lead.industry.slice(0, 8) : 'B2B'}
+                        <td className="py-4 px-4 text-center">
+                           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-medium bg-emerald-50 text-emerald-600">
+                              <Star size={11} className="fill-emerald-600" />
+                              {lead.industry ? lead.industry.slice(0, 10) : 'B2B'}
                            </div>
                         </td>
-                        <td className="py-6 px-4">
-                           <div className="flex items-center gap-2 text-[10px] font-black text-[#1a1510]/40 uppercase tracking-widest">
-                              <Database size={12} /> {lead.source}
+                        <td className="py-4 px-4">
+                           <div className="flex items-center gap-1.5 text-[12px] font-medium text-[#1a1510]/50">
+                              <Database size={13} /> {lead.source}
                            </div>
                         </td>
-                        <td className="py-6 px-4">
-                           <span className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${lead.status === 'Replied' ? 'bg-[#1a1510] text-brand-gold' : 'bg-[#f7f8f9] text-[#1a1510]/40'}`}>
+                        <td className="py-4 px-4">
+                           <span className={`px-2.5 py-1 rounded-md text-[10px] font-medium ${lead.status === 'Replied' ? 'bg-[#1a1510] text-brand-gold' : 'bg-[#f7f8f9] text-[#1a1510]/50'}`}>
                               {lead.status}
                            </span>
                         </td>
-                        <td className="py-6 px-6 text-right">
-                           <div className="flex items-center gap-2 justify-end opacity-0 group-hover:opacity-100 transition-all">
-                              <button className="w-8 h-8 rounded-lg bg-white border border-[#1a1510]/10 text-brand-gold flex items-center justify-center hover:bg-brand-gold hover:text-white transition-all"><Mail size={14} /></button>
-                              <button className="w-8 h-8 rounded-lg bg-[#1a1510] text-brand-gold flex items-center justify-center hover:scale-110 transition-transform"><Plus size={14} /></button>
+                        <td className="py-4 px-6 text-right">
+                           <div className="flex items-center gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button className="w-8 h-8 rounded-lg bg-white border border-[#1a1510]/10 text-[#1a1510]/50 flex items-center justify-center hover:text-brand-gold hover:border-brand-gold/30 transition-colors"><Mail size={14} /></button>
+                              <button className="w-8 h-8 rounded-lg bg-[#1a1510] text-brand-gold flex items-center justify-center hover:bg-[#2a2118] transition-colors"><Plus size={14} /></button>
                            </div>
                         </td>
                      </motion.tr>
@@ -209,12 +208,12 @@ export default function LeadsPage() {
                   </table>
                </div>
 
-               <div className="p-6 sm:p-8 bg-[#fcfcfc] border-t border-[#1a1510]/[0.03] flex items-center justify-between">
-                  <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-[#1a1510]/20">{filteredLeads.length} lead{filteredLeads.length !== 1 ? 's' : ''}</span>
+               <div className="p-4 px-6 bg-[#fafafa] border-t border-[#1a1510]/[0.07] flex items-center justify-between">
+                  <span className="text-[12px] font-medium text-[#1a1510]/40">{filteredLeads.length} lead{filteredLeads.length !== 1 ? 's' : ''}</span>
                   <div className="flex items-center gap-1">
-                     <button className="w-8 h-8 rounded-lg hover:bg-white border border-transparent hover:border-[#1a1510]/5 transition-all text-[#1a1510]/20 flex items-center justify-center"><ChevronRight size={16} className="rotate-180" /></button>
-                     <div className="h-8 px-3 rounded-lg bg-[#1a1510] text-brand-gold flex items-center text-[10px] font-black">1</div>
-                     <button className="w-8 h-8 rounded-lg hover:bg-white border border-transparent hover:border-[#1a1510]/5 transition-all text-[#1a1510]/20 flex items-center justify-center"><ChevronRight size={16} /></button>
+                     <button className="w-8 h-8 rounded-lg hover:bg-white border border-transparent hover:border-[#1a1510]/[0.07] transition-all text-[#1a1510]/30 flex items-center justify-center"><ChevronRight size={16} className="rotate-180" /></button>
+                     <div className="h-8 px-3 rounded-lg bg-[#1a1510] text-brand-gold flex items-center text-[12px] font-semibold">1</div>
+                     <button className="w-8 h-8 rounded-lg hover:bg-white border border-transparent hover:border-[#1a1510]/[0.07] transition-all text-[#1a1510]/30 flex items-center justify-center"><ChevronRight size={16} /></button>
                   </div>
                </div>
             </div>

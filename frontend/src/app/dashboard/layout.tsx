@@ -6,6 +6,7 @@ import { Sidebar } from "../../components/dashboard/Sidebar/Sidebar";
 import { usePathname } from "next/navigation";
 import { ClientProvider, useClient } from "../../contexts/ClientContext";
 import { Plus, Building2, User as UserIcon, LogOut, ArrowRight, Bot } from "lucide-react";
+import { PageLoader } from "../../components/ui/Loader";
 
 export default function DashboardLayout({
   children,
@@ -23,10 +24,7 @@ export default function DashboardLayout({
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#fdfbf7]">
-        <div className="animate-pulse flex flex-col items-center gap-4">
-          <div className="w-12 h-12 bg-brand-gold/20 rounded-full" />
-          <p className="text-xs font-black uppercase tracking-[0.3em] text-[#1a1510]/30">Interface Initializing...</p>
-        </div>
+        <PageLoader label="Loading" />
       </div>
     );
   }

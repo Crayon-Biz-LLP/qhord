@@ -10,6 +10,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { api } from "../../../lib/api";
+import { Loader } from "../../../components/ui/Loader";
 
 interface PlanItem {
   id: string;
@@ -161,7 +162,7 @@ export default function PricingPage() {
           {/* Pricing Grid */}
           {loading ? (
             <div className="flex justify-center items-center py-20">
-              <Loader2 className="animate-spin text-brand-gold" size={32} />
+              <Loader size={36} />
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

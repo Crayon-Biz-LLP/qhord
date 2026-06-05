@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { api } from "../../../lib/api";
+import { Loader } from "../../../components/ui/Loader";
 
 // --- Types ---
 export interface PlaybookItem {
@@ -310,80 +311,73 @@ export default function PlaybooksPage() {
       <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#f7f8f9] text-[#1a1510] selection:bg-brand-gold/30 font-sans relative">
 
          {/* Header */}
-         <nav className="h-20 border-b border-[#1a1510]/5 bg-white flex items-center justify-between px-4 sm:px-8 shrink-0 z-50 shadow-sm relative">
+         <nav className="h-16 border-b border-[#1a1510]/[0.07] bg-white flex items-center justify-between px-4 sm:px-8 shrink-0 z-50 relative">
             <div className="flex items-center gap-6 min-w-0">
                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-[#1a1510] text-brand-gold rounded-xl shadow-lg shrink-0">
-                     <Bookmark size={18} />
+                  <div className="w-9 h-9 bg-[#1a1510] text-brand-gold rounded-lg flex items-center justify-center shrink-0">
+                     <Bookmark size={17} />
                   </div>
                   <div className="hidden sm:block truncate">
-                     <h2 className="text-sm font-black tracking-tight text-[#1a1510] uppercase truncate">Playbooks</h2>
-                     <p className="text-[10px] font-bold text-[#1a1510]/20 uppercase tracking-widest mt-0.5 truncate">
-                        Proven GTM workflows
-                     </p>
+                     <h2 className="text-[13px] font-bold tracking-tight text-[#1a1510] uppercase">Playbooks</h2>
+                     <p className="text-[11px] font-medium text-[#1a1510]/40 truncate">Proven GTM workflows</p>
                   </div>
                </div>
             </div>
 
-            <div className="flex items-center gap-3 sm:gap-6">
+            <div className="flex items-center gap-2.5 sm:gap-3">
                <div className="relative group hidden md:block">
-                  <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#1a1510]/20 group-focus-within:text-brand-gold transition-colors" />
+                  <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#1a1510]/25 group-focus-within:text-brand-gold transition-colors" />
                   <input
                      type="text"
                      value={searchQuery}
                      onChange={(e) => setSearchQuery(e.target.value)}
-                     placeholder="Search playbooks..."
-                     className="h-10 w-48 lg:w-64 pl-12 pr-4 rounded-xl bg-[#f7f8f9] border border-transparent text-xs font-medium focus:bg-white focus:outline-none transition-all shadow-inner"
+                     placeholder="Search playbooks…"
+                     className="h-10 w-48 lg:w-64 pl-10 pr-4 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/25"
                   />
                </div>
 
-               <button 
+               <button
                   onClick={() => setIsCreateOpen(true)}
-                  className="h-10 px-4 sm:px-6 rounded-xl bg-[#1a1510] text-brand-gold text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl hover:translate-y-[-1px] transition-all whitespace-nowrap"
+                  className="btn-shine h-10 px-4 sm:px-5 rounded-none bg-[#1a1510] text-white text-xs font-semibold flex items-center gap-2 hover:bg-[#2a2118] transition-colors whitespace-nowrap"
                >
-                  <Plus size={14} strokeWidth={3} /> <span className="hidden sm:inline">Create</span>
+                  <Plus size={15} /> <span className="hidden sm:inline">Create</span>
                </button>
                <button
                   onClick={() => router.push('/dashboard')}
-                  className="h-10 px-3 sm:px-5 rounded-xl border border-[#1a1510]/10 text-[10px] font-black uppercase tracking-widest text-[#1a1510] flex items-center gap-2 hover:bg-[#f7f8f9] transition-all"
+                  className="btn-shine btn-shine-dark h-10 px-4 sm:px-5 rounded-none border border-[#1a1510]/10 text-xs font-semibold text-[#1a1510] flex items-center gap-2 hover:bg-[#1a1510]/[0.02] transition-colors"
                >
-                  <LayoutDashboard size={14} /> <span className="hidden sm:inline">Back</span>
+                  <LayoutDashboard size={15} /> <span className="hidden sm:inline">Back</span>
                </button>
             </div>
          </nav>
 
-         <main className="flex-1 p-4 sm:p-6 lg:p-10 space-y-8 overflow-y-auto scrollbar-hide pb-32">
+         <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto scrollbar-hide pb-32">
 
             {/* Metrics */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                {[
-                  { label: "Total Playbooks", val: playbooks.length, icon: Bookmark },
-                  { label: "Performance", val: "85%", icon: BarChart3 },
-                  { label: "Imports", val: "12K+", icon: Download },
-                  { label: "Confidence", val: "94%", icon: ShieldCheck },
+                  { label: "Total Playbooks", val: playbooks.length },
+                  { label: "Avg Performance", val: "85%" },
+                  { label: "Total Imports", val: "12K+" },
+                  { label: "Top Confidence", val: "94%" },
                ].map((stat, i) => (
-                  <div key={i} className="bg-white border border-[#1a1510]/5 rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-6 flex items-center gap-4 group hover:shadow-lg transition-all">
-                     <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-[#f7f8f9] border border-[#1a1510]/5 flex items-center justify-center text-brand-gold shrink-0">
-                        <stat.icon size={18} />
-                     </div>
-                     <div className="truncate">
-                        <p className="text-[8px] sm:text-[10px] font-bold text-[#1a1510]/20 uppercase tracking-widest truncate">{stat.label}</p>
-                        <h4 className="text-lg sm:text-2xl font-black text-[#1a1510] tracking-tight">{stat.val}</h4>
-                     </div>
+                  <div key={i} className="group bg-white border border-[#1a1510]/[0.07] rounded-2xl p-5 shadow-[0_1px_2px_rgba(26,21,16,0.04)] hover:shadow-[0_8px_24px_rgba(26,21,16,0.07)] hover:-translate-y-0.5 transition-all duration-200">
+                     <p className="text-[11px] font-semibold text-[#1a1510]/40 uppercase tracking-wider mb-3 truncate">{stat.label}</p>
+                     <h4 className="text-[2rem] font-bold text-[#1a1510] tracking-tight tabular-nums leading-none">{stat.val}</h4>
                   </div>
                ))}
             </div>
 
             {/* Tabs & Categories */}
-            <div className="space-y-6">
-               <div className="flex items-center gap-1.5 p-1 bg-white rounded-2xl border border-[#1a1510]/5 w-fit shadow-sm overflow-x-auto scrollbar-hide max-w-full">
+            <div className="space-y-4">
+               <div className="flex items-center gap-1 p-1 bg-white rounded-xl border border-[#1a1510]/[0.07] w-fit overflow-x-auto scrollbar-hide max-w-full">
                   {TABS.map((tab) => (
                      <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                        className={`h-9 px-4 sm:px-6 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab
-                           ? "bg-[#1a1510] text-brand-gold shadow-lg"
-                           : "text-[#1a1510]/40 hover:text-[#1a1510] hover:bg-[#f7f8f9]"
+                        className={`h-9 px-4 sm:px-5 rounded-lg text-[11px] font-semibold uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === tab
+                           ? "bg-[#1a1510] text-white"
+                           : "text-[#1a1510]/35 hover:text-[#1a1510]/60"
                            }`}
                      >
                         {tab}
@@ -391,14 +385,14 @@ export default function PlaybooksPage() {
                   ))}
                </div>
 
-               <div className="flex flex-wrap items-center gap-2">
+               <div className="flex flex-wrap items-center gap-1.5">
                   {CATEGORIES.map((cat) => (
                      <button
                         key={cat}
                         onClick={() => setActiveCategory(cat)}
-                        className={`h-8 px-4 sm:px-5 rounded-full text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeCategory === cat
-                           ? "bg-[#1a1510] text-brand-gold shadow-md"
-                           : "text-[#1a1510]/30 hover:text-[#1a1510] hover:bg-white"
+                        className={`h-8 px-4 rounded-lg text-[11px] font-medium uppercase tracking-wider transition-all whitespace-nowrap ${activeCategory === cat
+                           ? "bg-[#1a1510] text-white"
+                           : "bg-white border border-[#1a1510]/[0.07] text-[#1a1510]/45 hover:text-[#1a1510] hover:border-[#1a1510]/15"
                            }`}
                      >
                         {cat}
@@ -410,71 +404,74 @@ export default function PlaybooksPage() {
             {/* Playbook Grid */}
             {loading ? (
                <div className="flex items-center justify-center py-24">
-                  <Loader2 className="animate-spin text-brand-gold" size={32} />
+                  <Loader size={36} />
                </div>
             ) : filteredPlaybooks.length === 0 ? (
                <div className="flex flex-col items-center justify-center py-24 text-center">
-                  <Bookmark size={48} className="text-[#1a1510]/10 mb-4" />
-                  <p className="text-sm font-bold text-[#1a1510]/40">No playbooks found matching criteria.</p>
+                  <div className="w-14 h-14 rounded-2xl bg-[#f7f8f9] text-[#1a1510]/25 flex items-center justify-center mb-4"><Bookmark size={26} /></div>
+                  <p className="text-[15px] font-semibold text-[#1a1510]">No playbooks found</p>
+                  <p className="text-[13px] text-[#1a1510]/40 mt-1">Try a different category or create your own.</p>
                </div>
             ) : (
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 pb-32">
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-32">
                   {filteredPlaybooks.map((pb, idx) => (
                      <motion.div
                         key={pb.id}
-                        whileHover={{ y: -4 }}
-                        className="bg-white rounded-[2rem] sm:rounded-[2.5rem] border border-[#1a1510]/5 p-6 sm:p-8 flex flex-col group hover:shadow-xl transition-all relative overflow-hidden h-full"
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: idx * 0.04 }}
+                        className="bg-white rounded-2xl border border-[#1a1510]/[0.07] p-6 flex flex-col group shadow-[0_1px_2px_rgba(26,21,16,0.04)] hover:shadow-[0_8px_24px_rgba(26,21,16,0.07)] hover:border-[#1a1510]/15 transition-all"
                      >
-                        <div className="flex-1 space-y-6">
-                           <div className="flex justify-between items-start gap-4">
-                              <h3 className="text-lg sm:text-xl font-black text-[#1a1510] tracking-tight leading-tight truncate">{pb.name}</h3>
-                              <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border shrink-0 ${pb.difficulty === "Beginner" ? "bg-emerald-50 text-emerald-500 border-emerald-100" : "bg-brand-gold/10 text-brand-gold border-brand-gold/20"}`}>
+                        <div className="flex-1 space-y-4">
+                           <div className="flex justify-between items-start gap-3">
+                              <h3 className="text-[17px] font-bold text-[#1a1510] tracking-tight leading-snug">{pb.name}</h3>
+                              <span className={`shrink-0 px-2.5 py-1 rounded-md text-[10px] font-medium uppercase tracking-wide ${pb.difficulty === "Beginner" ? "bg-emerald-50 text-emerald-600" : pb.difficulty === "Intermediate" ? "bg-amber-50 text-amber-600" : "bg-red-50 text-red-600"}`}>
                                  {pb.difficulty}
                               </span>
                            </div>
 
-                           <p className="text-xs font-medium text-[#1a1510]/40 leading-relaxed line-clamp-3">
+                           <p className="text-[13px] text-[#1a1510]/45 leading-relaxed line-clamp-2">
                               {pb.description}
                            </p>
 
-                           <div className="flex items-center justify-between pt-4 border-t border-[#1a1510]/5">
+                           <div className="flex items-center justify-between pt-3 border-t border-[#1a1510]/[0.06]">
                               <div className="flex items-center gap-2">
-                                 <div className="w-6 h-6 rounded-full bg-[#1a1510] flex items-center justify-center text-brand-gold text-[8px] font-black">CT</div>
-                                 <span className="text-[9px] font-bold text-[#1a1510]/30 uppercase tracking-widest">{pb.creator}</span>
+                                 <div className="w-6 h-6 rounded-md bg-[#1a1510] flex items-center justify-center text-brand-gold text-[9px] font-semibold">CT</div>
+                                 <span className="text-[11px] font-medium text-[#1a1510]/40">{pb.creator}</span>
                               </div>
                               <div className="flex items-center -space-x-1.5">
                                  {pb.tools.map((Icon, i) => (
-                                    <div key={i} className="w-7 h-7 rounded-lg bg-[#f7f8f9] border border-[#1a1510]/5 flex items-center justify-center text-[#1a1510]/40 shadow-sm">
-                                       <Icon size={12} />
+                                    <div key={i} className="w-7 h-7 rounded-md bg-[#f7f8f9] border border-[#1a1510]/[0.07] flex items-center justify-center text-[#1a1510]/45">
+                                       <Icon size={13} />
                                     </div>
                                  ))}
                               </div>
                            </div>
 
                            <div className="grid grid-cols-2 gap-2">
-                              <div className="bg-[#f7f8f9]/50 rounded-xl p-3 border border-[#1a1510]/5 text-center">
-                                 <p className="text-[10px] font-black text-[#1a1510] leading-none mb-1">{pb.replyRate}</p>
-                                 <p className="text-[7px] font-bold text-[#1a1510]/20 uppercase tracking-widest">Reply Rate</p>
+                              <div className="bg-[#fafafa] rounded-lg p-3 border border-[#1a1510]/[0.05] text-center">
+                                 <p className="text-[14px] font-semibold text-[#1a1510] leading-none tabular-nums">{pb.replyRate}</p>
+                                 <p className="text-[9px] font-medium text-[#1a1510]/35 uppercase tracking-wide mt-1.5">Reply Rate</p>
                               </div>
-                              <div className="bg-[#f7f8f9]/50 rounded-xl p-3 border border-[#1a1510]/5 text-center">
-                                 <p className="text-[10px] font-black text-[#1a1510] leading-none mb-1">{pb.confidence}%</p>
-                                 <p className="text-[7px] font-bold text-[#1a1510]/20 uppercase tracking-widest">Confidence</p>
+                              <div className="bg-[#fafafa] rounded-lg p-3 border border-[#1a1510]/[0.05] text-center">
+                                 <p className="text-[14px] font-semibold text-[#1a1510] leading-none tabular-nums">{pb.confidence}%</p>
+                                 <p className="text-[9px] font-medium text-[#1a1510]/35 uppercase tracking-wide mt-1.5">Confidence</p>
                               </div>
                            </div>
                         </div>
 
-                        <div className="flex gap-3 mt-8">
+                        <div className="flex gap-2.5 mt-5">
                            <button
                               onClick={() => setSelectedPlaybook(pb)}
-                              className="flex-1 h-11 rounded-xl border border-[#1a1510]/10 text-[#1a1510] text-[9px] font-black uppercase tracking-widest hover:bg-[#f7f8f9] transition-all flex items-center justify-center gap-2"
+                              className="btn-shine btn-shine-dark flex-1 h-11 rounded-none border border-[#1a1510]/10 text-[#1a1510] text-xs font-semibold hover:bg-[#1a1510]/[0.02] transition-colors flex items-center justify-center gap-2"
                            >
-                              Inspect
+                              <Zap size={14} /> Inspect
                            </button>
-                           <button 
+                           <button
                               onClick={() => setImportPlaybook(pb)}
-                              className="flex-[1.5] h-11 rounded-xl bg-[#1a1510] text-brand-gold text-[9px] font-black uppercase tracking-widest shadow-lg hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2"
+                              className="btn-shine flex-[1.4] h-11 rounded-none bg-[#1a1510] text-white text-xs font-semibold hover:bg-[#2a2118] transition-colors flex items-center justify-center gap-2"
                            >
-                              Use
+                              <Sparkles size={14} /> Use
                            </button>
                         </div>
                      </motion.div>

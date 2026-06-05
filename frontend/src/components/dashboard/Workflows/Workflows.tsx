@@ -40,6 +40,7 @@ import {
    Zap,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { WorkflowsIcon } from "../../ui/icons/WorkflowsIcon";
 
 interface WorkflowsProps {
    onBackToDashboard: () => void;
@@ -332,50 +333,38 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
 
    const renderListView = () => (
       <div className="flex-1 overflow-y-auto p-6 lg:p-8 space-y-6 pb-12 min-h-0">
-         <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-5">
-            <div>
-               <h1 className="text-4xl font-black tracking-tight text-[#1a1510]">Workflows</h1>
-               <p className="mt-2 text-[#1a1510]/55 max-w-2xl">
-                  Run your GTM motions from one place. Trigger, qualify, route, and orchestrate across Apollo,
-                  HeyReach, CRM, and Qhord without bouncing between tabs.
-               </p>
-               <div className="flex flex-wrap gap-2 mt-4">
-                  {["Apollo", "HeyReach", "HubSpot", "Slack"].map((item) => (
-                     <span key={item} className="h-8 px-3 rounded-lg border border-[#1a1510]/10 bg-white text-xs font-semibold text-[#1a1510]/70">
-                        {item}
-                     </span>
-                  ))}
-               </div>
+         <div>
+            <h1 className="text-3xl font-bold tracking-tight text-[#1a1510]">Workflows</h1>
+            <p className="mt-2 text-[15px] text-[#1a1510]/55 max-w-2xl leading-relaxed">
+               Run your GTM motions from one place. Trigger, qualify, route, and orchestrate across Apollo,
+               HeyReach, CRM, and Qhord — without bouncing between tabs.
+            </p>
+            <div className="flex flex-wrap gap-2 mt-4">
+               {["Apollo", "HeyReach", "HubSpot", "Slack"].map((item) => (
+                  <span key={item} className="h-8 px-3 inline-flex items-center rounded-lg border border-[#1a1510]/[0.07] bg-white text-xs font-semibold text-[#1a1510]/70">
+                     {item}
+                  </span>
+               ))}
             </div>
-            <button
-               type="button"
-               onClick={openStandardBuilder}
-               className="h-12 px-6 rounded-xl bg-[#1a1510] text-brand-gold font-bold flex items-center gap-2 shadow-sm shrink-0"
-            >
-               <Plus size={18} /> New workflow
-            </button>
          </div>
 
-         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             {[
-               ["HUNTER", "Live", "Lead sourcing via Hunter.io API"],
-               ["BETTERCONTACTS", "Live", "Contact enrichment"],
-               ["BREVO", "Live", "Email campaigns & sending"],
-               ["CALENDLY", "Live", "Meeting scheduling links"],
-            ].map(([name, status, desc]) => (
-               <div key={name} className="bg-white border border-[#1a1510]/10 rounded-2xl p-5">
-                  <div className="flex items-center justify-between mb-2">
-                     <p className="text-xs tracking-wider font-semibold text-[#1a1510]/55">{name}</p>
-                     <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">{status}</span>
-                  </div>
-                  <p className="text-xs text-[#1a1510]/40">{desc}</p>
+               ["Hunter", "Lead sourcing via Hunter.io API"],
+               ["BetterContacts", "Contact enrichment"],
+               ["Brevo", "Email campaigns & sending"],
+               ["Calendly", "Meeting scheduling links"],
+            ].map(([name, desc]) => (
+               <div key={name} className="bg-white border border-[#1a1510]/[0.07] rounded-2xl p-5 hover:border-[#1a1510]/15 transition-colors">
+                  <p className="text-[13px] font-semibold text-[#1a1510] mb-2">{name}</p>
+                  <p className="text-[12px] text-[#1a1510]/45">{desc}</p>
                </div>
             ))}
          </div>
 
          <section className="space-y-3">
-            <h2 className="text-3xl font-black tracking-tight text-[#1a1510]">Start something new</h2>
-            <p className="text-[#1a1510]/50">Start guided, or open the orchestration canvas.</p>
+            <h2 className="text-2xl font-bold tracking-tight text-[#1a1510]">Start something new</h2>
+            <p className="text-[15px] text-[#1a1510]/50">Start guided, or open the orchestration canvas.</p>
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                <button type="button" onClick={openStandardBuilder} className="text-left bg-white border border-[#1a1510]/10 rounded-2xl p-6 hover:border-brand-gold/30 transition-colors">
                   <div className="flex items-center justify-between">
@@ -422,7 +411,7 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                      type="button"
                      disabled={isCompiling || !aiPrompt.trim()}
                      onClick={compileFromPrompt}
-                     className="h-10 px-5 rounded-xl border border-[#1a1510]/10 text-sm font-semibold disabled:opacity-50"
+                     className="btn-shine btn-shine-dark h-10 px-5 rounded-none border border-[#1a1510]/10 text-sm font-semibold disabled:opacity-50 hover:bg-[#1a1510]/[0.02] transition-colors"
                   >
                      {isCompiling ? "Planning…" : "Preview plan"}
                   </button>
@@ -430,7 +419,7 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                      type="button"
                      disabled={isRunningPipeline || !aiPrompt.trim()}
                      onClick={runPipelineFromPrompt}
-                     className="h-10 px-5 rounded-xl bg-[#1a1510] text-brand-gold font-bold text-sm disabled:opacity-50 flex items-center gap-2"
+                     className="btn-shine h-10 px-5 rounded-none bg-[#1a1510] text-white font-semibold text-sm disabled:opacity-50 flex items-center gap-2 hover:bg-[#2a2118] transition-colors"
                   >
                      <Rocket size={14} />
                      {isRunningPipeline ? "Running…" : "Run pipeline"}
@@ -542,10 +531,10 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
    const renderStepContent = () => {
       if (standardStep === 1) {
          return (
-            <div className="space-y-6 pb-4">
+            <div className="space-y-5 pb-4">
                <div>
-                  <h2 className="text-4xl font-black tracking-tight text-[#1a1510]">When should this workflow run?</h2>
-                  <p className="text-[#1a1510]/50 mt-2">Pick a signal, schedule, or manual trigger. Triggers tell Qhord <em>when</em> to enroll records.</p>
+                  <h2 className="text-2xl font-bold tracking-tight text-[#1a1510]">When should this workflow run?</h2>
+                  <p className="text-[13px] text-[#1a1510]/45 mt-1.5">Pick a signal, schedule, or manual trigger. Triggers tell Qhord <em>when</em> to enroll records.</p>
                </div>
                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
                   {TRIGGER_OPTIONS.map((t) => {
@@ -555,16 +544,16 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                            key={t.name}
                            type="button"
                            onClick={() => setSelectedTrigger(t.name)}
-                           className={`text-left rounded-xl border p-5 transition-colors ${
-                              selected ? "border-brand-gold/50 bg-brand-gold/5 ring-1 ring-brand-gold/20" : "border-[#1a1510]/10 bg-white hover:border-[#1a1510]/20"
+                           className={`text-left rounded-xl border p-4 transition-colors ${
+                              selected ? "border-brand-gold/50 bg-brand-gold/5 ring-1 ring-brand-gold/20" : "border-[#1a1510]/[0.09] bg-white hover:border-[#1a1510]/20"
                            }`}
                         >
                            <div className="flex items-center justify-between">
-                              <h4 className="font-semibold text-xl text-[#1a1510]">{t.name}</h4>
-                              {selected && <Check size={16} className="text-emerald-600" />}
+                              <h4 className="font-semibold text-[15px] text-[#1a1510]">{t.name}</h4>
+                              {selected && <Check size={15} className="text-emerald-600" />}
                            </div>
-                           <p className="text-sm text-[#1a1510]/50 mt-1">{t.desc}</p>
-                           <p className="mt-3 text-[10px] font-bold tracking-widest text-[#1a1510]/35">{t.source}</p>
+                           <p className="text-[13px] text-[#1a1510]/45 mt-1 leading-relaxed">{t.desc}</p>
+                           <p className="mt-3 text-[10px] font-medium tracking-wider text-[#1a1510]/35 uppercase">{t.source}</p>
                         </button>
                      );
                   })}
@@ -587,10 +576,10 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
             { name: "Deals", desc: "Pipeline objects. Great for stage-based actions and CRM hygiene.", icon: Briefcase },
          ];
          return (
-            <div className="space-y-6 pb-4">
+            <div className="space-y-5 pb-4">
                <div>
-                  <h2 className="text-4xl font-black tracking-tight text-[#1a1510]">What does this workflow act on?</h2>
-                  <p className="text-[#1a1510]/50 mt-2">Pick the object type. Workflows can stay account-aware even when targeting people.</p>
+                  <h2 className="text-2xl font-bold tracking-tight text-[#1a1510]">What does this workflow act on?</h2>
+                  <p className="text-[13px] text-[#1a1510]/45 mt-1.5">Pick the object type. Workflows can stay account-aware even when targeting people.</p>
                </div>
                <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
                   {targets.map(({ name, desc, icon: Icon }) => {
@@ -600,14 +589,14 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                            key={name}
                            type="button"
                            onClick={() => setSelectedTarget(name)}
-                           className={`text-left rounded-xl border p-5 ${selected ? "border-brand-gold/50 bg-brand-gold/5 ring-1 ring-brand-gold/20" : "border-[#1a1510]/10 bg-white"}`}
+                           className={`text-left rounded-xl border p-4 ${selected ? "border-brand-gold/50 bg-brand-gold/5 ring-1 ring-brand-gold/20" : "border-[#1a1510]/[0.09] bg-white"}`}
                         >
                            <div className="flex items-center justify-between mb-3">
-                              <Icon size={22} className="text-[#1a1510]/50" />
-                              {selected && <Check size={16} className="text-emerald-600" />}
+                              <Icon size={18} className="text-[#1a1510]/50" />
+                              {selected && <Check size={15} className="text-emerald-600" />}
                            </div>
-                           <h4 className="text-xl font-bold text-[#1a1510]">{name}</h4>
-                           <p className="text-sm text-[#1a1510]/50 mt-2">{desc}</p>
+                           <h4 className="text-[15px] font-semibold text-[#1a1510]">{name}</h4>
+                           <p className="text-[13px] text-[#1a1510]/45 mt-1.5 leading-relaxed">{desc}</p>
                         </button>
                      );
                   })}
@@ -633,14 +622,14 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
 
       if (standardStep === 3) {
          return (
-            <div className="space-y-6 pb-4">
+            <div className="space-y-5 pb-4">
                <div>
-                  <h2 className="text-4xl font-black tracking-tight text-[#1a1510]">Who&apos;s allowed into this workflow?</h2>
-                  <p className="text-[#1a1510]/50 mt-2">Enrollment is operational. Pick the conditions that must be true before a record enters.</p>
+                  <h2 className="text-2xl font-bold tracking-tight text-[#1a1510]">Who&apos;s allowed into this workflow?</h2>
+                  <p className="text-[13px] text-[#1a1510]/45 mt-1.5">Enrollment is operational. Pick the conditions that must be true before a record enters.</p>
                </div>
                <div className="rounded-xl border border-[#1a1510]/10 bg-white p-4">
                   <p className="text-[10px] font-bold tracking-widest text-[#1a1510]/45">PLAIN-ENGLISH SUMMARY</p>
-                  <p className="text-lg mt-2 text-[#1a1510]">
+                  <p className="text-[15px] mt-1.5 text-[#1a1510]">
                      {activeFilterCount === 0 ? "Anyone matching the trigger" : `${activeFilterCount} filter${activeFilterCount > 1 ? "s" : ""} must pass`}
                   </p>
                </div>
@@ -651,15 +640,15 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                         key={f.id}
                         type="button"
                         onClick={() => toggleEnrollment(f.id)}
-                        className={`min-h-[72px] rounded-xl border px-4 py-3 flex items-center justify-between text-left transition-colors ${
-                           f.active ? "border-brand-gold/40 bg-brand-gold/5" : "border-[#1a1510]/10 bg-white hover:bg-[#f7f8f9]"
+                        className={`min-h-[60px] rounded-xl border px-4 py-2.5 flex items-center justify-between text-left transition-colors ${
+                           f.active ? "border-brand-gold/40 bg-brand-gold/5" : "border-[#1a1510]/[0.09] bg-white hover:bg-[#f7f8f9]"
                         }`}
                      >
                         <div>
-                           <p className="font-semibold text-[#1a1510]">{f.label}</p>
-                           <p className="text-sm text-[#1a1510]/45 mt-0.5">{f.value}</p>
+                           <p className="text-[13px] font-semibold text-[#1a1510]">{f.label}</p>
+                           <p className="text-[12px] text-[#1a1510]/45 mt-0.5">{f.value}</p>
                         </div>
-                        {f.active ? <Check size={16} className="text-emerald-600 shrink-0" /> : <Plus size={16} className="text-[#1a1510]/35 shrink-0" />}
+                        {f.active ? <Check size={15} className="text-emerald-600 shrink-0" /> : <Plus size={15} className="text-[#1a1510]/35 shrink-0" />}
                      </button>
                   ))}
                </div>
@@ -682,10 +671,10 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
 
       if (standardStep === 4) {
          return (
-            <div className="space-y-6 pb-8">
+            <div className="space-y-5 pb-8">
                <div>
-                  <h2 className="text-4xl font-black tracking-tight text-[#1a1510]">What should we never do?</h2>
-                  <p className="text-[#1a1510]/50 mt-2">Guardrails prevent risky outreach and routing mistakes.</p>
+                  <h2 className="text-2xl font-bold tracking-tight text-[#1a1510]">What should we never do?</h2>
+                  <p className="text-[13px] text-[#1a1510]/45 mt-1.5">Guardrails prevent risky outreach and routing mistakes.</p>
                </div>
                <div className="space-y-3">
                   {guardrails.map((g) => (
@@ -703,12 +692,12 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                               </button>
                               <div>
                                  <div className="flex flex-wrap items-center gap-2">
-                                    <p className="text-lg font-semibold text-[#1a1510]">{g.title}</p>
+                                    <p className="text-[14px] font-semibold text-[#1a1510]">{g.title}</p>
                                     {g.recommended && (
-                                       <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700">Recommended</span>
+                                       <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-emerald-50 text-emerald-600">Recommended</span>
                                     )}
                                  </div>
-                                 <p className="text-sm text-[#1a1510]/50 mt-1">{g.description}</p>
+                                 <p className="text-[13px] text-[#1a1510]/45 mt-0.5 leading-relaxed">{g.description}</p>
                               </div>
                            </div>
                         </div>
@@ -729,10 +718,10 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
 
       if (standardStep === 5) {
          return (
-            <div className="space-y-6 pb-4">
+            <div className="space-y-5 pb-4">
                <div>
-                  <h2 className="text-4xl font-black tracking-tight text-[#1a1510]">What actions fire?</h2>
-                  <p className="text-[#1a1510]/50 mt-2">Pick a path preset now. You can move to advanced canvas anytime.</p>
+                  <h2 className="text-2xl font-bold tracking-tight text-[#1a1510]">What actions fire?</h2>
+                  <p className="text-[13px] text-[#1a1510]/45 mt-1.5">Pick a path preset now. You can move to advanced canvas anytime.</p>
                </div>
                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
                   {PATH_PRESETS.map(({ name, desc, icon: Icon }) => {
@@ -744,9 +733,9 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                            onClick={() => setSelectedPath(name)}
                            className={`text-left rounded-xl border p-5 ${selected ? "border-brand-gold/50 bg-brand-gold/5" : "border-[#1a1510]/10 bg-white"}`}
                         >
-                           <Icon size={20} className="text-[#1a1510]/45 mb-3" />
-                           <h4 className="text-xl font-semibold text-[#1a1510]">{name}</h4>
-                           <p className="text-sm text-[#1a1510]/50 mt-2">{desc}</p>
+                           <Icon size={18} className="text-[#1a1510]/45 mb-2.5" />
+                           <h4 className="text-[15px] font-semibold text-[#1a1510]">{name}</h4>
+                           <p className="text-[13px] text-[#1a1510]/45 mt-1.5 leading-relaxed">{desc}</p>
                         </button>
                      );
                   })}
@@ -788,8 +777,8 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                   ["MODE", executionMode],
                ].map(([label, value]) => (
                   <div key={label} className="rounded-xl border border-[#1a1510]/10 bg-white p-4">
-                     <p className="text-[10px] font-bold tracking-widest text-[#1a1510]/45">{label}</p>
-                     <p className="text-xl mt-2 font-bold text-[#1a1510]">{value}</p>
+                     <p className="text-[10px] font-semibold tracking-wider uppercase text-[#1a1510]/40">{label}</p>
+                     <p className="text-[15px] mt-1.5 font-semibold text-[#1a1510]">{value}</p>
                   </div>
                ))}
             </div>
@@ -850,34 +839,37 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
          </div>
 
          <div className="flex-1 flex min-h-0 overflow-hidden">
-            <aside className="w-72 shrink-0 border-r border-[#1a1510]/10 bg-white p-4 overflow-y-auto">
-               {STANDARD_STEPS.map((step, index) => {
-                  const idx = index + 1;
-                  const active = idx === standardStep;
-                  const done = idx < standardStep;
-                  return (
-                     <button
-                        key={step.title}
-                        type="button"
-                        onClick={() => { setStandardStep(idx); setOpenActionMenuId(null); }}
-                        className={`w-full text-left rounded-xl border px-4 py-3 mb-2 transition-colors ${
-                           active ? "border-brand-gold/30 bg-brand-gold/5" : done ? "border-transparent hover:bg-[#f7f8f9]" : "border-transparent hover:bg-[#f7f8f9]"
-                        }`}
-                     >
-                        <div className="flex items-center gap-3">
-                           <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
-                              done ? "bg-emerald-100 text-emerald-700" : active ? "bg-[#1a1510] text-brand-gold" : "border border-[#1a1510]/20 text-[#1a1510]/45"
+            <aside className="w-64 shrink-0 border-r border-[#1a1510]/[0.07] bg-white p-4 overflow-y-auto">
+               <p className="text-[10px] font-semibold text-[#1a1510]/35 uppercase tracking-wider px-1.5 mb-3">Setup steps</p>
+               <div className="relative">
+                  {/* connecting line */}
+                  <div className="absolute left-[15px] top-3 bottom-3 w-px bg-[#1a1510]/[0.08]" />
+                  {STANDARD_STEPS.map((step, index) => {
+                     const idx = index + 1;
+                     const active = idx === standardStep;
+                     const done = idx < standardStep;
+                     return (
+                        <button
+                           key={step.title}
+                           type="button"
+                           onClick={() => { setStandardStep(idx); setOpenActionMenuId(null); }}
+                           className={`relative w-full text-left rounded-lg px-2 py-2 transition-colors flex items-center gap-2.5 ${
+                              active ? "bg-[#f7f8f9]" : "hover:bg-[#f7f8f9]"
+                           }`}
+                        >
+                           <div className={`w-[22px] h-[22px] rounded-full flex items-center justify-center shrink-0 z-10 transition-colors ${
+                              done ? "bg-emerald-500 text-white" : active ? "bg-[#1a1510] text-brand-gold" : "bg-white border border-[#1a1510]/20 text-[#1a1510]/40"
                            }`}>
-                              {done ? <Check size={14} /> : <span className="text-sm font-bold">{idx}</span>}
+                              {done ? <Check size={12} strokeWidth={3} /> : <span className="text-[11px] font-semibold">{idx}</span>}
                            </div>
-                           <div>
-                              <p className="font-semibold text-[#1a1510]">{step.title}</p>
-                              <p className="text-xs text-[#1a1510]/45">{step.subtitle}</p>
+                           <div className="min-w-0">
+                              <p className={`text-[13px] font-semibold leading-tight ${active ? "text-[#1a1510]" : done ? "text-[#1a1510]/70" : "text-[#1a1510]/50"}`}>{step.title}</p>
+                              <p className="text-[11px] text-[#1a1510]/35 leading-tight mt-0.5">{step.subtitle}</p>
                            </div>
-                        </div>
-                     </button>
-                  );
-               })}
+                        </button>
+                     );
+                  })}
+               </div>
             </aside>
 
             <div className="flex-1 flex flex-col min-h-0 min-w-0">
@@ -887,38 +879,38 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                      type="button"
                      disabled={standardStep === 1}
                      onClick={() => { setStandardStep((s) => Math.max(1, s - 1)); setOpenActionMenuId(null); }}
-                     className="h-10 px-5 rounded-lg border border-[#1a1510]/10 flex items-center gap-2 text-sm font-semibold disabled:opacity-40"
+                     className="btn-shine btn-shine-dark h-11 px-5 rounded-none border border-[#1a1510]/10 flex items-center gap-2 text-sm font-semibold hover:bg-[#1a1510]/[0.02] transition-colors disabled:opacity-40"
                   >
-                     <ArrowLeft size={14} /> Back
+                     <ArrowLeft size={15} /> Back
                   </button>
                   {standardStep < 6 ? (
                      <button
                         type="button"
                         onClick={() => { setStandardStep((s) => Math.min(6, s + 1)); setOpenActionMenuId(null); }}
-                        className="h-11 px-6 rounded-lg bg-[#1a1510] text-brand-gold font-bold flex items-center gap-2"
+                        className="btn-shine h-11 px-6 rounded-none bg-[#1a1510] text-white text-sm font-semibold hover:bg-[#2a2118] transition-colors flex items-center gap-2"
                      >
                         Next <ArrowRight size={15} />
                      </button>
                   ) : (
-                     <div className="flex items-center gap-3">
+                     <div className="flex items-center gap-2.5">
                         <button
                            type="button"
                            onClick={() => setLaunchToast("Draft saved (mock)")}
-                           className="h-11 px-6 rounded-lg border border-[#1a1510]/10 text-sm font-semibold"
+                           className="btn-shine btn-shine-dark h-11 px-5 rounded-none border border-[#1a1510]/10 text-sm font-semibold hover:bg-[#1a1510]/[0.02] transition-colors"
                         >
                            Save draft
                         </button>
                         <button
                            type="button"
                            onClick={() => setLaunchToast("Test run started (mock) — no records enrolled")}
-                           className="h-11 px-6 rounded-lg border border-[#1a1510]/10 text-sm font-semibold flex items-center gap-2"
+                           className="btn-shine btn-shine-dark h-11 px-5 rounded-none border border-[#1a1510]/10 text-sm font-semibold flex items-center gap-2 hover:bg-[#1a1510]/[0.02] transition-colors"
                         >
                            <Play size={14} /> Test
                         </button>
                         <button
                            type="button"
                            onClick={() => setLaunchToast("Workflow launched (mock)")}
-                           className="h-11 px-6 rounded-lg bg-[#1a1510] text-brand-gold font-bold flex items-center gap-2"
+                           className="btn-shine h-11 px-6 rounded-none bg-[#1a1510] text-white text-sm font-semibold hover:bg-[#2a2118] transition-colors flex items-center gap-2"
                         >
                            <Rocket size={14} /> Launch workflow
                         </button>
@@ -944,46 +936,46 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
 
    const renderAdvancedView = () => (
       <div className="flex-1 flex flex-col min-h-0 bg-[#f7f8f9] relative">
-         <header className="h-14 shrink-0 border-b border-[#1a1510]/10 bg-white px-4 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3 flex-wrap min-w-0">
-               <button type="button" onClick={closeBuilder} className="text-sm flex items-center gap-2 shrink-0">
-                  <ArrowLeft size={15} /> Close
+         <header className="h-16 shrink-0 border-b border-[#1a1510]/[0.07] bg-white px-4 sm:px-6 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3 min-w-0">
+               <button type="button" onClick={closeBuilder} className="text-[13px] font-semibold flex items-center gap-1.5 text-[#1a1510]/60 hover:text-[#1a1510] transition-colors shrink-0">
+                  <ArrowLeft size={16} /> Close
                </button>
-               <span className="font-semibold flex items-center gap-2 shrink-0">
-                  <Sparkles size={14} className="text-brand-gold" /> Power Workflow <span className="text-xs text-[#1a1510]/40 font-normal">Draft</span>
+               <div className="h-5 w-px bg-[#1a1510]/10 shrink-0 hidden sm:block" />
+               <input className="h-9 w-40 lg:w-52 rounded-lg bg-[#f7f8f9] border border-[#1a1510]/[0.07] px-3 text-[13px] font-medium focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all" defaultValue="Untitled workflow" />
+               <span className="hidden md:inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-[#f7f8f9] text-[11px] font-semibold text-[#1a1510]/55 shrink-0">
+                  <Sparkles size={12} className="text-brand-gold" /> Advanced
                </span>
-               <input className="h-9 w-44 rounded-lg border border-[#1a1510]/10 px-3 text-sm" defaultValue="Untitled workflow" />
-               <button type="button" className="h-9 px-3 rounded-lg border border-[#1a1510]/10 text-sm">No account</button>
-               <button type="button" className="h-9 px-3 rounded-lg border border-[#1a1510]/10 text-sm">Account-wide</button>
+               <button type="button" className="hidden lg:inline-flex h-9 px-3 rounded-lg border border-[#1a1510]/[0.09] text-[12px] font-medium text-[#1a1510]/60 hover:text-[#1a1510] transition-colors shrink-0">Account-wide</button>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-               <button type="button" className="h-9 px-4 rounded-lg border border-[#1a1510]/10 text-sm font-medium">Simulate</button>
-               <button type="button" onClick={() => setLaunchToast("Draft saved (mock)")} className="h-9 px-4 rounded-lg border border-[#1a1510]/10 text-sm font-medium">Save Draft</button>
+               <button type="button" className="btn-shine btn-shine-dark hidden sm:inline-flex h-9 px-4 rounded-none border border-[#1a1510]/10 text-[13px] font-semibold hover:bg-[#1a1510]/[0.02] transition-colors">Simulate</button>
+               <button type="button" onClick={() => setLaunchToast("Draft saved (mock)")} className="btn-shine btn-shine-dark h-9 px-4 rounded-none border border-[#1a1510]/10 text-[13px] font-semibold hover:bg-[#1a1510]/[0.02] transition-colors">Save Draft</button>
                <button
                   type="button"
                   onClick={() => setLaunchToast("Test & Launch started (mock)")}
-                  className="h-9 px-4 rounded-lg bg-[#1a1510] text-brand-gold text-sm font-bold flex items-center gap-2"
+                  className="btn-shine h-9 px-4 rounded-none bg-[#1a1510] text-white text-[13px] font-semibold hover:bg-[#2a2118] transition-colors flex items-center gap-2"
                >
-                  <Rocket size={14} /> Test & Launch
+                  <Rocket size={14} /> Test &amp; Launch
                </button>
             </div>
          </header>
 
-         <div className="h-10 shrink-0 border-b border-[#1a1510]/10 bg-white px-4 text-xs font-semibold text-[#1a1510]/55 flex items-center gap-6 overflow-x-auto">
-            <span>STEPS 0</span><span>ENROLLED 0</span><span>IN FLIGHT 0</span><span>COMPLETED 0</span><span>AVG CYCLE —</span><span>SUCCESS —</span>
-            <span className="ml-auto italic font-normal text-[#1a1510]/40">Configure trigger to see live volume</span>
+         <div className="h-10 shrink-0 border-b border-[#1a1510]/[0.07] bg-white px-4 sm:px-6 text-[11px] font-medium text-[#1a1510]/45 flex items-center gap-5 overflow-x-auto scrollbar-hide">
+            <span className="uppercase tracking-wide">Steps 0</span><span className="uppercase tracking-wide">Enrolled 0</span><span className="uppercase tracking-wide">In flight 0</span><span className="uppercase tracking-wide">Completed 0</span><span className="uppercase tracking-wide">Avg cycle —</span><span className="uppercase tracking-wide">Success —</span>
+            <span className="ml-auto text-[#1a1510]/35 whitespace-nowrap hidden md:inline">Configure trigger to see live volume</span>
          </div>
 
          <div className="flex-1 flex min-h-0 overflow-hidden">
             <main className="flex-1 overflow-auto min-h-0">
                <div className="min-h-full py-16 px-10 bg-[radial-gradient(#1a151010_1px,transparent_1px)] [background-size:16px_16px] flex flex-col items-center">
-                  <div className="w-full max-w-[360px] rounded-2xl border-2 border-dashed border-brand-gold/30 bg-white p-5 shadow-sm">
-                     <div className="w-10 h-10 rounded-lg bg-brand-gold/15 flex items-center justify-center mb-3">
-                        <Zap size={20} className="text-brand-gold" />
+                  <div className="w-full max-w-[340px] rounded-2xl border-2 border-dashed border-brand-gold/30 bg-white p-5 shadow-sm">
+                     <div className="w-9 h-9 rounded-lg bg-brand-gold/15 flex items-center justify-center mb-3">
+                        <Zap size={18} className="text-brand-gold" />
                      </div>
-                     <p className="text-xs text-[#1a1510]/45">1. Trigger</p>
-                     <h3 className="text-xl font-bold text-[#1a1510] mt-1">When this happens...</h3>
-                     <p className="text-sm text-[#1a1510]/45 mt-1">Choose an app & event to start.</p>
+                     <p className="text-[11px] font-medium text-[#1a1510]/40 uppercase tracking-wide">1 · Trigger</p>
+                     <h3 className="text-[16px] font-bold text-[#1a1510] mt-1">When this happens…</h3>
+                     <p className="text-[13px] text-[#1a1510]/45 mt-1">Choose an app &amp; event to start.</p>
                   </div>
                   <div className="w-px h-8 bg-[#1a1510]/15" />
                   <button
@@ -1004,7 +996,7 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
             {showBlockPicker && (
                <aside className="w-[400px] shrink-0 border-l border-[#1a1510]/10 bg-white flex flex-col min-h-0">
                   <div className="p-4 border-b border-[#1a1510]/10 shrink-0 flex items-center justify-between">
-                     <h3 className="text-xl font-bold text-[#1a1510]">Choose a block</h3>
+                     <h3 className="text-[17px] font-bold text-[#1a1510]">Choose a block</h3>
                      <button type="button" onClick={() => setShowBlockPicker(false)} className="w-8 h-8 rounded-lg hover:bg-[#f7f8f9] flex items-center justify-center">
                         <X size={16} />
                      </button>
@@ -1071,12 +1063,31 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
    return (
       <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden bg-[#f7f8f9] text-[#1a1510] font-sans relative">
          {view === "list" && (
-            <header className="h-14 shrink-0 border-b border-[#1a1510]/10 bg-white px-6 flex items-center justify-between">
-               <div className="flex items-center gap-3">
-                  <button type="button" onClick={onBackToDashboard} className="h-8 px-3 rounded-lg border border-[#1a1510]/10 text-sm flex items-center gap-2">
-                     <ArrowLeft size={14} /> Back
+            <header className="h-16 shrink-0 border-b border-[#1a1510]/[0.07] bg-white px-4 sm:px-8 flex items-center justify-between">
+               <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 bg-[#1a1510] text-brand-gold rounded-lg flex items-center justify-center shrink-0">
+                     <WorkflowsIcon size={16} />
+                  </div>
+                  <div className="hidden sm:block truncate">
+                     <h2 className="text-[13px] font-bold tracking-tight text-[#1a1510] uppercase">Workflows</h2>
+                     <p className="text-[11px] font-medium text-[#1a1510]/40 truncate">Orchestrate your GTM motions</p>
+                  </div>
+               </div>
+               <div className="flex items-center gap-2.5">
+                  <button
+                     type="button"
+                     onClick={openStandardBuilder}
+                     className="btn-shine h-10 px-4 sm:px-5 rounded-none bg-[#1a1510] text-white text-xs font-semibold flex items-center gap-2 hover:bg-[#2a2118] transition-colors"
+                  >
+                     <Plus size={15} /> <span className="hidden sm:inline">New workflow</span><span className="sm:hidden">New</span>
                   </button>
-                  <span className="text-xl font-black tracking-tight">Workflows</span>
+                  <button
+                     type="button"
+                     onClick={onBackToDashboard}
+                     className="btn-shine btn-shine-dark h-10 px-4 sm:px-5 rounded-none border border-[#1a1510]/10 text-xs font-semibold text-[#1a1510] flex items-center gap-2 hover:bg-[#1a1510]/[0.02] transition-colors"
+                  >
+                     <ArrowLeft size={15} /> <span className="hidden sm:inline">Back</span>
+                  </button>
                </div>
             </header>
          )}

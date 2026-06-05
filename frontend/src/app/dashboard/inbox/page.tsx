@@ -13,6 +13,8 @@ import {
 import { useRouter } from "next/navigation";
 import { useClient } from "../../../contexts/ClientContext";
 import { api } from "../../../lib/api";
+import { Loader } from "../../../components/ui/Loader";
+import { InboxIcon } from "../../../components/ui/icons/InboxIcon";
 
 interface InboxMessageItem {
   id: string;
@@ -196,32 +198,32 @@ export default function InboxPage() {
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#f7f8f9] text-[#1a1510] font-sans selection:bg-brand-gold/30">
       
       {/* 1. Header Navigation */}
-      <nav className="h-20 border-b border-[#1a1510]/5 bg-white flex items-center justify-between px-4 sm:px-8 shrink-0 z-50 shadow-sm relative">
+      <nav className="h-16 border-b border-[#1a1510]/[0.07] bg-white flex items-center justify-between px-4 sm:px-8 shrink-0 z-50 relative">
         <div className="flex items-center gap-6 min-w-0">
           <div className="flex items-center gap-3">
-             <div className="p-2 bg-[#1a1510] text-brand-gold rounded-xl shadow-lg shrink-0">
-                <Mail size={18} />
+             <div className="w-9 h-9 bg-[#1a1510] text-brand-gold rounded-lg flex items-center justify-center shrink-0">
+                <InboxIcon size={16} />
              </div>
              <div className="hidden sm:block truncate">
-                <h2 className="text-sm font-black tracking-tight text-[#1a1510] uppercase truncate">Unified Inbox</h2>
-                <p className="text-[10px] font-bold text-[#1a1510]/30 uppercase tracking-widest mt-0.5 truncate">
-                   {selectedClient ? `${selectedClient.name} • ${messages.length} active threads` : "Unified Inbox"}
+                <h2 className="text-[13px] font-bold tracking-tight text-[#1a1510] uppercase">Unified Inbox</h2>
+                <p className="text-[11px] font-medium text-[#1a1510]/40 truncate">
+                   {selectedClient ? `${selectedClient.name} · ${messages.length} active threads` : "Unified Inbox"}
                 </p>
              </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button 
+        <div className="flex items-center gap-2.5">
+          <button
             disabled={!selectedClient}
             onClick={() => setIsBroadcastOpen(true)}
-            className="h-10 px-4 sm:px-6 rounded-xl bg-[#1a1510] text-brand-gold text-[10px] font-black uppercase tracking-widest shadow-xl hover:translate-y-[-1px] transition-all flex items-center gap-2 disabled:opacity-55"
+            className="btn-shine h-10 px-4 sm:px-5 rounded-none bg-[#1a1510] text-white text-xs font-semibold flex items-center gap-2 hover:bg-[#2a2118] transition-colors disabled:opacity-50"
           >
             <Send size={14} /> <span className="hidden xs:inline">Broadcast</span><span className="xs:hidden">Send</span>
           </button>
-          <button 
+          <button
             onClick={() => router.push('/dashboard')}
-            className="h-10 px-3 sm:px-5 rounded-xl border border-[#1a1510]/10 text-[10px] font-black uppercase tracking-widest text-[#1a1510] flex items-center gap-2 hover:bg-[#f7f8f9] transition-all"
+            className="btn-shine btn-shine-dark h-10 px-3 sm:px-5 rounded-none border border-[#1a1510]/10 text-xs font-semibold text-[#1a1510] flex items-center gap-2 hover:bg-[#1a1510]/[0.02] transition-colors"
           >
             <LayoutDashboard size={14} /> <span className="hidden sm:inline">Back</span>
           </button>
@@ -230,45 +232,46 @@ export default function InboxPage() {
 
       {/* 2. Main Operating Area */}
       {!selectedClient ? (
-        <div className="flex flex-col items-center justify-center py-24 text-center">
-           <Mail size={48} className="text-[#1a1510]/10 mb-4" />
-           <p className="text-sm font-bold text-[#1a1510]/40">Please select or establish a Client node first.</p>
+        <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
+           <div className="w-14 h-14 rounded-2xl bg-[#f7f8f9] text-[#1a1510]/25 flex items-center justify-center mb-4"><Mail size={26} /></div>
+           <p className="text-[15px] font-semibold text-[#1a1510]">Select a client first</p>
+           <p className="text-[13px] text-[#1a1510]/40 mt-1">Choose a client to view their unified inbox.</p>
         </div>
       ) : loading ? (
-        <div className="flex items-center justify-center py-24">
-           <Loader2 className="animate-spin text-brand-gold" size={32} />
+        <div className="flex-1 flex items-center justify-center">
+           <Loader size={36} />
         </div>
       ) : (
         <main className="flex-1 flex overflow-hidden relative">
           
           {/* Mobile-Responsive Sidebar/List */}
-          <aside className={`${mobileView === 'detail' ? 'hidden md:flex' : 'flex'} w-full md:w-[320px] lg:w-[380px] border-r border-[#1a1510]/5 bg-white flex-col shrink-0 overflow-hidden`}>
-             <div className="p-5 sm:p-6 pb-4 space-y-4">
+          <aside className={`${mobileView === 'detail' ? 'hidden md:flex' : 'flex'} w-full md:w-[320px] lg:w-[380px] border-r border-[#1a1510]/[0.07] bg-white flex-col shrink-0 overflow-hidden`}>
+             <div className="p-4 sm:p-5 pb-3 space-y-3">
                 <div className="flex items-center justify-between">
-                   <h3 className="text-[10px] font-black text-[#1a1510] uppercase tracking-widest">Live Feed</h3>
-                   <button onClick={fetchMessages} className="p-2 rounded-lg bg-[#f7f8f9] text-[#1a1510]/40"><RefreshCw size={14} /></button>
+                   <h3 className="text-[13px] font-semibold text-[#1a1510] tracking-tight">Live Feed</h3>
+                   <button onClick={fetchMessages} className="p-2 rounded-lg bg-[#f7f8f9] text-[#1a1510]/40 hover:text-[#1a1510] transition-colors"><RefreshCw size={14} /></button>
                 </div>
 
                 <div className="relative group">
-                   <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#1a1510]/20 group-focus-within:text-brand-gold transition-colors" />
-                   <input 
-                      type="text" 
+                   <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#1a1510]/25 group-focus-within:text-brand-gold transition-colors" />
+                   <input
+                      type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search threads..." 
-                      className="w-full h-10 pl-11 pr-4 rounded-xl bg-[#f7f8f9] border border-transparent text-xs font-medium focus:bg-white focus:outline-none transition-all"
+                      placeholder="Search threads…"
+                      className="w-full h-10 pl-10 pr-4 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/25"
                    />
                 </div>
 
                 <div className="flex items-center gap-1 p-1 bg-[#f7f8f9] rounded-xl overflow-x-auto scrollbar-hide">
                   {["All", "Unread", "Intent"].map((tab) => (
-                    <button 
+                    <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
-                      className={`flex-1 py-2 px-4 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-                        activeTab === tab 
-                        ? "bg-white text-[#1a1510] shadow-sm" 
-                        : "text-[#1a1510]/30 hover:text-[#1a1510]"
+                      className={`flex-1 py-2 px-4 rounded-lg text-[11px] font-semibold uppercase tracking-wider transition-all whitespace-nowrap ${
+                        activeTab === tab
+                        ? "bg-white text-[#1a1510] shadow-sm"
+                        : "text-[#1a1510]/35 hover:text-[#1a1510]/60"
                       }`}
                     >
                       {tab}
@@ -277,38 +280,42 @@ export default function InboxPage() {
                 </div>
              </div>
 
-             <div className="flex-1 overflow-y-auto scrollbar-hide px-3 sm:px-4 space-y-1 pb-10">
+             <div className="flex-1 overflow-y-auto scrollbar-hide px-3 sm:px-4 space-y-1.5 pb-10">
                 {filteredMessages.length === 0 ? (
-                   <p className="text-center text-[10px] text-[#1a1510]/30 py-8">No messages found.</p>
+                   <div className="flex flex-col items-center text-center py-16 px-6">
+                      <div className="w-12 h-12 rounded-xl bg-[#f7f8f9] text-[#1a1510]/25 flex items-center justify-center mb-3"><MessageSquare size={22} /></div>
+                      <p className="text-[13px] font-semibold text-[#1a1510]/60">No messages found</p>
+                      <p className="text-[12px] text-[#1a1510]/35 mt-0.5">Replies will appear here as they arrive.</p>
+                   </div>
                 ) : (
                    filteredMessages.map((m) => (
-                      <motion.button 
+                      <motion.button
                          key={m.id}
                          onClick={() => {
                              setSelectedId(m.id);
                              setMobileView("detail");
                          }}
-                         className={`w-full p-4 text-left rounded-2xl transition-all border ${
-                            selectedId === m.id 
-                            ? "bg-[#1a1510] border-[#1a1510] shadow-lg md:translate-x-1" 
-                            : "bg-white border-[#1a1510]/5 hover:bg-[#f7f8f9]"
+                         className={`w-full p-3.5 text-left rounded-xl transition-all border ${
+                            selectedId === m.id
+                            ? "bg-[#1a1510] border-[#1a1510]"
+                            : "bg-white border-[#1a1510]/[0.07] hover:bg-[#fafafa] hover:border-[#1a1510]/15"
                          }`}
                       >
-                         <div className="flex items-center justify-between mb-2">
+                         <div className="flex items-center justify-between mb-1.5">
                             <div className="flex items-center gap-2 truncate">
-                               <div className={`w-6 h-6 rounded-lg font-black text-[9px] flex items-center justify-center shrink-0 ${
+                               <div className={`w-6 h-6 rounded-lg font-semibold text-[10px] flex items-center justify-center shrink-0 ${
                                   selectedId === m.id ? "bg-brand-gold text-[#1a1510]" : "bg-[#f7f8f9] text-[#1a1510]/60"
                                   } ${m.unread ? "ring-2 ring-blue-500" : ""}`}>
                                   {m.avatar}
                                </div>
-                               <h4 className={`text-[12px] font-black truncate ${selectedId === m.id ? "text-white" : "text-[#1a1510]"}`}>{m.sender}</h4>
+                               <h4 className={`text-[13px] font-semibold truncate ${selectedId === m.id ? "text-white" : "text-[#1a1510]"}`}>{m.sender}</h4>
                             </div>
-                            {m.unread && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
+                            {m.unread && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />}
                          </div>
-                         <p className={`text-[9px] font-black uppercase tracking-widest mb-1 truncate ${selectedId === m.id ? "text-brand-gold/60" : "text-brand-gold"}`}>
+                         <p className={`text-[10px] font-semibold uppercase tracking-wider mb-1 truncate ${selectedId === m.id ? "text-brand-gold/70" : "text-brand-gold"}`}>
                             {m.company}
                          </p>
-                         <p className={`text-[11px] font-medium line-clamp-1 opacity-70 ${selectedId === m.id ? "text-white/60" : "text-[#1a1510]/60"}`}>
+                         <p className={`text-[12px] font-medium line-clamp-1 ${selectedId === m.id ? "text-white/55" : "text-[#1a1510]/55"}`}>
                             {m.body}
                          </p>
                       </motion.button>
@@ -420,9 +427,10 @@ export default function InboxPage() {
                    </motion.div>
                 </div>
              ) : (
-                <div className="flex flex-col items-center justify-center py-24 text-center m-auto">
-                   <Mail size={48} className="text-[#1a1510]/10 mb-4" />
-                   <p className="text-sm font-bold text-[#1a1510]/40">Select a thread to view conversations.</p>
+                <div className="flex flex-col items-center justify-center py-24 text-center m-auto px-6">
+                   <div className="w-16 h-16 rounded-2xl bg-white border border-[#1a1510]/[0.07] text-[#1a1510]/25 flex items-center justify-center mb-4 shadow-[0_1px_2px_rgba(26,21,16,0.04)]"><Mail size={28} /></div>
+                   <p className="text-[15px] font-semibold text-[#1a1510]">Select a thread</p>
+                   <p className="text-[13px] text-[#1a1510]/40 mt-1">Choose a conversation from the left to view it here.</p>
                 </div>
              )}
           </section>
@@ -433,28 +441,28 @@ export default function InboxPage() {
       <AnimatePresence>
          {isBroadcastOpen && (
             <>
-               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsBroadcastOpen(false)} className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200]" />
-               <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="fixed inset-4 m-auto w-full max-w-[500px] h-fit bg-white rounded-[2rem] shadow-2xl z-[201] p-6 sm:p-8">
-                  <form onSubmit={handleBroadcast} className="space-y-6">
+               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsBroadcastOpen(false)} className="fixed inset-0 bg-[#1a1510]/40 backdrop-blur-sm z-[200]" />
+               <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="fixed inset-4 m-auto w-full max-w-[440px] h-fit bg-white rounded-2xl shadow-2xl border border-[#1a1510]/[0.06] z-[201] p-5">
+                  <form onSubmit={handleBroadcast} className="space-y-3.5">
                      <div className="flex justify-between items-center">
-                        <h2 className="text-xl font-black text-[#1a1510]">Compose Outbound Broadcast</h2>
-                        <button type="button" onClick={() => setIsBroadcastOpen(false)} className="p-2 hover:bg-[#f7f8f9] rounded-xl"><X size={18} /></button>
+                        <h2 className="text-[17px] font-bold text-[#1a1510]">Compose Broadcast</h2>
+                        <button type="button" onClick={() => setIsBroadcastOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-lg text-[#1a1510]/40 hover:text-[#1a1510] hover:bg-[#f7f8f9] transition-colors"><X size={18} /></button>
                      </div>
 
-                     <div className="space-y-4">
-                        <div className="space-y-2">
-                           <label className="text-[10px] font-black uppercase text-[#1a1510]/30">Sender Identity</label>
-                           <input required type="text" value={newSender} onChange={(e) => setNewSender(e.target.value)} placeholder="e.g. Sarah Chen" className="w-full h-12 px-4 bg-[#f7f8f9] rounded-xl outline-none focus:ring-2 ring-blue-500/10 text-xs font-bold" />
+                     <div className="space-y-2.5">
+                        <div className="space-y-1.5">
+                           <label className="text-[12px] font-semibold text-[#1a1510]/60">Sender identity</label>
+                           <input required type="text" value={newSender} onChange={(e) => setNewSender(e.target.value)} placeholder="e.g. Sarah Chen" className="w-full h-10 px-4 bg-[#f7f8f9] border border-[#1a1510]/[0.07] rounded-lg outline-none focus:bg-white focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all text-[13px] placeholder:text-[#1a1510]/30" />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                           <div className="space-y-2">
-                              <label className="text-[10px] font-black uppercase text-[#1a1510]/30">Company Name</label>
-                              <input type="text" value={newCompany} onChange={(e) => setNewCompany(e.target.value)} placeholder="e.g. Stripe" className="w-full h-12 px-4 bg-[#f7f8f9] rounded-xl outline-none text-xs font-bold" />
+                        <div className="grid grid-cols-2 gap-3">
+                           <div className="space-y-1.5">
+                              <label className="text-[12px] font-semibold text-[#1a1510]/60">Company</label>
+                              <input type="text" value={newCompany} onChange={(e) => setNewCompany(e.target.value)} placeholder="e.g. Stripe" className="w-full h-10 px-4 bg-[#f7f8f9] border border-[#1a1510]/[0.07] rounded-lg outline-none focus:bg-white focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all text-[13px] placeholder:text-[#1a1510]/30" />
                            </div>
-                           <div className="space-y-2">
-                              <label className="text-[10px] font-black uppercase text-[#1a1510]/30">Outbound Channel / Tool</label>
-                              <select value={newTool} onChange={(e) => setNewTool(e.target.value)} className="w-full h-12 px-4 bg-[#f7f8f9] rounded-xl outline-none text-xs font-bold">
+                           <div className="space-y-1.5">
+                              <label className="text-[12px] font-semibold text-[#1a1510]/60">Channel</label>
+                              <select value={newTool} onChange={(e) => setNewTool(e.target.value)} className="w-full h-10 px-4 bg-[#f7f8f9] border border-[#1a1510]/[0.07] rounded-lg outline-none focus:bg-white focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all text-[13px] cursor-pointer">
                                  <option value="Smartlead">Smartlead</option>
                                  <option value="HeyReach">HeyReach</option>
                                  <option value="LinkedIn">LinkedIn</option>
@@ -463,25 +471,25 @@ export default function InboxPage() {
                            </div>
                         </div>
 
-                        <div className="space-y-2">
-                           <label className="text-[10px] font-black uppercase text-[#1a1510]/30">Campaign Name</label>
-                           <input type="text" value={newCampaign} onChange={(e) => setNewCampaign(e.target.value)} placeholder="e.g. Series B Fintech Outreach" className="w-full h-12 px-4 bg-[#f7f8f9] rounded-xl outline-none text-xs font-bold" />
+                        <div className="space-y-1.5">
+                           <label className="text-[12px] font-semibold text-[#1a1510]/60">Campaign name</label>
+                           <input type="text" value={newCampaign} onChange={(e) => setNewCampaign(e.target.value)} placeholder="e.g. Series B Fintech Outreach" className="w-full h-10 px-4 bg-[#f7f8f9] border border-[#1a1510]/[0.07] rounded-lg outline-none focus:bg-white focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all text-[13px] placeholder:text-[#1a1510]/30" />
                         </div>
 
-                        <div className="space-y-2">
-                           <label className="text-[10px] font-black uppercase text-[#1a1510]/30">Subject Line</label>
-                           <input required type="text" value={newSubject} onChange={(e) => setNewSubject(e.target.value)} placeholder="e.g. Re: Quick question about your stack" className="w-full h-12 px-4 bg-[#f7f8f9] rounded-xl outline-none focus:ring-2 ring-blue-500/10 text-xs font-bold" />
+                        <div className="space-y-1.5">
+                           <label className="text-[12px] font-semibold text-[#1a1510]/60">Subject line</label>
+                           <input required type="text" value={newSubject} onChange={(e) => setNewSubject(e.target.value)} placeholder="e.g. Re: Quick question about your stack" className="w-full h-10 px-4 bg-[#f7f8f9] border border-[#1a1510]/[0.07] rounded-lg outline-none focus:bg-white focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all text-[13px] placeholder:text-[#1a1510]/30" />
                         </div>
 
-                        <div className="space-y-2">
-                           <label className="text-[10px] font-black uppercase text-[#1a1510]/30">Message Body</label>
-                           <textarea required value={newBody} onChange={(e) => setNewBody(e.target.value)} placeholder="Write your personalized broadcast content..." className="w-full min-h-[100px] p-4 bg-[#f7f8f9] rounded-xl outline-none focus:ring-2 ring-blue-500/10 text-xs font-bold" />
+                        <div className="space-y-1.5">
+                           <label className="text-[12px] font-semibold text-[#1a1510]/60">Message body</label>
+                           <textarea required value={newBody} onChange={(e) => setNewBody(e.target.value)} placeholder="Write your personalized broadcast content…" className="w-full min-h-[90px] p-4 bg-[#f7f8f9] border border-[#1a1510]/[0.07] rounded-lg outline-none focus:bg-white focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all text-[13px] placeholder:text-[#1a1510]/30 resize-none" />
                         </div>
                      </div>
 
-                     <div className="flex gap-3 pt-4 border-t border-[#1a1510]/5">
-                        <button type="button" onClick={() => setIsBroadcastOpen(false)} className="h-12 px-6 rounded-xl border border-[#1a1510]/10 text-[10px] font-black uppercase">Cancel</button>
-                        <button type="submit" disabled={sending} className="flex-1 h-12 bg-[#1a1510] text-brand-gold rounded-xl text-[10px] font-black uppercase shadow-lg flex items-center justify-center gap-2">
+                     <div className="flex gap-2.5 pt-4 border-t border-[#1a1510]/[0.07]">
+                        <button type="button" onClick={() => setIsBroadcastOpen(false)} className="h-11 px-5 rounded-none border border-[#1a1510]/10 text-xs font-semibold text-[#1a1510] hover:bg-[#f7f8f9] transition-colors">Cancel</button>
+                        <button type="submit" disabled={sending} className="btn-shine flex-1 h-11 bg-[#1a1510] text-white rounded-none text-xs font-semibold hover:bg-[#2a2118] transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
                            {sending ? <Loader2 className="animate-spin" size={14} /> : <> <Send size={14} /> Send Broadcast </>}
                         </button>
                      </div>

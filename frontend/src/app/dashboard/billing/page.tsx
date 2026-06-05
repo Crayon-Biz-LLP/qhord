@@ -10,6 +10,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { api } from "../../../lib/api";
+import { Loader } from "../../../components/ui/Loader";
 
 interface PlanItem {
   id: string;
@@ -156,42 +157,42 @@ export default function BillingPage() {
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="bg-white rounded-[2rem] w-full max-w-md overflow-hidden shadow-2xl relative z-10 border border-[#1a1510]/5"
+            className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl relative z-10 border border-[#1a1510]/[0.06]"
           >
-            <div className="p-8 space-y-8">
+            <div className="p-6 sm:p-7 space-y-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-[#1a1510] text-[#b99b7b] rounded-xl shadow-lg">
-                    <CreditCard size={18} />
+                  <div className="w-9 h-9 bg-[#1a1510] text-[#b99b7b] rounded-lg flex items-center justify-center">
+                    <CreditCard size={17} />
                   </div>
                   <div>
-                    <h3 className="text-[14px] font-bold text-[#1a1510] uppercase tracking-[0.2em]">Checkout</h3>
-                    <p className="text-[10px] font-bold text-[#1a1510]/30 uppercase tracking-widest mt-0.5">Complete your purchase for {checkoutItem.name}</p>
+                    <h3 className="text-lg font-bold text-[#1a1510]">Checkout</h3>
+                    <p className="text-[12px] text-[#1a1510]/40">{checkoutItem.name}</p>
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={() => setShowCheckout(false)}
-                  className="p-2 hover:bg-[#fafbfc] rounded-full transition-colors text-[#1a1510]/20 hover:text-[#1a1510]"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg text-[#1a1510]/40 hover:text-[#1a1510] hover:bg-[#f7f8f9] transition-colors"
                 >
-                  <X size={20} />
+                  <X size={18} />
                 </button>
               </div>
 
-              <div className="bg-[#fafbfc] border border-[#1a1510]/5 rounded-2xl p-5 flex items-center justify-between shadow-inner">
-                <span className="text-[13px] font-bold text-[#1a1510]">{checkoutItem.name}</span>
-                <span className="text-[13px] font-bold text-[#1a1510]">${checkoutItem.price}</span>
+              <div className="bg-[#f7f8f9] border border-[#1a1510]/[0.07] rounded-xl p-4 flex items-center justify-between">
+                <span className="text-[13px] font-medium text-[#1a1510]">{checkoutItem.name}</span>
+                <span className="text-[14px] font-semibold text-[#1a1510] tabular-nums">${checkoutItem.price}</span>
               </div>
 
-              <div className="flex p-1 bg-[#fafbfc] border border-[#1a1510]/5 rounded-xl">
-                <button 
+              <div className="flex gap-1 p-1 bg-[#f7f8f9] border border-[#1a1510]/[0.07] rounded-xl">
+                <button
                   onClick={() => setPaymentMethod('card')}
-                  className={`flex-1 h-9 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${paymentMethod === 'card' ? 'bg-white text-[#1a1510] shadow-sm border border-[#1a1510]/5' : 'text-[#1a1510]/30 hover:text-[#1a1510]'}`}
+                  className={`flex-1 h-9 rounded-lg text-[11px] font-semibold uppercase tracking-wide transition-all ${paymentMethod === 'card' ? 'bg-white text-[#1a1510] shadow-sm' : 'text-[#1a1510]/35 hover:text-[#1a1510]/60'}`}
                 >
                   Card
                 </button>
-                <button 
+                <button
                   onClick={() => setPaymentMethod('upi')}
-                  className={`flex-1 h-9 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${paymentMethod === 'upi' ? 'bg-white text-[#1a1510] shadow-sm border border-[#1a1510]/5' : 'text-[#1a1510]/30 hover:text-[#1a1510]'}`}
+                  className={`flex-1 h-9 rounded-lg text-[11px] font-semibold uppercase tracking-wide transition-all ${paymentMethod === 'upi' ? 'bg-white text-[#1a1510] shadow-sm' : 'text-[#1a1510]/35 hover:text-[#1a1510]/60'}`}
                 >
                   UPI
                 </button>
@@ -245,20 +246,20 @@ export default function BillingPage() {
                 )}
               </div>
 
-              <div className="pt-4 border-t border-[#1a1510]/5 space-y-4">
+              <div className="pt-4 border-t border-[#1a1510]/[0.07] space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-[13px] font-bold text-[#1a1510] uppercase tracking-tight">Total</span>
-                  <span className="text-[18px] font-black text-[#1a1510] tracking-tighter">${checkoutItem.price}</span>
+                  <span className="text-[14px] font-semibold text-[#1a1510]">Total</span>
+                  <span className="text-[20px] font-bold text-[#1a1510] tracking-tight tabular-nums">${checkoutItem.price}</span>
                 </div>
-                <button 
+                <button
                   onClick={handleConfirmPurchase}
                   disabled={isProcessing}
-                  className={`w-full h-12 bg-[#1a1510] text-[#b99b7b] rounded-xl text-[11px] font-bold uppercase tracking-[0.2em] shadow-xl shadow-black/20 hover:-translate-y-1 transition-all flex items-center justify-center gap-2 ${isProcessing ? 'opacity-70 cursor-not-allowed' : ''}`}
+                  className={`btn-shine w-full h-12 bg-[#1a1510] text-white rounded-none text-sm font-semibold hover:bg-[#2a2118] transition-colors flex items-center justify-center gap-2 ${isProcessing ? 'opacity-70 cursor-not-allowed' : ''}`}
                 >
                   {isProcessing ? (
                     <>
                       <Loader2 size={16} className="animate-spin text-brand-gold" />
-                      Processing...
+                      Processing…
                     </>
                   ) : 'Confirm Purchase'}
                 </button>
@@ -275,96 +276,94 @@ export default function BillingPage() {
       <CheckoutModal />
       
       {/* Header */}
-      <nav className="h-20 border-b border-[#1a1510]/5 bg-white flex items-center justify-between px-4 sm:px-8 shrink-0 z-50 shadow-sm relative">
-         <div className="flex items-center gap-4">
-            <div className="p-2.5 bg-[#1a1510] text-[#b99b7b] rounded-2xl shadow-lg shrink-0">
-               <CreditCard size={20} />
+      <nav className="h-16 border-b border-[#1a1510]/[0.07] bg-white flex items-center justify-between px-4 sm:px-8 shrink-0 z-50 relative">
+         <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-[#1a1510] text-[#b99b7b] rounded-lg flex items-center justify-center shrink-0">
+               <CreditCard size={17} />
             </div>
             <div className="hidden sm:block">
-               <h2 className="text-[12px] font-black tracking-[0.2em] text-[#1a1510] uppercase">Billing & Usage</h2>
-               <p className="text-[10px] font-bold text-[#1a1510]/30 uppercase tracking-widest mt-0.5">
-                  Track spending, forecast usage, and optimize efficiency
-               </p>
+               <h2 className="text-[13px] font-bold tracking-tight text-[#1a1510] uppercase">Billing &amp; Usage</h2>
+               <p className="text-[11px] font-medium text-[#1a1510]/40">Track spending and usage</p>
             </div>
          </div>
          <div className="flex items-center gap-3">
-           <button 
+           <button
              onClick={() => router.push('/dashboard')}
-             className="h-10 px-3 sm:px-5 rounded-xl border border-[#1a1510]/10 text-[10px] font-black uppercase tracking-widest text-[#1a1510] flex items-center gap-2 hover:bg-[#f7f8f9] transition-all"
+             className="btn-shine btn-shine-dark h-10 px-4 sm:px-5 rounded-none border border-[#1a1510]/10 text-xs font-semibold text-[#1a1510] flex items-center gap-2 hover:bg-[#1a1510]/[0.02] transition-colors"
            >
-             <LayoutDashboard size={14} /> <span className="hidden sm:inline">Back</span>
+             <LayoutDashboard size={15} /> <span className="hidden sm:inline">Back</span>
            </button>
          </div>
       </nav>
 
-      <main className="flex-1 overflow-y-auto scrollbar-hide">
+      <main className="flex-1 overflow-y-auto scrollbar-hide bg-[#f7f8f9]">
         {loading ? (
           <div className="flex justify-center items-center py-20">
-            <Loader2 className="animate-spin text-brand-gold" size={32} />
+            <Loader size={36} />
           </div>
         ) : (
-          <div className="max-w-[1400px] mx-auto px-4 sm:px-8 py-10 space-y-12">
-            
+          <div className="max-w-[1400px] mx-auto px-4 sm:px-8 py-8 space-y-8">
+
             {/* Plans Section */}
-            <div className="space-y-8">
-              <div className="space-y-1">
-                 <h2 className="text-[12px] font-bold text-[#1a1510] tracking-[0.2em] uppercase">Plans</h2>
-                 <p className="text-[10px] font-bold text-[#1a1510]/30 uppercase tracking-widest leading-relaxed">Choose the plan that fits your GTM motion</p>
+            <div className="space-y-4">
+              <div>
+                 <h2 className="text-[15px] font-semibold text-[#1a1510] tracking-tight">Plans</h2>
+                 <p className="text-[13px] text-[#1a1510]/45 mt-0.5">Choose the plan that fits your go-to-market motion.</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {plans.map((plan: any) => (
-                  <div 
-                    key={plan.id} 
-                    className={`relative bg-white rounded-[2rem] p-7 flex flex-col border transition-all hover:shadow-xl hover:shadow-black/5 ${plan.isCurrent ? 'border-[#b99b7b] shadow-lg shadow-[#b99b7b]/10' : 'border-[#1a1510]/5 shadow-sm'}`}
+                  <div
+                    key={plan.id}
+                    className={`relative bg-white rounded-2xl p-6 flex flex-col border transition-all hover:shadow-[0_8px_24px_rgba(26,21,16,0.07)] ${plan.isCurrent ? 'border-[#b99b7b]/50' : 'border-[#1a1510]/[0.07]'}`}
                   >
                     {plan.isCurrent && (
-                      <div className="absolute top-6 right-6 bg-[#b99b7b] text-[#1a1510] px-3 py-1.5 text-[9px] font-black rounded-full uppercase tracking-widest">
+                      <div className="absolute top-5 right-5 bg-[#b99b7b]/15 text-[#9a7d5c] px-2.5 py-1 text-[10px] font-medium rounded-md uppercase tracking-wide">
                          Current
                       </div>
                     )}
 
-                    <div className="w-12 h-12 rounded-2xl bg-[#1a1510] text-[#b99b7b] flex items-center justify-center mb-6 shadow-inner">
-                       {plan.name.toLowerCase().includes('starter') && <Zap size={22} />}
-                       {plan.name.toLowerCase().includes('growth') && <Rocket size={22} />}
-                       {plan.name.toLowerCase().includes('pro') && <Crown size={22} />}
-                       {!['starter', 'growth', 'pro'].some(x => plan.name.toLowerCase().includes(x)) && <Building2 size={22} />}
+                    <div className="w-11 h-11 rounded-xl bg-[#1a1510] text-[#b99b7b] flex items-center justify-center mb-5">
+                       {plan.name.toLowerCase().includes('starter') && <Zap size={20} />}
+                       {plan.name.toLowerCase().includes('growth') && <Rocket size={20} />}
+                       {plan.name.toLowerCase().includes('pro') && <Crown size={20} />}
+                       {!['starter', 'growth', 'pro'].some(x => plan.name.toLowerCase().includes(x)) && <Building2 size={20} />}
                     </div>
-                    
-                    <h3 className="text-xl font-bold text-[#1a1510] uppercase tracking-tight">{plan.name}</h3>
-                    <p className="text-[11px] font-medium text-[#1a1510]/40 mt-1 min-h-[32px] leading-relaxed">{plan.tagline}</p>
-                    
-                    <div className="mt-6 mb-6">
+
+                    <h3 className="text-[17px] font-bold text-[#1a1510] tracking-tight">{plan.name}</h3>
+                    <p className="text-[12px] text-[#1a1510]/45 mt-1 min-h-[32px] leading-relaxed">{plan.tagline}</p>
+
+                    <div className="mt-5 mb-5">
                        <div className="flex items-baseline gap-1">
-                          <span className="text-4xl font-bold tracking-tighter text-[#1a1510]">{plan.price === 'Custom' ? 'Custom' : `${plan.price}`}</span>
-                          {plan.price !== 'Custom' && <span className="text-[11px] font-bold text-[#1a1510]/30 uppercase tracking-widest">/mo</span>}
+                          <span className="text-[2rem] font-bold tracking-tight text-[#1a1510] tabular-nums">{plan.price === 'Custom' ? 'Custom' : `${plan.price}`}</span>
+                          {plan.price !== 'Custom' && <span className="text-[12px] font-medium text-[#1a1510]/35">/mo</span>}
                        </div>
-                       <div className="flex items-center gap-2 mt-3 text-[#b99b7b]">
-                         <Sparkles size={14} />
-                         <span className="text-[10px] font-bold uppercase tracking-wider">{plan.credits}</span>
+                       <div className="flex items-center gap-1.5 mt-2.5 text-[#9a7d5c]">
+                         <Sparkles size={13} />
+                         <span className="text-[11px] font-medium">{plan.credits}</span>
                        </div>
                     </div>
 
-                    <div className="h-px w-full bg-[#1a1510]/5 my-2" />
+                    <div className="h-px w-full bg-[#1a1510]/[0.06]" />
 
-                    <ul className="flex-1 space-y-4 py-5">
+                    <ul className="flex-1 space-y-2.5 py-5">
                       {plan.features.map((feature: string, i: number) => (
-                         <li key={i} className="flex items-start gap-3">
-                            <Check size={14} className="text-[#b99b7b] shrink-0 mt-0.5" strokeWidth={3} />
-                            <span className="text-[11px] font-bold text-[#1a1510]/70 uppercase tracking-tight leading-relaxed">{feature}</span>
+                         <li key={i} className="flex items-start gap-2.5">
+                            <Check size={14} className="text-emerald-500 shrink-0 mt-0.5" strokeWidth={2.5} />
+                            <span className="text-[12px] text-[#1a1510]/65 leading-relaxed">{feature}</span>
                          </li>
                       ))}
                     </ul>
 
-                    <button 
+                    <button
                        disabled={plan.isCurrent}
                        onClick={() => handleUpgrade(plan.name + " Upgrade", plan.price.replace("$", ""))}
-                       className={`w-full h-11 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${
-                          plan.isCurrent 
-                          ? 'bg-[#fafbfc] border border-[#1a1510]/5 text-[#1a1510]/30 cursor-default' 
-                          : plan.name.toLowerCase().includes('pro') 
-                            ? 'bg-[#1a1510] text-[#b99b7b] shadow-lg shadow-black/20 hover:-translate-y-0.5' 
-                            : 'border border-[#1a1510]/10 text-[#1a1510] hover:bg-[#fafbfc]'
+                       className={`w-full h-11 rounded-none text-xs font-semibold transition-colors ${
+                          plan.isCurrent
+                          ? 'bg-[#fafafa] border border-[#1a1510]/[0.07] text-[#1a1510]/35 cursor-default'
+                          : plan.name.toLowerCase().includes('pro')
+                            ? 'btn-shine bg-[#1a1510] text-white hover:bg-[#2a2118]'
+                            : 'btn-shine btn-shine-dark border border-[#1a1510]/10 text-[#1a1510] hover:bg-[#1a1510]/[0.02]'
                        }`}
                     >
                        {plan.button_text}
@@ -376,19 +375,20 @@ export default function BillingPage() {
 
             {/* Current Plan Banner */}
             {subscription && (
-              <div className="bg-white border border-[#1a1510]/5 rounded-[2rem] p-7 flex items-center justify-between shadow-sm relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-[#b99b7b]/5 rounded-full -translate-y-16 translate-x-16 blur-3xl group-hover:scale-150 transition-transform duration-1000" />
-                <div className="flex items-center gap-6 relative">
-                  <div className="w-16 h-16 rounded-[1.5rem] bg-[#1a1510] text-[#b99b7b] flex items-center justify-center shadow-lg rotate-3 group-hover:rotate-0 transition-transform">
-                    <Rocket size={32} />
+              <div className="bg-white border border-[#1a1510]/[0.07] rounded-2xl p-6 flex items-center justify-between shadow-[0_1px_2px_rgba(26,21,16,0.04)]">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-[#1a1510] text-[#b99b7b] flex items-center justify-center">
+                    <Rocket size={24} />
                   </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-3">
-                      <h3 className="text-lg font-bold uppercase tracking-tight">{subscription.plan?.name} Plan</h3>
-                      <div className="px-3 py-1 bg-[#b99b7b]/10 text-[#b99b7b] text-[9px] font-black rounded-full uppercase tracking-widest">Active</div>
+                  <div>
+                    <div className="flex items-center gap-2.5">
+                      <h3 className="text-[17px] font-bold text-[#1a1510] tracking-tight">{subscription.plan?.name} Plan</h3>
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-600 text-[10px] font-medium uppercase tracking-wide">
+                        <span className="w-1 h-1 rounded-full bg-emerald-500" /> Active
+                      </span>
                     </div>
-                    <p className="text-[11px] font-bold text-[#1a1510]/30 uppercase tracking-widest">
-                       {subscription.plan?.price === 0 ? "Free Trial" : `$${subscription.plan?.price}/month`} • {subscription.credits?.remaining_credits} credits remaining
+                    <p className="text-[13px] text-[#1a1510]/45 mt-1">
+                       {subscription.plan?.price === 0 ? "Free trial" : `$${subscription.plan?.price}/month`} · {subscription.credits?.remaining_credits} credits remaining
                     </p>
                   </div>
                 </div>
@@ -396,55 +396,51 @@ export default function BillingPage() {
             )}
 
             {/* Metrics Row */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[
-                { label: "Credit Balance", val: subscription?.credits?.remaining_credits ?? 2000, sub: "credits remaining", note: "Replenishes monthly", icon: <TrendingUp className="text-[#b99b7b]" /> },
-                { label: "Total Usage", val: subscription?.credits?.used_credits ?? 0, sub: "credits consumed", note: "Accumulated credit usage", icon: <Activity className="text-[#1a1510]" /> },
-                { label: "Efficiency Score", val: "87", sub: "/ 100", note: "Top 15% of outbound engines", icon: <BarChart3 className="text-[#1a1510]" /> }
+                { label: "Credit Balance", val: subscription?.credits?.remaining_credits ?? 2000, sub: "credits remaining", note: "Replenishes monthly", icon: TrendingUp },
+                { label: "Total Usage", val: subscription?.credits?.used_credits ?? 0, sub: "credits consumed", note: "Accumulated credit usage", icon: Activity },
+                { label: "Efficiency Score", val: "87", sub: "/ 100", note: "Top 15% of outbound engines", icon: BarChart3 }
               ].map((m, i) => (
-                <div key={i} className="bg-white border border-[#1a1510]/5 rounded-[2rem] p-7 space-y-4 shadow-sm hover:-translate-y-1 transition-all">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-[#1a1510]/30 uppercase tracking-[0.2em]">{m.label}</span>
-                    {m.icon}
+                <div key={i} className="group bg-white border border-[#1a1510]/[0.07] rounded-2xl p-6 shadow-[0_1px_2px_rgba(26,21,16,0.04)] hover:shadow-[0_8px_24px_rgba(26,21,16,0.07)] hover:-translate-y-0.5 transition-all duration-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-[11px] font-semibold text-[#1a1510]/40 uppercase tracking-wider">{m.label}</span>
+                    <m.icon size={17} strokeWidth={1.75} className="text-[#1a1510]/25 group-hover:text-[#1a1510]/50 transition-colors" />
                   </div>
-                  <div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-3xl font-bold tracking-tighter">{m.val}</span>
-                      <span className="text-[11px] font-bold text-[#1a1510]/30 uppercase tracking-widest">{m.sub}</span>
-                    </div>
-                    <p className="text-[10px] font-bold text-[#1a1510]/40 uppercase tracking-widest mt-1 flex items-center gap-1.5 font-sans">
-                      {m.note}
-                    </p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[2rem] font-bold tracking-tight tabular-nums text-[#1a1510]">{m.val}</span>
+                    <span className="text-[12px] font-medium text-[#1a1510]/35">{m.sub}</span>
                   </div>
+                  <p className="text-[12px] font-medium text-[#1a1510]/40 mt-2">{m.note}</p>
                 </div>
               ))}
             </div>
 
             {/* Usage Overview */}
-            <div className="space-y-6">
-              <div className="space-y-1">
-                <h2 className="text-[12px] font-bold text-[#1a1510] tracking-[0.2em] uppercase">Usage Overview</h2>
-                <p className="text-[10px] font-bold text-[#1a1510]/30 uppercase tracking-widest">Current billing period</p>
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-[15px] font-semibold text-[#1a1510] tracking-tight">Usage Overview</h2>
+                <p className="text-[13px] text-[#1a1510]/45 mt-0.5">Current billing period.</p>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {dynamicUsageStats.map((stat: any, i: number) => (
-                  <div key={i} className="bg-white border border-[#1a1510]/5 rounded-[2rem] p-7 space-y-5 shadow-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-[#1a1510]/30 uppercase tracking-widest">{stat.label}</span>
-                      <span className="text-[10px] font-bold text-[#b99b7b] flex items-center gap-1">
+                  <div key={i} className="bg-white border border-[#1a1510]/[0.07] rounded-2xl p-5 shadow-[0_1px_2px_rgba(26,21,16,0.04)]">
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-[11px] font-semibold text-[#1a1510]/40 uppercase tracking-wider">{stat.label}</span>
+                      <span className="text-[11px] font-medium text-[#9a7d5c] flex items-center gap-0.5">
                         <ArrowUpRight size={12} /> {stat.growth}
                       </span>
                     </div>
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xl font-bold tracking-tight">{stat.current.toLocaleString()}</span>
-                        <span className="text-[11px] font-bold text-[#1a1510]/20">of {stat.max.toLocaleString()}</span>
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-[1.5rem] font-bold tracking-tight tabular-nums text-[#1a1510]">{stat.current.toLocaleString()}</span>
+                        <span className="text-[12px] font-medium text-[#1a1510]/35">of {stat.max.toLocaleString()}</span>
                       </div>
-                      <div className="h-1.5 w-full bg-[#fafbfc] rounded-full overflow-hidden">
-                        <motion.div 
+                      <div className="h-1.5 w-full bg-[#f7f8f9] rounded-full overflow-hidden">
+                        <motion.div
                           initial={{ width: 0 }}
                           animate={{ width: `${Math.min(100, (stat.current / (stat.max || 1)) * 100)}%` }}
-                          transition={{ duration: 1.5, ease: "easeOut", delay: i * 0.1 }}
+                          transition={{ duration: 1.2, ease: "easeOut", delay: i * 0.1 }}
                           className="h-full rounded-full"
                           style={{ backgroundColor: stat.color }}
                         />
@@ -456,53 +452,51 @@ export default function BillingPage() {
             </div>
 
             {/* Buy Credits Banner */}
-            <div className="bg-[#1a1510] rounded-[2rem] p-7 flex items-center justify-between shadow-2xl relative overflow-hidden">
-               <div className="absolute top-0 left-0 w-full h-full bg-[#b99b7b]/5 pointer-events-none" />
+            <div className="bg-gradient-to-br from-[#1a1510] via-[#241d15] to-[#1a1510] rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative overflow-hidden">
+               <div className="absolute -top-16 -right-10 w-56 h-56 bg-brand-gold/15 rounded-full blur-[90px]" />
                <div className="flex items-center gap-4 relative">
-                  <div className="p-3 bg-[#b99b7b]/10 text-[#b99b7b] rounded-2xl rotate-12">
-                     <Zap size={24} fill="currentColor" />
+                  <div className="w-11 h-11 bg-white/5 border border-white/10 text-[#b99b7b] rounded-xl flex items-center justify-center">
+                     <Zap size={20} fill="currentColor" />
                   </div>
-                  <div className="space-y-0.5">
-                     <h3 className="text-[13px] font-bold text-white uppercase tracking-widest">Buy Additional Credits</h3>
-                     <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Top up your credits anytime to maintain outbound velocity</p>
+                  <div>
+                     <h3 className="text-[15px] font-bold text-white">Buy additional credits</h3>
+                     <p className="text-[13px] text-white/45 mt-0.5">Top up anytime to keep your campaigns running.</p>
                   </div>
                </div>
-               <button 
+               <button
                   onClick={() => handleUpgrade("Additional Credits Pack", "49.00", true)}
-                  className="px-6 h-10 bg-[#b99b7b] text-[#1a1510] rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-black/20 hover:-translate-y-0.5 transition-all relative"
+                  className="btn-shine px-6 h-10 bg-[#b99b7b] text-[#1a1510] rounded-none text-xs font-semibold hover:bg-[#a98b6c] transition-colors relative shrink-0"
                >
                   Buy Credits
                </button>
             </div>
 
             {/* Tool Subscriptions */}
-            <div className="space-y-6 pb-10">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <h2 className="text-[12px] font-bold text-[#1a1510] tracking-[0.2em] uppercase">Tool Subscriptions</h2>
-                  <p className="text-[10px] font-bold text-[#1a1510]/30 uppercase tracking-widest">Manage your connected stack billing</p>
-                </div>
+            <div className="space-y-4 pb-10">
+              <div>
+                <h2 className="text-[15px] font-semibold text-[#1a1510] tracking-tight">Tool Subscriptions</h2>
+                <p className="text-[13px] text-[#1a1510]/45 mt-0.5">Manage your connected stack billing.</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {toolSubscriptions.map((tool: any, i: number) => (
-                  <div key={i} className="bg-white border border-[#1a1510]/5 rounded-[2rem] p-7 space-y-6 shadow-sm group hover:shadow-lg transition-all">
+                  <div key={i} className="bg-white border border-[#1a1510]/[0.07] rounded-2xl p-5 group shadow-[0_1px_2px_rgba(26,21,16,0.04)] hover:shadow-[0_8px_24px_rgba(26,21,16,0.07)] transition-all">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="text-2xl grayscale group-hover:grayscale-0 transition-all">{tool.icon}</div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-[#f7f8f9] flex items-center justify-center text-lg">{tool.icon}</div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <h4 className="text-[14px] font-bold">{tool.name}</h4>
-                            <span className={`px-2 py-0.5 text-[8px] font-black rounded-md uppercase tracking-widest ${tool.status === 'Active' ? 'bg-green-100 text-green-600' : 'bg-[#1a1510]/5 text-[#1a1510]/40'}`}>
+                            <h4 className="text-[14px] font-semibold text-[#1a1510]">{tool.name}</h4>
+                            <span className={`px-2 py-0.5 text-[10px] font-medium rounded-md uppercase tracking-wide ${tool.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-[#f7f8f9] text-[#1a1510]/40'}`}>
                               {tool.status}
                             </span>
                           </div>
-                          <p className="text-[10px] font-bold text-[#1a1510]/30 uppercase tracking-widest mt-0.5">{tool.plan} Plan</p>
+                          <p className="text-[12px] font-medium text-[#1a1510]/40 mt-0.5">{tool.plan} Plan</p>
                         </div>
                       </div>
                       <div className="text-right">
-                         <p className="text-[14px] font-bold text-[#1a1510]">${tool.price}<span className="text-[10px] text-[#1a1510]/30">/mo</span></p>
-                         <p className="text-[9px] font-bold text-[#1a1510]/20 uppercase tracking-widest mt-0.5">Next billing: {tool.next}</p>
+                         <p className="text-[15px] font-semibold text-[#1a1510] tabular-nums">${tool.price}<span className="text-[11px] font-medium text-[#1a1510]/35">/mo</span></p>
+                         <p className="text-[11px] font-medium text-[#1a1510]/35 mt-0.5">Next: {tool.next}</p>
                       </div>
                     </div>
                   </div>

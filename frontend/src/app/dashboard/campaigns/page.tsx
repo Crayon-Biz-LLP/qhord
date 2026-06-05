@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { CreateCampaignModal } from "@/components/campaigns/CreateCampaignModal";
+import { Loader } from "@/components/ui/Loader";
 
 export default function CampaignsPage() {
   const router = useRouter();
@@ -120,9 +121,9 @@ export default function CampaignsPage() {
 
            <div className="bg-white rounded-xl border border-[#1a1510]/5 overflow-hidden">
               {loading ? (
-                 <div className="p-8 text-center">
-                    <div className="animate-spin w-8 h-8 border-2 border-brand-gold border-t-transparent rounded-full mx-auto mb-4"></div>
-                    <p className="text-[#1a1510]/60">Loading campaigns...</p>
+                 <div className="p-8 flex flex-col items-center justify-center gap-4">
+                    <Loader size={36} />
+                    <p className="text-[13px] text-[#1a1510]/40">Loading campaigns…</p>
                  </div>
               ) : campaigns.length === 0 ? (
                  <div className="p-8 text-center">

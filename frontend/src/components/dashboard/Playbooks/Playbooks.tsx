@@ -152,83 +152,70 @@ export const Playbooks = ({ onBackToDashboard }: PlaybooksProps) => {
    return (
       <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#f7f8f9] text-[#1a1510] selection:bg-brand-gold/30 font-sans relative">
 
-         {/* 1. Header & Commands - LIGHT UNIFIED */}
-         <nav className="h-20 border-b border-[#1a1510]/5 bg-white flex items-center justify-between px-8 shrink-0 z-50 shadow-sm relative">
-            <div className="flex items-center gap-6">
+         {/* 1. Header & Commands */}
+         <nav className="h-16 border-b border-[#1a1510]/[0.07] bg-white flex items-center justify-between px-4 sm:px-8 shrink-0 z-50 relative">
+            <div className="flex items-center gap-6 min-w-0">
                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-[#1a1510] text-brand-gold rounded-xl shadow-lg">
-                     <Bookmark size={18} />
+                  <div className="w-9 h-9 bg-[#1a1510] text-brand-gold rounded-lg flex items-center justify-center shrink-0">
+                     <Bookmark size={17} />
                   </div>
-                  <div>
-                     <h2 className="text-sm font-black tracking-tight text-[#1a1510] uppercase whitespace-nowrap">Playbooks</h2>
-                     <p className="text-[10px] font-bold text-[#1a1510]/20 uppercase tracking-widest mt-0.5 whitespace-nowrap">
-                        Proven  — browse, customize & deploy in minutes.
-                     </p>
+                  <div className="hidden sm:block truncate">
+                     <h2 className="text-[13px] font-bold tracking-tight text-[#1a1510] uppercase">Playbooks</h2>
+                     <p className="text-[11px] font-medium text-[#1a1510]/40 truncate">Proven GTM workflows</p>
                   </div>
                </div>
             </div>
 
-            <div className="flex items-center gap-6">
-               <div className="relative group">
-                  <Search size={16} className="absolute left-6 top-1/2 -translate-y-1/2 text-[#1a1510]/20 group-focus-within:text-brand-gold transition-colors" />
+            <div className="flex items-center gap-2.5 sm:gap-3">
+               <div className="relative group hidden md:block">
+                  <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#1a1510]/25 group-focus-within:text-brand-gold transition-colors" />
                   <input
                      type="text"
                      value={searchQuery}
                      onChange={(e) => setSearchQuery(e.target.value)}
-                     placeholder="Intel search playbooks..."
-                     className="h-10 w-72 pl-14 pr-6 rounded-[1.5rem] bg-[#f7f8f9] border border-[#1a1510]/5 text-xs font-medium focus:outline-none transition-all shadow-inner placeholder:text-[#1a1510]/20"
+                     placeholder="Search playbooks…"
+                     className="h-10 w-48 lg:w-64 pl-10 pr-4 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/25"
                   />
                </div>
-
-               <div className="flex items-center gap-3">
-                  <button className="h-10 px-6 rounded-xl bg-[#1a1510] text-brand-gold text-[10px] font-black uppercase tracking-widest flex items-center gap-3 shadow-xl hover:translate-y-[-1px] transition-all">
-                     <Plus size={14} strokeWidth={3} /> Create Playbook
-                  </button>
-                  <button
-                     onClick={onBackToDashboard}
-                     className="h-10 px-6 rounded-xl bg-white border border-[#1a1510]/5 text-[#1a1510]/40 text-[10px] font-black uppercase tracking-widest flex items-center gap-3 hover:text-[#1a1510] transition-all group"
-                  >
-                     <LayoutDashboard size={14} className="group-hover:text-brand-gold transition-colors" /> Back to Hub
-                  </button>
-               </div>
+               <button className="btn-shine h-10 px-4 sm:px-5 rounded-none bg-[#1a1510] text-white text-xs font-semibold flex items-center gap-2 hover:bg-[#2a2118] transition-colors">
+                  <Plus size={15} /> <span className="hidden sm:inline">Create</span>
+               </button>
+               <button
+                  onClick={onBackToDashboard}
+                  className="btn-shine btn-shine-dark h-10 px-4 sm:px-5 rounded-none border border-[#1a1510]/10 text-xs font-semibold text-[#1a1510] flex items-center gap-2 hover:bg-[#1a1510]/[0.02] transition-colors"
+               >
+                  <LayoutDashboard size={15} /> <span className="hidden sm:inline">Back</span>
+               </button>
             </div>
          </nav>
 
-         <main className="flex-1 p-6 lg:p-10 space-y-10 overflow-y-auto scrollbar-hide">
+         <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto scrollbar-hide">
 
-            {/* 2. Hero Section & Stats */}
-            <div className="space-y-8">
-               {/* Metric Row */}
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {[
-                     { label: "Active Playbooks", val: "2", icon: Bookmark },
-                     { label: "Avg Performance", val: "85%", icon: BarChart3 },
-                     { label: "Total Imports", val: "12.4K", icon: Download },
-                     { label: "Top Confidence", val: "94%", icon: ShieldCheck },
-                  ].map((stat, i) => (
-                     <div key={i} className="bg-white border border-[#1a1510]/5 rounded-[2rem] p-6 flex items-center gap-5 hover:border-brand-gold/20 shadow-sm transition-all group">
-                        <div className="w-12 h-12 rounded-2xl bg-[#f7f8f9] border border-[#1a1510]/5 flex items-center justify-center text-brand-gold group-hover:scale-110 transition-transform">
-                           <stat.icon size={20} />
-                        </div>
-                        <div>
-                           <p className="text-[10px] font-bold text-[#1a1510]/20 uppercase tracking-widest mb-1">{stat.label}</p>
-                           <h4 className="text-2xl font-black text-[#1a1510] tracking-tight">{stat.val}</h4>
-                        </div>
-                     </div>
-                  ))}
-               </div>
+            {/* 2. Stats */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+               {[
+                  { label: "Active Playbooks", val: "2" },
+                  { label: "Avg Performance", val: "85%" },
+                  { label: "Total Imports", val: "12.4K" },
+                  { label: "Top Confidence", val: "94%" },
+               ].map((stat, i) => (
+                  <div key={i} className="group bg-white border border-[#1a1510]/[0.07] rounded-2xl p-5 shadow-[0_1px_2px_rgba(26,21,16,0.04)] hover:shadow-[0_8px_24px_rgba(26,21,16,0.07)] hover:-translate-y-0.5 transition-all duration-200">
+                     <p className="text-[11px] font-semibold text-[#1a1510]/40 uppercase tracking-wider mb-3">{stat.label}</p>
+                     <h4 className="text-[2rem] font-bold text-[#1a1510] tracking-tight tabular-nums leading-none">{stat.val}</h4>
+                  </div>
+               ))}
             </div>
 
-            {/* 3. Navigation Tier System */}
-            <div className="space-y-6">
-               <div className="flex items-center gap-1.5 p-1 bg-white rounded-2xl border border-[#1a1510]/5 w-fit shadow-sm">
+            {/* 3. Tabs + Categories */}
+            <div className="space-y-4">
+               <div className="flex items-center gap-1 p-1 bg-white rounded-xl border border-[#1a1510]/[0.07] w-fit overflow-x-auto scrollbar-hide max-w-full">
                   {TABS.map((tab) => (
                      <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                        className={`h-10 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab
-                           ? "bg-[#1a1510] text-brand-gold shadow-lg"
-                           : "text-[#1a1510]/40 hover:text-[#1a1510] hover:bg-[#f7f8f9]"
+                        className={`h-9 px-4 sm:px-5 rounded-lg text-[11px] font-semibold uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === tab
+                           ? "bg-[#1a1510] text-white"
+                           : "text-[#1a1510]/35 hover:text-[#1a1510]/60"
                            }`}
                      >
                         {tab}
@@ -236,111 +223,108 @@ export const Playbooks = ({ onBackToDashboard }: PlaybooksProps) => {
                   ))}
                </div>
 
-               <div className="flex flex-wrap items-center gap-4">
-                  <div className="flex items-center gap-1.5 p-1 bg-white rounded-full border border-[#1a1510]/5 shadow-sm">
-                     {CATEGORIES.map((cat) => (
-                        <button
-                           key={cat}
-                           onClick={() => setActiveCategory(cat)}
-                           className={`h-9 px-6 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${activeCategory === cat
-                              ? "bg-[#1a1510] text-brand-gold"
-                              : "text-[#1a1510]/30 hover:text-[#1a1510] hover:bg-[#f7f8f9]"
-                              }`}
-                        >
-                           {cat}
-                        </button>
-                     ))}
-                  </div>
+               <div className="flex flex-wrap items-center gap-1.5">
+                  {CATEGORIES.map((cat) => (
+                     <button
+                        key={cat}
+                        onClick={() => setActiveCategory(cat)}
+                        className={`h-8 px-4 rounded-lg text-[11px] font-medium uppercase tracking-wider transition-all ${activeCategory === cat
+                           ? "bg-[#1a1510] text-white"
+                           : "bg-white border border-[#1a1510]/[0.07] text-[#1a1510]/45 hover:text-[#1a1510] hover:border-[#1a1510]/15"
+                           }`}
+                     >
+                        {cat}
+                     </button>
+                  ))}
                </div>
             </div>
 
             {/* 4. Playbook Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-32">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-32">
                <AnimatePresence mode="popLayout">
                   {filteredPlaybooks.map((pb, idx) => (
                      <motion.div
                         key={pb.id}
                         layout
-                        initial={{ opacity: 0, scale: 0.95, y: 30 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        transition={{ duration: 0.5, delay: idx * 0.05, ease: [0.23, 1, 0.32, 1] }}
-                        className="bg-white rounded-[2.5rem] border border-[#1a1510]/5 p-8 flex flex-col group hover:border-brand-gold/30 hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.08)] transition-all relative overflow-hidden h-full"
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.97 }}
+                        transition={{ duration: 0.3, delay: idx * 0.04 }}
+                        className="bg-white rounded-2xl border border-[#1a1510]/[0.07] p-6 flex flex-col group shadow-[0_1px_2px_rgba(26,21,16,0.04)] hover:shadow-[0_8px_24px_rgba(26,21,16,0.07)] hover:border-[#1a1510]/15 transition-all"
                      >
-                        <div className="flex-1 space-y-6 relative z-10">
+                        <div className="flex-1 space-y-4">
                            {/* Title & Difficulty */}
-                           <div className="flex justify-between items-start gap-4">
-                              <h3 className="text-xl font-black text-[#1a1510] tracking-tight leading-[1.1]">{pb.name}</h3>
-                              <span className={`px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest border ${pb.difficulty === "Beginner" ? "bg-emerald-50 text-emerald-500 border-emerald-100" :
-                                 pb.difficulty === "Intermediate" ? "bg-brand-gold/10 text-brand-gold border-brand-gold/20" :
-                                    "bg-red-50 text-red-500 border-red-100"
+                           <div className="flex justify-between items-start gap-3">
+                              <h3 className="text-[17px] font-bold text-[#1a1510] tracking-tight leading-snug">{pb.name}</h3>
+                              <span className={`shrink-0 px-2.5 py-1 rounded-md text-[10px] font-medium uppercase tracking-wide ${pb.difficulty === "Beginner" ? "bg-emerald-50 text-emerald-600" :
+                                 pb.difficulty === "Intermediate" ? "bg-amber-50 text-amber-600" :
+                                    "bg-red-50 text-red-600"
                                  }`}>
                                  {pb.difficulty}
                               </span>
                            </div>
 
                            {/* Description */}
-                           <p className="text-[12px] font-medium text-[#1a1510]/40 leading-relaxed line-clamp-3 italic font-serif">
+                           <p className="text-[13px] text-[#1a1510]/45 leading-relaxed line-clamp-2">
                               {pb.description}
                            </p>
 
                            {/* Metadata: Creator & Tools */}
-                           <div className="flex items-center justify-between pt-4 border-t border-[#1a1510]/5">
+                           <div className="flex items-center justify-between pt-3 border-t border-[#1a1510]/[0.06]">
                               <div className="flex items-center gap-2">
-                                 <div className="w-6 h-6 rounded-full bg-[#1a1510] flex items-center justify-center text-brand-gold text-[8px] font-black">
+                                 <div className="w-6 h-6 rounded-md bg-[#1a1510] flex items-center justify-center text-brand-gold text-[9px] font-semibold">
                                     CT
                                  </div>
-                                 <span className="text-[10px] font-bold text-[#1a1510]/30 uppercase tracking-widest">{pb.creator}</span>
+                                 <span className="text-[11px] font-medium text-[#1a1510]/40">{pb.creator}</span>
                               </div>
-                              <div className="flex items-center -space-x-2">
+                              <div className="flex items-center -space-x-1.5">
                                  {pb.tools.map((Icon, i) => (
-                                    <div key={i} className="w-8 h-8 rounded-lg bg-[#f7f8f9] border border-[#1a1510]/5 flex items-center justify-center text-[#1a1510]/40 hover:text-brand-gold hover:border-brand-gold/30 hover:z-20 transition-all cursor-pointer">
-                                       <Icon size={14} />
+                                    <div key={i} className="w-7 h-7 rounded-md bg-[#f7f8f9] border border-[#1a1510]/[0.07] flex items-center justify-center text-[#1a1510]/45">
+                                       <Icon size={13} />
                                     </div>
                                  ))}
                               </div>
                            </div>
 
                            {/* Metric Grid (4 col) */}
-                           <div className="grid grid-cols-4 gap-2 pt-2">
+                           <div className="grid grid-cols-4 gap-2">
                               {[
-                                 { label: "Rating", val: pb.rating, icon: Star, color: "text-brand-gold" },
-                                 { label: "Imports", val: pb.imports, icon: Download, color: "text-[#1a1510]" },
-                                 { label: "Confidence", val: `${pb.confidence}%`, icon: ShieldCheck, color: "text-emerald-500" },
-                                 { label: "Deploy", val: pb.deployTime.split(" ")[0], icon: Clock, color: "text-[#1a1510]" }
+                                 { label: "Rating", val: pb.rating },
+                                 { label: "Imports", val: pb.imports },
+                                 { label: "Conf.", val: `${pb.confidence}%` },
+                                 { label: "Deploy", val: pb.deployTime.split(" ")[0] + "m" }
                               ].map((item, i) => (
-                                 <div key={i} className="bg-[#f7f8f9] rounded-2xl p-3 border border-[#1a1510]/5 text-center">
-                                    <item.icon size={12} className={`mx-auto mb-1.5 ${item.color}`} />
-                                    <p className="text-[11px] font-black text-[#1a1510] leading-none whitespace-nowrap">{item.val}</p>
-                                    <p className="text-[7px] font-bold text-[#1a1510]/20 uppercase tracking-widest mt-1">{item.label}</p>
+                                 <div key={i} className="bg-[#fafafa] rounded-lg p-2.5 border border-[#1a1510]/[0.05] text-center">
+                                    <p className="text-[13px] font-semibold text-[#1a1510] leading-none tabular-nums whitespace-nowrap">{item.val}</p>
+                                    <p className="text-[9px] font-medium text-[#1a1510]/35 uppercase tracking-wide mt-1.5">{item.label}</p>
                                  </div>
                               ))}
                            </div>
 
-                           {/* Reply Rate Metric */}
-                           <div className="flex items-center justify-between text-[10px] font-bold text-[#1a1510]/30 px-2 pt-2">
-                              <div className="flex items-center gap-2">
-                                 <BarChart3 size={12} className="text-emerald-500" />
-                                 <span className="uppercase tracking-[0.1em] font-black">{pb.replyRate} reply rate</span>
+                           {/* Reply Rate + Credits */}
+                           <div className="flex items-center justify-between text-[11px] font-medium pt-1">
+                              <div className="flex items-center gap-1.5 text-emerald-600">
+                                 <BarChart3 size={13} />
+                                 <span>{pb.replyRate} reply rate</span>
                               </div>
-                              <div className="flex items-center gap-1.5 bg-[#f7f8f9] px-2 py-1 rounded-lg border border-[#1a1510]/5">
-                                 <CreditCard size={10} className="text-brand-gold" />
-                                 <span className="text-[#1a1510] font-black truncate max-w-[50px]">~{pb.credits} credits</span>
+                              <div className="flex items-center gap-1.5 text-[#1a1510]/50">
+                                 <CreditCard size={12} />
+                                 <span>~{pb.credits} credits</span>
                               </div>
                            </div>
                         </div>
 
                         {/* Actions */}
-                        <div className="flex gap-3 mt-8 relative z-10">
+                        <div className="flex gap-2.5 mt-5">
                            <button
                               onClick={() => setSelectedPlaybook(pb)}
-                              className="flex-1 h-12 rounded-2xl border border-[#1a1510]/10 text-[#1a1510] text-[10px] font-black uppercase tracking-widest hover:bg-[#f7f8f9] transition-all flex items-center justify-center gap-2"
+                              className="btn-shine btn-shine-dark flex-1 h-11 rounded-none border border-[#1a1510]/10 text-[#1a1510] text-xs font-semibold hover:bg-[#1a1510]/[0.02] transition-colors flex items-center justify-center gap-2"
                            >
-                              <Zap size={14} className="text-brand-gold" /> Inspect
+                              <Zap size={14} /> Inspect
                            </button>
-                           <button 
+                           <button
                               onClick={() => handleOpenImport(pb)}
-                              className="flex-[1.5] h-12 rounded-2xl bg-[#1a1510] text-brand-gold text-[10px] font-black uppercase tracking-widest shadow-xl hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2"
+                              className="btn-shine flex-[1.4] h-11 rounded-none bg-[#1a1510] text-white text-xs font-semibold hover:bg-[#2a2118] transition-colors flex items-center justify-center gap-2"
                            >
                               <Sparkles size={14} /> Copy & Customize
                            </button>
