@@ -22,7 +22,7 @@ router.get('/summary', async (req, res) => {
                 take: 1000,
             }),
             prisma_1.prisma.lead.count({ where: { client_id: client.id } }),
-            prisma_1.prisma.campaign.count({ where: { client_id: client.id } }),
+            prisma_1.prisma.campaign.count({ where: { client_id: client.id, status: { not: 'workflow_template' } } }),
         ]);
         const totalExecs = executions.length;
         const successExecs = executions.filter(e => e.status === 'success').length;

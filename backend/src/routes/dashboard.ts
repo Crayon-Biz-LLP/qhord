@@ -16,7 +16,7 @@ router.get('/metrics', async (req: Request, res: Response) => {
     }
 
     const [campaigns, executions, leads] = await Promise.all([
-      prisma.campaign.findMany({ where: { client_id: client.id }, select: { status: true } }),
+      prisma.campaign.findMany({ where: { client_id: client.id, status: { not: 'workflow_template' } }, select: { status: true } }),
       prisma.execution.findMany({ where: { client_id: client.id }, select: { action: true } }),
       prisma.lead.count({ where: { client_id: client.id } }),
     ]);

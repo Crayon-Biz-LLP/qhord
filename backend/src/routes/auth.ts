@@ -1,9 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
-import { generateToken, hashPassword, verifyPassword, requireAuth } from '../middleware/auth';
+import { generateToken, hashPassword, verifyPassword, requireAuth, rateLimiter } from '../middleware/auth';
 import { AuthTokenPayload, OperatorRole } from '../types';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
+import axios from 'axios';
 
 const router = Router();
 
@@ -13,7 +14,7 @@ const defaultNotifications = [
   { id: 'errors', label: 'Campaign errors', email: true, slack: true, inapp: true },
 ];
 
-router.post('/register', async (req: Request, res: Response) => {
+router.post('/register', rateLimiter(15 * 60 * 1000, 30), async (req: Request, res: Response) => {
   const { email, password, name, role } = req.body as {
     email: string;
     password: string;
@@ -73,7 +74,7 @@ router.post('/register', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/login', async (req: Request, res: Response) => {
+router.post('/login', rateLimiter(15 * 60 * 1000, 30), async (req: Request, res: Response) => {
   const { email, password } = req.body as { email: string; password: string };
 
   if (!email || !password) {
@@ -357,6 +358,180 @@ router.post('/2fa/login-verify', async (req: Request, res: Response) => {
   } catch (err) {
     console.error('2FA login verify error', err);
     res.status(500).json({ message: 'Failed to verify 2FA' });
+  }
+});
+
+router.get('/google', (req: Request, res: Response) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const redirectUri = `${req.protocol}://${req.get('host')}/api/auth/google/callback`;
+  
+  if (!clientId) {
+    // Render the simulated developer OAuth consent page
+    res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Simulated Google OAuth2 Consent - Qhord</title>
+  <style>
+    body {
+      background-color: #fdfbf7;
+      color: #1a1510;
+      font-family: system-ui, -apple-system, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .card {
+      background: white;
+      border: 1px solid rgba(26, 21, 16, 0.1);
+      border-radius: 24px;
+      padding: 40px;
+      max-width: 400px;
+      width: 100%;
+      box-shadow: 0 20px 40px -10px rgba(45,36,28,0.08);
+      text-align: center;
+    }
+    .logo {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.05em;
+      margin-bottom: 24px;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      background: #1a1510;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 14px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .btn-secondary {
+      background: #f7f8f9;
+      color: #1a1510;
+      border: 1px solid rgba(26, 21, 16, 0.1);
+    }
+    .warning {
+      font-size: 11px;
+      color: #c2410c;
+      background: #fff7ed;
+      border: 1px solid #ffedd5;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">Qhord <span style="color:#D4AF37;font-style:italic;font-weight:300">SSO</span></div>
+    <div class="warning">
+      <strong>Developer Mode:</strong> Google client credentials (<code>GOOGLE_CLIENT_ID</code>) are not configured. Running simulated OAuth2 flow.
+    </div>
+    <p style="font-size: 14px; color: rgba(26,21,16,0.6); margin-bottom: 24px;">
+      Choose a simulated account profile to authenticate via Google:
+    </p>
+    <a href="/api/auth/google/callback?code=mock_code_demo" class="btn">Demo Operator (demo@example.com)</a>
+    <a href="/api/auth/google/callback?code=mock_code_new" class="btn btn-secondary">Create New Operator Profile</a>
+  </div>
+</body>
+</html>
+    `);
+    return;
+  }
+  
+  // Real Google OAuth redirect URL
+  const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=email%20profile`;
+  res.redirect(googleAuthUrl);
+});
+
+router.get('/google/callback', async (req: Request, res: Response) => {
+  const { code } = req.query;
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  
+  if (!code) {
+    res.redirect(`${frontendUrl}/login?error=oauth_no_code`);
+    return;
+  }
+  
+  try {
+    let email = '';
+    let name = '';
+    
+    if (code === 'mock_code_demo') {
+      email = 'demo@example.com';
+      name = 'Demo Operator';
+    } else if (code === 'mock_code_new') {
+      const rand = Math.floor(1000 + Math.random() * 9000);
+      email = `google.user.${rand}@example.com`;
+      name = `Google User ${rand}`;
+    } else {
+      // Real Google OAuth callback token exchange
+      const clientId = process.env.GOOGLE_CLIENT_ID;
+      const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+      const redirectUri = `${req.protocol}://${req.get('host')}/api/auth/google/callback`;
+      
+      const tokenRes = await axios.post('https://oauth2.googleapis.com/token', {
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code'
+      });
+      
+      const { access_token } = tokenRes.data;
+      const profileRes = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { Authorization: `Bearer ${access_token}` }
+      });
+      
+      email = profileRes.data.email;
+      name = profileRes.data.name || profileRes.data.given_name || 'Google User';
+    }
+    
+    // Upsert operator by email
+    const operator = await prisma.operator.upsert({
+      where: { email },
+      update: { name },
+      create: {
+        email,
+        name,
+        password_hash: await hashPassword(Math.random().toString(36).slice(-10)),
+        role: 'operator',
+        settings: {
+          create: {
+            notifications: defaultNotifications
+          }
+        },
+        workspace: {
+          create: {
+            name: `${name}'s Workspace`,
+            domain: email.split('@')[1] || 'company.com'
+          }
+        }
+      }
+    });
+    
+    const payload: AuthTokenPayload = {
+      id: operator.id,
+      email: operator.email,
+      role: operator.role as OperatorRole
+    };
+    
+    const token = generateToken(payload);
+    
+    // Redirect back to frontend login endpoint with token
+    res.redirect(`${frontendUrl}/login?token=${token}`);
+    
+  } catch (error) {
+    console.error('Google OAuth callback error:', error);
+    res.redirect(`${frontendUrl}/login?error=oauth_callback_failed`);
   }
 });
 

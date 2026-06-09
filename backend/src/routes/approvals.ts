@@ -28,7 +28,8 @@ router.post('/submit', async (req: Request, res: Response) => {
     // Get the campaign (demo mode - skip user check)
     const campaign = await prisma.campaign.findFirst({
       where: {
-        id: campaignId
+        id: campaignId,
+        status: { not: 'workflow_template' }
       }
     });
 
@@ -92,7 +93,10 @@ router.post('/review', async (req: Request, res: Response) => {
 
     // Get the campaign
     const campaign = await prisma.campaign.findFirst({
-      where: { id: campaignId }
+      where: {
+        id: campaignId,
+        status: { not: 'workflow_template' }
+      }
     });
 
     if (!campaign) {

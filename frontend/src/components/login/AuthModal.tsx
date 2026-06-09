@@ -276,6 +276,10 @@ export const AuthModal = ({ isOpen, onClose, initialState = "signin", onSuccess 
                       <div className="px-0 md:px-2">
                         <button
                           type="button"
+                          onClick={() => {
+                            const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000/api";
+                            window.location.href = `${apiBase}/auth/google`;
+                          }}
                           className="w-full py-3 md:py-3.5 rounded-xl bg-[#1a1510] text-white flex items-center justify-center gap-3 md:gap-4 hover:brightness-125 transition-all shadow-sm group"
                         >
                           <div className="w-5 h-5 flex items-center justify-center">

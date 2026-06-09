@@ -50,7 +50,8 @@ router.get('/status/:campaignId', async (req: express.Request, res: express.Resp
     const campaign = await prisma.campaign.findFirst({
       where: {
         id: campaignId,
-        created_by_operator_id: operatorId
+        created_by_operator_id: operatorId,
+        status: { not: 'workflow_template' }
       }
     });
     

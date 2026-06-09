@@ -76,8 +76,15 @@ interface CreateWorkflowRequest {
 router.get('/', async (req: Request, res: Response) => {
   try {
     const operatorId = req.user!.id;
+    const clientId = req.query.clientId as string | undefined;
+
+    if (!clientId) {
+      return res.status(400).json({ success: false, error: 'clientId query parameter is required' });
+    }
+
     const workflows = await prisma.campaign.findMany({
       where: {
+        client_id: clientId,
         created_by_operator_id: operatorId,
         status: 'workflow_template'
       },
@@ -101,6 +108,7 @@ router.get('/', async (req: Request, res: Response) => {
         updatedAt: workflow.updated_at,
         estimatedCost: workflow.estimated_cost || 0,
         estimatedDuration: workflow.estimated_duration || 0,
+        manifest: workflow.manifest,
         steps: workflow.steps.map((step) => ({
           id: step.id,
           order: step.step_order,
@@ -388,6 +396,13 @@ router.post('/:id/create-campaign', async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, error: 'Workflow not found' });
     }
 
+    const parentManifest = workflow.manifest ? (workflow.manifest as any) : {};
+    const runManifest = {
+      ...parentManifest,
+      parent_template_id: workflow.id,
+      workflow_type: 'campaign_run'
+    };
+
     const campaign = await prisma.campaign.create({
       data: {
         client_id: workflow.client_id,
@@ -395,7 +410,7 @@ router.post('/:id/create-campaign', async (req: Request, res: Response) => {
         description: workflow.description,
         status: 'draft',
         approval_status: 'draft',
-        manifest: workflow.manifest ?? undefined,
+        manifest: runManifest,
         estimated_cost: workflow.estimated_cost,
         estimated_duration: workflow.estimated_duration,
         created_by_operator_id: operatorId
@@ -428,6 +443,126 @@ router.post('/:id/create-campaign', async (req: Request, res: Response) => {
       success: false,
       error: 'Failed to create campaign from workflow'
     });
+  }
+});
+
+router.post('/manual', async (req: Request, res: Response) => {
+  try {
+    const { name, description, trigger, target, enrollment, guardrails, path, mode, status, clientId } = req.body as any;
+    const operatorId = req.user!.id;
+
+    if (!clientId) {
+      return res.status(400).json({ success: false, error: 'Please select a client to save workflow.' });
+    }
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      return res.status(400).json({ success: false, error: 'Workflow name is required.' });
+    }
+
+    const stepsList: any[] = [];
+    if (path) {
+      if (path === "Email-first cadence") {
+        stepsList.push({ order: 1, tool: "smartlead", action: "send_email", params: {}, dependencies: [] });
+      } else if (path === "LinkedIn-first") {
+        stepsList.push({ order: 1, tool: "heyreach", action: "send_message", params: {}, dependencies: [] });
+      } else if (path === "Route by channel readiness") {
+        stepsList.push({ order: 1, tool: "heyreach", action: "view_profile", params: {}, dependencies: [] });
+        stepsList.push({ order: 2, tool: "smartlead", action: "send_email", params: {}, dependencies: [1] });
+      } else if (path === "Notify + assign owner") {
+        stepsList.push({ order: 1, tool: "hubspot", action: "create_task", params: {}, dependencies: [] });
+      } else if (Array.isArray(path)) {
+        path.forEach((s: any, idx: number) => {
+          stepsList.push({
+            order: s.order || idx + 1,
+            tool: s.tool || "smartlead",
+            action: s.action || "send_email",
+            params: s.params || {},
+            dependencies: s.dependencies || []
+          });
+        });
+      }
+    }
+
+    if (status === 'active' && stepsList.length === 0) {
+      return res.status(400).json({ success: false, error: 'At least one workflow step/path is required before launch.' });
+    }
+
+    const manifest = {
+      trigger,
+      target,
+      enrollment,
+      guardrails,
+      path: path || "",
+      mode,
+      status,
+      workflow_type: 'manual',
+      builder_state: req.body
+    };
+
+    const workflow = await prisma.campaign.create({
+      data: {
+        client_id: clientId,
+        name: name.trim(),
+        description: description || `Manual workflow triggered by: ${trigger || "N/A"}`,
+        status: 'workflow_template',
+        approval_status: status === 'active' ? 'approved' : 'draft',
+        manifest: manifest as any,
+        estimated_cost: stepsList.length * 2,
+        estimated_duration: stepsList.length * 10,
+        created_by_operator_id: operatorId
+      }
+    });
+
+    if (stepsList.length > 0) {
+      await prisma.campaignStep.createMany({
+        data: stepsList.map((step) => ({
+          campaign_id: workflow.id,
+          step_order: step.order,
+          tool_name: step.tool,
+          action: step.action,
+          params: step.params as any,
+          status: 'pending',
+          dependencies: step.dependencies as any,
+          created_at: new Date(),
+          updated_at: new Date()
+        }))
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      workflow: {
+        id: workflow.id,
+        name: workflow.name,
+        description: workflow.description
+      }
+    });
+  } catch (error) {
+    console.error('Create manual workflow error:', error);
+    res.status(500).json({ success: false, error: 'Failed to save workflow template.' });
+  }
+});
+
+router.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const operatorId = req.user!.id;
+
+    const result = await prisma.campaign.deleteMany({
+      where: {
+        id,
+        created_by_operator_id: operatorId,
+        status: 'workflow_template'
+      }
+    });
+
+    if (result.count === 0) {
+      return res.status(404).json({ success: false, error: 'Workflow template not found.' });
+    }
+
+    res.json({ success: true, message: 'Workflow template deleted successfully.' });
+  } catch (error) {
+    console.error('Delete workflow error:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete workflow template.' });
   }
 });
 

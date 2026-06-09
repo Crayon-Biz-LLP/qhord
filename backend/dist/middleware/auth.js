@@ -8,6 +8,7 @@ exports.verifyPassword = verifyPassword;
 exports.generateToken = generateToken;
 exports.requireAuth = requireAuth;
 exports.requireRole = requireRole;
+exports.rateLimiter = rateLimiter;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const JWT_SECRET = process.env.JWT_SECRET || 'development-secret';
@@ -45,6 +46,24 @@ function requireRole(roles) {
         }
         if (!roles.includes(req.user.role)) {
             res.status(403).json({ message: 'Insufficient permissions' });
+            return;
+        }
+        next();
+    };
+}
+const ipCache = new Map();
+function rateLimiter(windowMs, maxRequests) {
+    return (req, res, next) => {
+        const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+        const now = Date.now();
+        let record = ipCache.get(ip);
+        if (!record || now > record.resetTime) {
+            record = { count: 0, resetTime: now + windowMs };
+        }
+        record.count++;
+        ipCache.set(ip, record);
+        if (record.count > maxRequests) {
+            res.status(429).json({ message: 'Too many authentication attempts. Please try again later.' });
             return;
         }
         next();
