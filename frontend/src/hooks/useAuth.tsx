@@ -17,6 +17,25 @@ interface UseAuthResult {
   pendingUserId: string | null;
 }
 
+function setCookie(name: string, value: string, days = 7) {
+  if (typeof window === "undefined") return;
+  const expires = new Date(Date.now() + days * 864e5).toUTCString();
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
+}
+
+function getCookie(name: string): string | null {
+  if (typeof window === "undefined") return null;
+  const matches = document.cookie.match(new RegExp(
+    "(?:^|; )" + name.replace(/([\.$?*|{}\(\)\[\]\\\/\+^])/g, "\\$1") + "=([^;]*)"
+  ));
+  return matches ? decodeURIComponent(matches[1]) : null;
+}
+
+function deleteCookie(name: string) {
+  if (typeof window === "undefined") return;
+  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax`;
+}
+
 export function useAuth(redirectUnauthenticated = false): UseAuthResult {
   const [user, setUser] = useState<Operator | null>(null);
   const [loading, setLoading] = useState(true);
@@ -27,7 +46,7 @@ export function useAuth(redirectUnauthenticated = false): UseAuthResult {
   useEffect(() => {
     async function loadMe() {
       try {
-        const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+        const token = typeof window !== "undefined" ? (localStorage.getItem("auth_token") || getCookie("auth_token")) : null;
         if (!token) {
           if (redirectUnauthenticated) {
             router.replace("/login");
@@ -35,10 +54,18 @@ export function useAuth(redirectUnauthenticated = false): UseAuthResult {
           setLoading(false);
           return;
         }
+        // Ensure synchronized
+        if (typeof window !== "undefined" && !localStorage.getItem("auth_token")) {
+          localStorage.setItem("auth_token", token);
+        }
+        if (typeof window !== "undefined" && !getCookie("auth_token")) {
+          setCookie("auth_token", token, 7);
+        }
         const res = await api.get("/auth/me");
         setUser(res.data.operator);
       } catch {
         localStorage.removeItem("auth_token");
+        deleteCookie("auth_token");
         if (redirectUnauthenticated) {
           router.replace("/login");
         }
@@ -61,6 +88,7 @@ export function useAuth(redirectUnauthenticated = false): UseAuthResult {
     }
 
     localStorage.setItem("auth_token", res.data.token);
+    setCookie("auth_token", res.data.token, 7);
     setUser(res.data.operator);
     setMfaRequired(false);
     setPendingUserId(null);
@@ -70,6 +98,7 @@ export function useAuth(redirectUnauthenticated = false): UseAuthResult {
   const loginWithMfa = async (userId: string, token: string) => {
     const res = await api.post("/auth/2fa/login-verify", { userId, token });
     localStorage.setItem("auth_token", res.data.token);
+    setCookie("auth_token", res.data.token, 7);
     setUser(res.data.operator);
     setMfaRequired(false);
     setPendingUserId(null);
@@ -79,12 +108,14 @@ export function useAuth(redirectUnauthenticated = false): UseAuthResult {
   const register = async (name: string, email: string, password: string) => {
     const res = await api.post("/auth/register", { name, email, password });
     localStorage.setItem("auth_token", res.data.token);
+    setCookie("auth_token", res.data.token, 7);
     setUser(res.data.operator);
     router.replace("/dashboard");
   };
 
   const logout = () => {
     localStorage.removeItem("auth_token");
+    deleteCookie("auth_token");
     setUser(null);
     setMfaRequired(false);
     setPendingUserId(null);

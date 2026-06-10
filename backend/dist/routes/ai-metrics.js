@@ -22,7 +22,10 @@ router.get('/ai-sdr/metrics', async (req, res) => {
             }
         });
         const campaignsCount = await prisma_1.prisma.campaign.count({
-            where: { created_by_operator_id: operatorId }
+            where: {
+                created_by_operator_id: operatorId,
+                status: { not: 'workflow_template' }
+            }
         });
         let totalEmails = 0;
         let totalReplies = 0;
@@ -77,7 +80,10 @@ router.get('/ai-operator/metrics', async (req, res) => {
     try {
         const operatorId = req.user.id;
         const campaigns = await prisma_1.prisma.campaign.findMany({
-            where: { created_by_operator_id: operatorId },
+            where: {
+                created_by_operator_id: operatorId,
+                status: { not: 'workflow_template' }
+            },
             select: { status: true }
         });
         const executions = await prisma_1.prisma.execution.findMany({
@@ -118,7 +124,10 @@ router.get('/ai-engine/metrics', async (req, res) => {
     try {
         const operatorId = req.user.id;
         const campaigns = await prisma_1.prisma.campaign.findMany({
-            where: { created_by_operator_id: operatorId },
+            where: {
+                created_by_operator_id: operatorId,
+                status: { not: 'workflow_template' }
+            },
             select: { created_at: true, updated_at: true }
         });
         const executions = await prisma_1.prisma.execution.findMany({
@@ -161,7 +170,10 @@ router.get('/dashboard/metrics', async (req, res) => {
     try {
         const operatorId = req.user.id;
         const campaigns = await prisma_1.prisma.campaign.findMany({
-            where: { created_by_operator_id: operatorId },
+            where: {
+                created_by_operator_id: operatorId,
+                status: { not: 'workflow_template' }
+            },
             select: { status: true }
         });
         const executions = await prisma_1.prisma.execution.findMany({

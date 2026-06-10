@@ -49,3 +49,27 @@ export function requireRole(roles: OperatorRole[]) {
   };
 }
 
+const ipCache = new Map<string, { count: number; resetTime: number }>();
+
+export function rateLimiter(windowMs: number, maxRequests: number) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const ip = req.ip || (req.headers['x-forwarded-for'] as string) || 'unknown';
+    const now = Date.now();
+
+    let record = ipCache.get(ip);
+    if (!record || now > record.resetTime) {
+      record = { count: 0, resetTime: now + windowMs };
+    }
+
+    record.count++;
+    ipCache.set(ip, record);
+
+    if (record.count > maxRequests) {
+      res.status(429).json({ message: 'Too many authentication attempts. Please try again later.' });
+      return;
+    }
+    next();
+  };
+}
+
+

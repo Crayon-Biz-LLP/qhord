@@ -49,7 +49,8 @@ router.post('/submit', async (req, res) => {
         // Get the campaign (demo mode - skip user check)
         const campaign = await prisma_1.prisma.campaign.findFirst({
             where: {
-                id: campaignId
+                id: campaignId,
+                status: { not: 'workflow_template' }
             }
         });
         if (!campaign) {
@@ -105,7 +106,10 @@ router.post('/review', async (req, res) => {
         const operatorId = req.user.id;
         // Get the campaign
         const campaign = await prisma_1.prisma.campaign.findFirst({
-            where: { id: campaignId }
+            where: {
+                id: campaignId,
+                status: { not: 'workflow_template' }
+            }
         });
         if (!campaign) {
             return res.status(404).json({ error: 'Campaign not found' });

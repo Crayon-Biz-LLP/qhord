@@ -144,7 +144,7 @@ router.get('/usage-stats', async (req, res) => {
         if (!client)
             return res.json({ success: true, stats: { total_credits_used: 0, campaigns_run: 0 } });
         const credit = await prisma_1.prisma.clientCredit.findUnique({ where: { client_id: client.id } });
-        const campaigns = await prisma_1.prisma.campaign.count({ where: { client_id: client.id } });
+        const campaigns = await prisma_1.prisma.campaign.count({ where: { client_id: client.id, status: { not: 'workflow_template' } } });
         res.json({ success: true, stats: { total_credits_used: credit?.total_used ?? 0, campaigns_run: campaigns } });
     }
     catch (error) {

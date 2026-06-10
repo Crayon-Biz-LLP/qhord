@@ -170,12 +170,12 @@ router.get('/', async (req: Request, res: Response) => {
     }
 
     const campaigns = await prisma.campaign.findMany({
-      where: operatorId ? {
-        created_by_operator_id: operatorId,
+      where: {
+        ...(operatorId ? { created_by_operator_id: operatorId } : {}),
         status: {
           not: 'workflow_template'
         }
-      } : {},
+      },
       include: {
         _count: {
           select: {
@@ -219,7 +219,10 @@ router.get('/:id', async (req: Request, res: Response) => {
     const campaign = await prisma.campaign.findFirst({
       where: {
         id,
-        created_by_operator_id: req.user!.id
+        created_by_operator_id: req.user!.id,
+        status: {
+          not: 'workflow_template'
+        }
       },
       include: {
         steps: {

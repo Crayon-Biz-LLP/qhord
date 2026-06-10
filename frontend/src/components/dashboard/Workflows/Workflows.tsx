@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useMemo, useState, useRef, useEffect } from "react";
+import React, { useMemo, useState, useRef, useEffect, useCallback } from "react";
+import { useClient } from "../../../contexts/ClientContext";
 import {
    ArrowLeft,
    ArrowRight,
@@ -206,6 +207,127 @@ function GuardrailActionDropdown({
 export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
    const [view, setView] = useState<BuilderView>("list");
 
+   const { selectedClient } = useClient();
+   const [templates, setTemplates] = useState<any[]>([]);
+   const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
+   const [isSaving, setIsSaving] = useState(false);
+   const [isLaunching, setIsLaunching] = useState(false);
+   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+   const [workflowName, setWorkflowName] = useState("Untitled workflow");
+
+   const fetchTemplates = useCallback(async () => {
+      if (!selectedClient?.id) {
+         setTemplates([]);
+         return;
+      }
+      setIsLoadingTemplates(true);
+      try {
+         const { data } = await api.get(`/workflows?clientId=${selectedClient.id}`);
+         if (data.success) {
+            setTemplates(data.workflows || []);
+         }
+      } catch (err) {
+         console.error("Failed to fetch templates", err);
+      } finally {
+         setIsLoadingTemplates(false);
+      }
+   }, [selectedClient?.id]);
+
+   useEffect(() => {
+      fetchTemplates();
+   }, [fetchTemplates]);
+
+   const handleSaveWorkflow = async (launchStatus: "draft" | "active" = "draft", builder: "standard" | "advanced" = "standard") => {
+      if (!selectedClient?.id) {
+         setLaunchToast("Please select a client to save workflow.");
+         return;
+      }
+      if (!workflowName.trim()) {
+         setLaunchToast("Workflow name is required.");
+         return;
+      }
+      if (launchStatus === "active" && builder === "standard" && !selectedPath) {
+         setLaunchToast("At least one workflow step/path is required before launch.");
+         return;
+      }
+
+      setIsSaving(true);
+      try {
+         const payload = {
+            name: workflowName,
+            description: `Manual workflow (${builder} builder) triggered by: ${selectedTrigger}`,
+            trigger: selectedTrigger,
+            target: selectedTarget,
+            enrollment: {
+               filters: enrollmentFilters.filter((f) => f.active),
+               allowReEnrollment,
+            },
+            guardrails: guardrails.filter((g) => g.enabled),
+            path: selectedPath,
+            mode: executionMode,
+            status: launchStatus,
+            clientId: selectedClient.id,
+            builderType: builder,
+            advancedState: builder === "advanced" ? { showBlockPicker, blockSearch } : null,
+         };
+
+         const { data } = await api.post("/workflows/manual", payload);
+         if (data.success) {
+            setLaunchToast(launchStatus === "active" ? "Workflow launched successfully!" : "Workflow template saved successfully!");
+            fetchTemplates();
+            if (launchStatus === "active" && data.workflow?.id) {
+               await handleLaunchCampaign(data.workflow.id);
+            } else {
+               closeBuilder();
+            }
+         } else {
+            setLaunchToast(data.error || "Failed to save workflow template.");
+         }
+      } catch (err: any) {
+         console.error("Save workflow error:", err);
+         setLaunchToast(err.response?.data?.error || "Failed to save workflow template.");
+      } finally {
+         setIsSaving(false);
+      }
+   };
+
+   const handleLaunchCampaign = async (templateId: string) => {
+      setIsLaunching(true);
+      try {
+         const { data } = await api.post(`/workflows/${templateId}/create-campaign`);
+         if (data.success) {
+            setLaunchToast("Active run campaign created from template!");
+            closeBuilder();
+         } else {
+            setLaunchToast(data.error || "Failed to launch campaign run.");
+         }
+      } catch (err: any) {
+         console.error("Launch campaign error:", err);
+         setLaunchToast(err.response?.data?.error || "Failed to launch campaign run.");
+      } finally {
+         setIsLaunching(false);
+      }
+   };
+
+   const handleDeleteTemplate = async (templateId: string) => {
+      if (isDeleting) return;
+      setIsDeleting(templateId);
+      try {
+         const { data } = await api.delete(`/workflows/${templateId}`);
+         if (data.success) {
+            setLaunchToast("Workflow template deleted successfully.");
+            fetchTemplates();
+         } else {
+            setLaunchToast(data.error || "Failed to delete template.");
+         }
+      } catch (err: any) {
+         console.error("Delete template error:", err);
+         setLaunchToast(err.response?.data?.error || "Failed to delete template.");
+      } finally {
+         setIsDeleting(null);
+      }
+   };
+
    const [standardStep, setStandardStep] = useState(1);
    const [selectedTrigger, setSelectedTrigger] = useState("Email replied");
    const [selectedTarget, setSelectedTarget] = useState("People");
@@ -366,7 +488,7 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
             <h2 className="text-2xl font-bold tracking-tight text-[#1a1510]">Start something new</h2>
             <p className="text-[15px] text-[#1a1510]/50">Start guided, or open the orchestration canvas.</p>
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-               <button type="button" onClick={openStandardBuilder} className="text-left bg-white border border-[#1a1510]/10 rounded-2xl p-6 hover:border-brand-gold/30 transition-colors">
+               <button type="button" disabled={!selectedClient} onClick={openStandardBuilder} className="text-left bg-white border border-[#1a1510]/10 rounded-2xl p-6 hover:border-brand-gold/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                   <div className="flex items-center justify-between">
                      <div className="w-11 h-11 rounded-xl bg-brand-gold/15 text-brand-gold flex items-center justify-center">
                         <Sparkles size={20} />
@@ -380,7 +502,7 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                      <span className="flex items-center gap-1"><CheckCircle2 size={12} /> Pre-launch review</span>
                   </div>
                </button>
-               <button type="button" onClick={() => { setView("advanced"); setShowBlockPicker(false); }} className="text-left bg-white border border-[#1a1510]/10 rounded-2xl p-6 hover:border-brand-gold/30 transition-colors">
+               <button type="button" disabled={!selectedClient} onClick={() => { setView("advanced"); setShowBlockPicker(false); }} className="text-left bg-white border border-[#1a1510]/10 rounded-2xl p-6 hover:border-brand-gold/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                   <div className="flex items-center justify-between">
                      <div className="w-11 h-11 rounded-xl bg-[#1a1510]/5 text-[#1a1510] flex items-center justify-center">
                         <GitBranch size={20} />
@@ -409,17 +531,17 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                <div className="flex gap-2 shrink-0">
                   <button
                      type="button"
-                     disabled={isCompiling || !aiPrompt.trim()}
+                     disabled={isCompiling || !aiPrompt.trim() || !selectedClient}
                      onClick={compileFromPrompt}
-                     className="btn-shine btn-shine-dark h-10 px-5 rounded-none border border-[#1a1510]/10 text-sm font-semibold disabled:opacity-50 hover:bg-[#1a1510]/[0.02] transition-colors"
+                     className="btn-shine btn-shine-dark h-10 px-5 rounded-none border border-[#1a1510]/10 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#1a1510]/[0.02] transition-colors"
                   >
                      {isCompiling ? "Planning…" : "Preview plan"}
                   </button>
                   <button
                      type="button"
-                     disabled={isRunningPipeline || !aiPrompt.trim()}
+                     disabled={isRunningPipeline || !aiPrompt.trim() || !selectedClient}
                      onClick={runPipelineFromPrompt}
-                     className="btn-shine h-10 px-5 rounded-none bg-[#1a1510] text-white font-semibold text-sm disabled:opacity-50 flex items-center gap-2 hover:bg-[#2a2118] transition-colors"
+                     className="btn-shine h-10 px-5 rounded-none bg-[#1a1510] text-white font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 hover:bg-[#2a2118] transition-colors"
                   >
                      <Rocket size={14} />
                      {isRunningPipeline ? "Running…" : "Run pipeline"}
@@ -525,6 +647,77 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
          <div className="bg-white border border-[#1a1510]/10 rounded-2xl p-6 text-center">
             <p className="text-sm text-[#1a1510]/50">Type a prompt above and click <span className="font-bold text-[#1a1510]">Run pipeline</span> to execute Hunter → BetterContacts → Brevo → Calendly end-to-end.</p>
          </div>
+
+         <section className="space-y-4">
+            <h2 className="text-2xl font-bold tracking-tight text-[#1a1510]">
+               Saved Workflow Templates
+               {selectedClient && <span className="text-sm font-medium text-[#1a1510]/45 ml-2">({selectedClient.name})</span>}
+            </h2>
+            
+            {!selectedClient ? (
+               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
+                  <Building2 className="mx-auto text-amber-500 mb-3" size={32} />
+                  <h3 className="text-lg font-bold text-amber-800">Please select a client to manage workflows</h3>
+                  <p className="text-sm text-amber-700 mt-1">Select an active client from the sidebar dropdown to see or create workflows.</p>
+               </div>
+            ) : isLoadingTemplates ? (
+               <div className="bg-white border border-[#1a1510]/10 rounded-2xl p-12 text-center text-[#1a1510]/50 font-medium">
+                  Loading templates...
+               </div>
+            ) : templates.length === 0 ? (
+               <div className="bg-white border border-[#1a1510]/10 rounded-2xl p-8 text-center text-[#1a1510]/50">
+                  No saved workflow templates found for this client. Create one using the builders above!
+               </div>
+            ) : (
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {templates.map((template) => (
+                     <div key={template.id} className="bg-white border border-[#1a1510]/10 rounded-2xl p-6 hover:border-brand-gold/20 transition-all flex flex-col justify-between">
+                        <div>
+                           <div className="flex items-start justify-between gap-3">
+                              <h3 className="font-bold text-lg text-[#1a1510] leading-snug">{template.name}</h3>
+                              <span className="px-2 py-0.5 rounded-full bg-[#1a1510]/5 text-[11px] font-semibold text-[#1a1510]/60">
+                                 {template.manifest?.builderType === "advanced" ? "Advanced" : "Standard"}
+                              </span>
+                           </div>
+                           <p className="text-sm text-[#1a1510]/55 mt-2 leading-relaxed">{template.description}</p>
+                           
+                           <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-[#1a1510]/50">
+                              <div className="bg-[#f7f8f9] rounded-lg p-2">
+                                 <span className="font-semibold block uppercase tracking-wider text-[9px] text-[#1a1510]/35">Trigger</span>
+                                 <span className="truncate block font-medium mt-0.5">{template.manifest?.trigger || "N/A"}</span>
+                              </div>
+                              <div className="bg-[#f7f8f9] rounded-lg p-2">
+                                 <span className="font-semibold block uppercase tracking-wider text-[9px] text-[#1a1510]/35">Path</span>
+                                 <span className="truncate block font-medium mt-0.5">{template.manifest?.path || "N/A"}</span>
+                              </div>
+                           </div>
+                        </div>
+
+                        <div className="mt-6 pt-4 border-t border-[#1a1510]/5 flex items-center justify-between gap-3">
+                           <button
+                              type="button"
+                              disabled={isLaunching || isDeleting !== null}
+                              onClick={() => handleLaunchCampaign(template.id)}
+                              className="h-9 px-4 rounded-lg bg-[#1a1510] hover:bg-[#2a2118] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                           >
+                              <Rocket size={13} />
+                              {isLaunching ? "Launching..." : "Launch run"}
+                           </button>
+                           <button
+                              type="button"
+                              disabled={isDeleting !== null || isLaunching}
+                              onClick={() => handleDeleteTemplate(template.id)}
+                              className="h-9 px-3 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                           >
+                              <X size={13} />
+                              {isDeleting === template.id ? "Deleting..." : "Delete"}
+                           </button>
+                        </div>
+                     </div>
+                  ))}
+               </div>
+            )}
+         </section>
       </div>
    );
 
@@ -806,12 +999,17 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
    const renderStandardView = () => (
       <div className="flex-1 flex flex-col min-h-0 bg-[#f7f8f9]">
          <div className="h-14 shrink-0 border-b border-[#1a1510]/10 bg-white px-4 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-               <button type="button" onClick={closeBuilder} className="text-sm flex items-center gap-2 hover:text-brand-gold">
+            <div className="flex items-center gap-4 flex-1 min-w-0">
+               <button type="button" onClick={closeBuilder} className="text-sm flex items-center gap-2 hover:text-brand-gold shrink-0">
                   <ArrowLeft size={15} /> Close
                </button>
-               <span className="font-semibold text-[#1a1510]">Untitled workflow</span>
-               <span className="px-2 py-1 rounded-full bg-[#f7f8f9] text-xs font-semibold text-[#1a1510]/60 flex items-center gap-1">
+               <input
+                  value={workflowName}
+                  onChange={(e) => setWorkflowName(e.target.value)}
+                  className="h-8 px-2 max-w-[200px] sm:max-w-[300px] text-sm font-semibold text-[#1a1510] bg-transparent border-b border-[#1a1510]/10 focus:outline-none focus:border-brand-gold"
+                  placeholder="Workflow name"
+               />
+               <span className="px-2 py-1 rounded-full bg-[#f7f8f9] text-xs font-semibold text-[#1a1510]/60 flex items-center gap-1 shrink-0">
                   <Wand2 size={12} /> Standard
                </span>
             </div>
@@ -895,24 +1093,21 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                      <div className="flex items-center gap-2.5">
                         <button
                            type="button"
-                           onClick={() => setLaunchToast("Draft saved (mock)")}
-                           className="btn-shine btn-shine-dark h-11 px-5 rounded-none border border-[#1a1510]/10 text-sm font-semibold hover:bg-[#1a1510]/[0.02] transition-colors"
+                           disabled={isSaving || isLaunching}
+                           onClick={() => handleSaveWorkflow("draft", "standard")}
+                           className="btn-shine btn-shine-dark h-11 px-5 rounded-none border border-[#1a1510]/10 text-sm font-semibold hover:bg-[#1a1510]/[0.02] transition-colors disabled:opacity-50"
                         >
-                           Save draft
+                           {isSaving ? "Saving..." : "Save draft"}
                         </button>
                         <button
                            type="button"
-                           onClick={() => setLaunchToast("Test run started (mock) — no records enrolled")}
-                           className="btn-shine btn-shine-dark h-11 px-5 rounded-none border border-[#1a1510]/10 text-sm font-semibold flex items-center gap-2 hover:bg-[#1a1510]/[0.02] transition-colors"
+                           disabled={isSaving || isLaunching}
+                           onClick={() => handleSaveWorkflow("active", "standard")}
+                           className="btn-shine h-11 px-6 rounded-none bg-[#1a1510] text-white text-sm font-semibold hover:bg-[#2a2118] transition-colors flex items-center gap-2 disabled:opacity-50"
                         >
-                           <Play size={14} /> Test
-                        </button>
-                        <button
-                           type="button"
-                           onClick={() => setLaunchToast("Workflow launched (mock)")}
-                           className="btn-shine h-11 px-6 rounded-none bg-[#1a1510] text-white text-sm font-semibold hover:bg-[#2a2118] transition-colors flex items-center gap-2"
-                        >
-                           <Rocket size={14} /> Launch workflow
+                           {isLaunching ? "Launching..." : isSaving ? "Saving..." : <>
+                              <Rocket size={14} /> Launch workflow
+                           </>}
                         </button>
                      </div>
                   )}
@@ -942,21 +1137,35 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                   <ArrowLeft size={16} /> Close
                </button>
                <div className="h-5 w-px bg-[#1a1510]/10 shrink-0 hidden sm:block" />
-               <input className="h-9 w-40 lg:w-52 rounded-lg bg-[#f7f8f9] border border-[#1a1510]/[0.07] px-3 text-[13px] font-medium focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all" defaultValue="Untitled workflow" />
+               <input
+                  value={workflowName}
+                  onChange={(e) => setWorkflowName(e.target.value)}
+                  className="h-9 w-40 lg:w-52 rounded-lg bg-[#f7f8f9] border border-[#1a1510]/[0.07] px-3 text-[13px] font-medium focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all"
+                  placeholder="Workflow name"
+               />
                <span className="hidden md:inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-[#f7f8f9] text-[11px] font-semibold text-[#1a1510]/55 shrink-0">
                   <Sparkles size={12} className="text-brand-gold" /> Advanced
                </span>
                <button type="button" className="hidden lg:inline-flex h-9 px-3 rounded-lg border border-[#1a1510]/[0.09] text-[12px] font-medium text-[#1a1510]/60 hover:text-[#1a1510] transition-colors shrink-0">Account-wide</button>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-               <button type="button" className="btn-shine btn-shine-dark hidden sm:inline-flex h-9 px-4 rounded-none border border-[#1a1510]/10 text-[13px] font-semibold hover:bg-[#1a1510]/[0.02] transition-colors">Simulate</button>
-               <button type="button" onClick={() => setLaunchToast("Draft saved (mock)")} className="btn-shine btn-shine-dark h-9 px-4 rounded-none border border-[#1a1510]/10 text-[13px] font-semibold hover:bg-[#1a1510]/[0.02] transition-colors">Save Draft</button>
                <button
                   type="button"
-                  onClick={() => setLaunchToast("Test & Launch started (mock)")}
-                  className="btn-shine h-9 px-4 rounded-none bg-[#1a1510] text-white text-[13px] font-semibold hover:bg-[#2a2118] transition-colors flex items-center gap-2"
+                  disabled={isSaving || isLaunching}
+                  onClick={() => handleSaveWorkflow("draft", "advanced")}
+                  className="btn-shine btn-shine-dark h-9 px-4 rounded-none border border-[#1a1510]/10 text-[13px] font-semibold hover:bg-[#1a1510]/[0.02] transition-colors disabled:opacity-50"
                >
-                  <Rocket size={14} /> Test &amp; Launch
+                  {isSaving ? "Saving..." : "Save Draft"}
+               </button>
+               <button
+                  type="button"
+                  disabled={isSaving || isLaunching}
+                  onClick={() => handleSaveWorkflow("active", "advanced")}
+                  className="btn-shine h-9 px-4 rounded-none bg-[#1a1510] text-white text-[13px] font-semibold hover:bg-[#2a2118] transition-colors flex items-center gap-2 disabled:opacity-50"
+               >
+                  {isLaunching ? "Launching..." : isSaving ? "Saving..." : <>
+                     <Rocket size={14} /> Test &amp; Launch
+                  </>}
                </button>
             </div>
          </header>
@@ -1076,8 +1285,9 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                <div className="flex items-center gap-2.5">
                   <button
                      type="button"
+                     disabled={!selectedClient}
                      onClick={openStandardBuilder}
-                     className="btn-shine h-10 px-4 sm:px-5 rounded-none bg-[#1a1510] text-white text-xs font-semibold flex items-center gap-2 hover:bg-[#2a2118] transition-colors"
+                     className="btn-shine h-10 px-4 sm:px-5 rounded-none bg-[#1a1510] text-white text-xs font-semibold flex items-center gap-2 hover:bg-[#2a2118] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                      <Plus size={15} /> <span className="hidden sm:inline">New workflow</span><span className="sm:hidden">New</span>
                   </button>
