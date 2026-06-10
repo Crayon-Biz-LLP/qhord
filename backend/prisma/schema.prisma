@@ -103,6 +103,7 @@ model Client {
   credit             ClientCredit?
   deals              Deal[]
   inbox_messages     InboxMessage[]
+  inbox_conversations InboxConversation[]
 
   @@map("clients")
 }
@@ -389,5 +390,50 @@ model InboxMessage {
   created_at  DateTime @default(now()) @db.Timestamptz(6)
 
   @@map("inbox_messages")
+}
+
+// --- Unified Inbox (multi-tool conversations + sending) ---
+model InboxConversation {
+  id                       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  client_id                String   @db.Uuid
+  client                   Client   @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  tool_id                  String // provider id e.g. "smartlead" | "instantly" | "heyreach" | "hubspot"
+  source_platform          String // human label of the source platform
+  external_conversation_id String
+  contact_name             String?
+  contact_email            String?
+  company_name             String?
+  campaign_name            String?
+  status                   String   @default("New Reply") // New Reply | Needs Response | Replied | AI Draft Ready | Closed | Failed
+  last_message             String?
+  last_message_at          DateTime?
+  unread_count             Int      @default(0)
+  created_at               DateTime @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  messages InboxConversationMessage[]
+
+  @@unique([client_id, tool_id, external_conversation_id])
+  @@index([client_id])
+  @@map("inbox_conversations")
+}
+
+model InboxConversationMessage {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversation_id     String   @db.Uuid
+  conversation        InboxConversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  client_id           String   @db.Uuid
+  tool_id             String
+  external_message_id String?
+  direction           String // "incoming" | "outgoing"
+  sender              String?
+  recipient           String?
+  body                String
+  status              String   @default("sent") // Draft | Sending | Sent | Delivered | Read | Failed
+  sent_at             DateTime @default(now()) @db.Timestamptz(6)
+  created_at          DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([conversation_id])
+  @@map("inbox_conversation_messages")
 }
 

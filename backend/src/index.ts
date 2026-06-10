@@ -23,6 +23,8 @@ import analyticsRoutes from './routes/analytics';
 import playbooksRoutes from './routes/playbooks';
 import dealsRoutes from './routes/deals';
 import inboxRoutes from './routes/inbox';
+import unifiedInboxRoutes from './routes/unified-inbox';
+import inboxWebhookRoutes from './routes/inbox-webhooks';
 import { prisma } from './lib/prisma';
 import { campaignWorker } from './workers/campaign-worker';
 
@@ -43,6 +45,7 @@ app.get('/api/health', async (_req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/clients', clientRoutes);
+app.use('/api/clients', unifiedInboxRoutes);
 app.use('/api/tools', toolRoutes);
 app.use('/api/executions', executionRoutes);
 app.use('/api/plans', planRoutes);
@@ -63,6 +66,20 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/playbooks', playbooksRoutes);
 app.use('/api/deals', dealsRoutes);
 app.use('/api/inbox', inboxRoutes);
+app.use('/api/webhooks/inbox', inboxWebhookRoutes);
+
+// Optional: background inbox sync (BullMQ + Redis). Off by default so the app
+// runs without Redis; enable with INBOX_BACKGROUND_SYNC=true.
+if (process.env.INBOX_BACKGROUND_SYNC === 'true') {
+  void import('./workers/inbox-sync.worker').then(({ inboxSyncWorker }) => {
+    void inboxSyncWorker;
+  });
+  void import('./queue/inbox-queue').then(({ scheduleInboxSync }) =>
+    scheduleInboxSync().catch((err) =>
+      console.error('Failed to schedule inbox background sync:', err),
+    ),
+  );
+}
 
 const port = parseInt(process.env.PORT || '4000', 10);
 

@@ -68,107 +68,107 @@ export const ConnectModal = ({ isOpen, onClose, tool, clientId, onSuccess }: Con
 
             {/* Modal */}
             <motion.div
-               initial={{ scale: 0.9, opacity: 0, y: 20 }}
+               initial={{ scale: 0.95, opacity: 0, y: 16 }}
                animate={{ scale: 1, opacity: 1, y: 0 }}
-               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-               className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl border border-white overflow-hidden p-8 sm:p-12"
+               exit={{ scale: 0.95, opacity: 0, y: 16 }}
+               className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-[#1a1510]/[0.06] overflow-hidden p-6 sm:p-7"
             >
-               <button
-                  onClick={onClose}
-                  className="absolute top-8 right-8 text-[#1a1510]/20 hover:text-[#1a1510] transition-colors"
-               >
-                  <X size={24} />
-               </button>
-
-               <div className="space-y-10">
-                  <div className="space-y-4">
-                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-brand-gold/10 text-brand-gold rounded-xl">
-                           <Shield size={20} />
-                        </div>
-                        <h2 className="text-2xl font-black tracking-tight text-[#1a1510] uppercase">Connect {tool?.name}</h2>
+               <div className="flex items-start justify-between gap-3 mb-5">
+                  <div className="flex items-center gap-3">
+                     <div className="w-9 h-9 bg-[#1a1510] text-brand-gold rounded-lg flex items-center justify-center shrink-0">
+                        <Shield size={17} />
                      </div>
-                     <p className="text-[11px] font-bold text-[#1a1510]/30 uppercase tracking-widest leading-relaxed">
-                        Establish a secure neural link between the Control Tower and your {tool?.name} instance. 
-                        Your API data is encrypted in transit and at rest.
-                     </p>
+                     <div>
+                        <h2 className="text-lg font-bold tracking-tight text-[#1a1510]">Connect {tool?.name}</h2>
+                        <p className="text-[12px] text-[#1a1510]/45 mt-0.5">Encrypted in transit &amp; at rest</p>
+                     </div>
                   </div>
+                  <button
+                     onClick={onClose}
+                     className="w-8 h-8 flex items-center justify-center rounded-lg text-[#1a1510]/40 hover:text-[#1a1510] hover:bg-[#f7f8f9] transition-colors shrink-0"
+                  >
+                     <X size={18} />
+                  </button>
+               </div>
 
-                  {status === "success" ? (
-                     <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="py-12 flex flex-col items-center gap-6"
-                     >
-                        <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/10">
-                           <CheckCircle2 size={40} strokeWidth={1.5} />
+               {status === "success" ? (
+                  <motion.div
+                     initial={{ opacity: 0, y: 8 }}
+                     animate={{ opacity: 1, y: 0 }}
+                     className="py-8 flex flex-col items-center gap-4 text-center"
+                  >
+                     <div className="w-14 h-14 bg-emerald-50 text-emerald-500 rounded-2xl flex items-center justify-center">
+                        <CheckCircle2 size={30} strokeWidth={2} />
+                     </div>
+                     <div>
+                        <p className="text-[15px] font-semibold text-[#1a1510]">{tool?.name} connected</p>
+                        <p className="text-[13px] text-[#1a1510]/40 mt-1">Syncing your account…</p>
+                     </div>
+                  </motion.div>
+               ) : (
+                  <form onSubmit={handleConnect} className="space-y-4">
+                     <div className="space-y-1.5">
+                        <label className="text-[12px] font-semibold text-[#1a1510]/60">Account label</label>
+                        <input
+                           required
+                           type="text"
+                           value={accountLabel}
+                           onChange={(e) => setAccountLabel(e.target.value)}
+                           placeholder="e.g. Master Sales Account"
+                           className="w-full h-11 px-4 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] focus:bg-white focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 focus:outline-none transition-all placeholder:text-[#1a1510]/30"
+                        />
+                     </div>
+
+                     <div className="space-y-1.5">
+                        <label className="text-[12px] font-semibold text-[#1a1510]/60">API key</label>
+                        <div className="relative">
+                           <Key size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#1a1510]/30 peer-focus:text-brand-gold" />
+                           <input
+                              required
+                              type="password"
+                              value={apiKey}
+                              onChange={(e) => setApiKey(e.target.value)}
+                              placeholder="Enter your API key…"
+                              className="peer w-full h-11 pl-10 pr-4 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] focus:bg-white focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 focus:outline-none transition-all placeholder:text-[#1a1510]/30"
+                           />
                         </div>
-                        <div className="text-center">
-                           <p className="text-lg font-black text-[#1a1510]">Protocol Established</p>
-                           <p className="text-[10px] font-bold text-[#1a1510]/30 uppercase tracking-widest mt-1">Data sync in progress...</p>
-                        </div>
-                     </motion.div>
-                  ) : (
-                     <form onSubmit={handleConnect} className="space-y-6">
-                        <div className="space-y-4">
-                           <div className="space-y-2">
-                              <label className="text-[10px] font-black uppercase text-[#1a1510]/30 tracking-widest px-1">Account Label</label>
-                              <div className="relative group">
-                                 <input
-                                    required
-                                    type="text"
-                                    value={accountLabel}
-                                    onChange={(e) => setAccountLabel(e.target.value)}
-                                    placeholder="e.g. Master Sales Account"
-                                    className="w-full h-14 pl-6 pr-6 rounded-2xl bg-[#f7f8f9] border border-transparent text-sm font-bold focus:bg-white focus:border-brand-gold/30 focus:outline-none transition-all placeholder:text-[#1a1510]/10"
-                                 />
-                              </div>
-                           </div>
+                     </div>
 
-                           <div className="space-y-2">
-                              <label className="text-[10px] font-black uppercase text-[#1a1510]/30 tracking-widest px-1">API Key / Protocol Token</label>
-                              <div className="relative group">
-                                 <Key size={18} className="absolute left-6 top-1/2 -translate-y-1/2 text-[#1a1510]/10 group-focus-within:text-brand-gold transition-colors" />
-                                 <input
-                                    required
-                                    type="password"
-                                    value={apiKey}
-                                    onChange={(e) => setApiKey(e.target.value)}
-                                    placeholder="Enter secure token..."
-                                    className="w-full h-14 pl-14 pr-6 rounded-2xl bg-[#f7f8f9] border border-transparent text-sm font-bold focus:bg-white focus:border-brand-gold/30 focus:outline-none transition-all placeholder:text-[#1a1510]/10"
-                                 />
-                              </div>
-                           </div>
-                        </div>
+                     {status === "error" && (
+                        <motion.div
+                           initial={{ opacity: 0, y: -4 }}
+                           animate={{ opacity: 1, y: 0 }}
+                           className="bg-red-50 border border-red-100 px-3.5 py-3 rounded-xl flex items-start gap-2.5"
+                        >
+                           <AlertCircle size={15} className="text-red-500 shrink-0 mt-0.5" />
+                           <p className="text-[12px] font-medium text-red-600 leading-relaxed">{errorMessage}</p>
+                        </motion.div>
+                     )}
 
-                        {status === "error" && (
-                           <motion.div
-                              initial={{ opacity: 0, x: -10 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-start gap-3"
-                           >
-                              <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
-                              <p className="text-[11px] font-bold text-red-600 leading-normal">{errorMessage}</p>
-                           </motion.div>
-                        )}
-
+                     <div className="flex gap-2.5 pt-2">
+                        <button
+                           type="button"
+                           onClick={onClose}
+                           className="h-11 px-5 rounded-none border border-[#1a1510]/10 text-xs font-semibold text-[#1a1510] hover:bg-[#f7f8f9] transition-colors"
+                        >
+                           Cancel
+                        </button>
                         <button
                            type="submit"
                            disabled={loading}
-                           className="w-full h-14 bg-[#1a1510] text-brand-gold rounded-2xl font-black text-xs uppercase tracking-[0.3em] shadow-xl hover:translate-y-[-1px] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                           className="btn-shine flex-1 h-11 rounded-none bg-[#1a1510] text-white text-xs font-semibold hover:bg-[#2a2118] transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                         >
                            {loading ? (
                               <>
-                                 <Loader2 size={18} className="animate-spin" />
-                                 <span>Establishing...</span>
+                                 <Loader2 size={15} className="animate-spin" /> Connecting…
                               </>
                            ) : (
-                              <span>Authorize Connection</span>
+                              "Connect"
                            )}
                         </button>
-                     </form>
-                  )}
-               </div>
+                     </div>
+                  </form>
+               )}
             </motion.div>
          </div>
       </AnimatePresence>

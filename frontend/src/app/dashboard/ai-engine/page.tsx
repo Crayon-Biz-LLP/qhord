@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { 
   Cpu, Activity, Zap, Clock, CheckCircle, AlertTriangle, 
   TrendingUp, BarChart3, Settings, RefreshCw, Play, Pause,
-  Database, Globe, Target, Layers, Sparkles, Bot
+  Database, Globe, Target, Layers, Sparkles, Bot, BrainCircuit, LayoutDashboard
 } from "lucide-react";
 import { useAuth } from "../../../hooks/useAuth";
 import { api } from "../../../lib/api";
@@ -40,199 +40,155 @@ export default function AIEnginePage() {
     fetchMetrics();
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader size={36} />
-      </div>
-    );
-  }
+  const statusStyle = (status?: string) =>
+    status === "Optimal" ? "bg-emerald-50 text-emerald-600"
+      : status === "Good" ? "bg-amber-50 text-amber-600"
+      : "bg-[#1a1510]/5 text-[#1a1510]/45";
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#f7f8f9] text-[#1a1510] font-sans selection:bg-brand-gold/30">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-[#1a1510]">AI Engine</h1>
-          <p className="text-gray-600 mt-2">LangGraph AI processing performance and metrics</p>
+      <nav className="h-16 border-b border-[#1a1510]/[0.07] bg-white flex items-center justify-between px-4 sm:px-8 shrink-0 z-50 relative">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-[#1a1510] text-brand-gold rounded-lg flex items-center justify-center shrink-0">
+            <BrainCircuit size={17} />
+          </div>
+          <div className="hidden sm:block">
+            <h2 className="text-[13px] font-bold tracking-tight text-[#1a1510] uppercase">AI Engine</h2>
+            <p className="text-[11px] font-medium text-[#1a1510]/40">LangGraph processing performance</p>
+          </div>
         </div>
         <button
           onClick={handleRefresh}
           disabled={refreshing}
-          className="flex items-center gap-2 px-4 py-2 bg-brand-gold text-[#1a1510] rounded-lg hover:bg-brand-gold/90 disabled:opacity-50"
+          className="btn-shine btn-shine-dark h-10 px-4 sm:px-5 rounded-none border border-[#1a1510]/10 text-xs font-semibold text-[#1a1510] flex items-center gap-2 hover:bg-[#1a1510]/[0.02] transition-colors disabled:opacity-50"
         >
-          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          Refresh
+          <RefreshCw size={15} className={refreshing ? "animate-spin" : ""} /> Refresh
         </button>
-      </div>
+      </nav>
 
-      {/* Status Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-6 rounded-xl border border-gray-200"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <Cpu className="w-8 h-8 text-brand-gold" />
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-              metrics?.status === 'Optimal' ? 'bg-green-100 text-green-800' :
-              metrics?.status === 'Good' ? 'bg-yellow-100 text-yellow-800' :
-              'bg-red-100 text-red-800'
-            }`}>
-              {metrics?.status || 'Unknown'}
-            </span>
-          </div>
-          <h3 className="text-2xl font-bold text-[#1a1510]">{metrics?.totalCampaigns || 0}</h3>
-          <p className="text-gray-600 text-sm mt-1">Total Campaigns</p>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-white p-6 rounded-xl border border-gray-200"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <Activity className="w-8 h-8 text-blue-500" />
-            <span className="text-xs text-gray-500">Last 30 days</span>
-          </div>
-          <h3 className="text-2xl font-bold text-[#1a1510]">{metrics?.totalExecutions || 0}</h3>
-          <p className="text-gray-600 text-sm mt-1">Total Executions</p>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white p-6 rounded-xl border border-gray-200"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <CheckCircle className="w-8 h-8 text-green-500" />
-            <span className="text-xs text-gray-500">Success rate</span>
-          </div>
-          <h3 className="text-2xl font-bold text-[#1a1510]">{metrics?.successRate || 0}%</h3>
-          <p className="text-gray-600 text-sm mt-1">Processing Success</p>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="bg-white p-6 rounded-xl border border-gray-200"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <Clock className="w-8 h-8 text-purple-500" />
-            <span className="text-xs text-gray-500">Average</span>
-          </div>
-          <h3 className="text-2xl font-bold text-[#1a1510]">{metrics?.avgProcessingTime || 0}s</h3>
-          <p className="text-gray-600 text-sm mt-1">Processing Time</p>
-        </motion.div>
-      </div>
-
-      {/* Node Performance */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-[#1a1510]">Node Performance</h2>
-          <Layers className="w-5 h-5 text-gray-400" />
-        </div>
-        
-        <div className="space-y-4">
-          {metrics?.nodePerformance?.map((node: any, index: number) => (
-            <motion.div
-              key={node.node}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-brand-gold rounded-lg flex items-center justify-center">
-                  <Bot className="w-5 h-5 text-[#1a1510]" />
+      {loading ? (
+        <div className="flex-1 flex items-center justify-center"><Loader size={36} /></div>
+      ) : (
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto scrollbar-hide pb-32">
+          {/* Status Overview */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { label: "Total Campaigns", value: metrics?.totalCampaigns || 0, icon: Cpu, badge: metrics?.status || "Unknown", badgeStyle: statusStyle(metrics?.status) },
+              { label: "Total Executions", value: metrics?.totalExecutions || 0, icon: Activity, sub: "Last 30 days" },
+              { label: "Processing Success", value: `${metrics?.successRate || 0}%`, icon: CheckCircle, sub: "Success rate" },
+              { label: "Processing Time", value: `${metrics?.avgProcessingTime || 0}s`, icon: Clock, sub: "Average" },
+            ].map((stat, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.06 }}
+                className="group bg-white border border-[#1a1510]/[0.07] rounded-2xl p-5 shadow-[0_1px_2px_rgba(26,21,16,0.04)] hover:shadow-[0_8px_24px_rgba(26,21,16,0.07)] hover:-translate-y-0.5 transition-all duration-200"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <stat.icon size={18} strokeWidth={1.75} className="text-[#1a1510]/25 group-hover:text-[#1a1510]/50 transition-colors" />
+                  {stat.badge ? (
+                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-md ${stat.badgeStyle}`}>{stat.badge}</span>
+                  ) : (
+                    <span className="text-[11px] font-medium text-[#1a1510]/35">{stat.sub}</span>
+                  )}
                 </div>
-                <div>
-                  <h3 className="font-semibold text-[#1a1510]">{node.node} Node</h3>
-                  <p className="text-sm text-gray-600">
-                    {node.totalExecutions} executions • {node.avgTime}s avg time
-                  </p>
-                </div>
+                <h3 className="text-[2.25rem] font-bold text-[#1a1510] tracking-tight tabular-nums leading-none">{stat.value}</h3>
+                <p className="text-[11px] font-medium text-[#1a1510]/45 uppercase tracking-wider mt-2.5">{stat.label}</p>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Node Performance */}
+          <div className="bg-white border border-[#1a1510]/[0.07] rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-[15px] font-semibold text-[#1a1510] tracking-tight">Node Performance</h2>
+              <Layers size={17} className="text-[#1a1510]/35" />
+            </div>
+
+            {metrics?.nodePerformance?.length ? (
+              <div className="space-y-2.5">
+                {metrics.nodePerformance.map((node: any, index: number) => (
+                  <motion.div
+                    key={node.node}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="flex items-center justify-between gap-4 p-3.5 bg-[#fafafa] border border-[#1a1510]/[0.05] rounded-xl"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-lg bg-[#1a1510] text-brand-gold flex items-center justify-center shrink-0">
+                        <Bot size={17} />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-[13px] font-semibold text-[#1a1510]">{node.node} Node</h3>
+                        <p className="text-[12px] text-[#1a1510]/45">{node.totalExecutions} executions · {node.avgTime}s avg</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-[13px] font-semibold text-[#1a1510] tabular-nums">{node.successRate}%</span>
+                      <div className="w-20 h-1.5 bg-[#1a1510]/[0.07] rounded-full overflow-hidden">
+                        <div className="h-full bg-brand-gold rounded-full" style={{ width: `${node.successRate}%` }} />
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
               </div>
-              
-              <div className="flex items-center gap-6">
-                <div className="text-right">
-                  <p className="text-sm text-gray-600">Success Rate</p>
-                  <p className="font-semibold text-[#1a1510]">{node.successRate}%</p>
-                </div>
-                <div className="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-brand-gold rounded-full"
-                    style={{ width: `${node.successRate}%` }}
-                  />
-                </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center text-center py-12">
+                <div className="w-12 h-12 rounded-xl bg-[#f7f8f9] text-[#1a1510]/25 flex items-center justify-center mb-3"><Layers size={22} /></div>
+                <p className="text-[13px] font-semibold text-[#1a1510]/60">No node activity yet</p>
+                <p className="text-[12px] text-[#1a1510]/35 mt-0.5">Run a campaign to see node performance.</p>
               </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
+            )}
+          </div>
 
-      {/* System Health */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-[#1a1510]">System Health</h2>
-            <Activity className="w-5 h-5 text-gray-400" />
-          </div>
-          
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">Uptime</span>
-              <span className="font-semibold text-[#1a1510]">{metrics?.uptime || 0}%</span>
+          {/* System Health + Recent Activity */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white border border-[#1a1510]/[0.07] rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-[15px] font-semibold text-[#1a1510] tracking-tight">System Health</h2>
+                <Activity size={17} className="text-[#1a1510]/35" />
+              </div>
+              <div className="divide-y divide-[#1a1510]/[0.06]">
+                {[
+                  { label: "Uptime", value: `${metrics?.uptime || 0}%`, tone: "text-[#1a1510]" },
+                  { label: "Memory Usage", value: "Normal", tone: "text-emerald-600" },
+                  { label: "API Response", value: "Fast", tone: "text-emerald-600" },
+                  { label: "Database", value: "Connected", tone: "text-emerald-600" },
+                ].map((row) => (
+                  <div key={row.label} className="flex items-center justify-between py-3">
+                    <span className="text-[13px] text-[#1a1510]/50">{row.label}</span>
+                    <span className={`text-[13px] font-semibold ${row.tone}`}>{row.value}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">Memory Usage</span>
-              <span className="font-semibold text-green-600">Normal</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">API Response</span>
-              <span className="font-semibold text-green-600">Fast</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">Database</span>
-              <span className="font-semibold text-green-600">Connected</span>
-            </div>
-          </div>
-        </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-[#1a1510]">Recent Activity</h2>
-            <Clock className="w-5 h-5 text-gray-400" />
-          </div>
-          
-          <div className="space-y-3">
-            <div className="flex items-center gap-3 text-sm">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span className="text-gray-600">Parser node completed campaign processing</span>
-              <span className="text-gray-400">2m ago</span>
-            </div>
-            <div className="flex items-center gap-3 text-sm">
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-              <span className="text-gray-600">Architect node generated campaign plan</span>
-              <span className="text-gray-400">5m ago</span>
-            </div>
-            <div className="flex items-center gap-3 text-sm">
-              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-              <span className="text-gray-600">Validator node approved campaign manifest</span>
-              <span className="text-gray-400">8m ago</span>
-            </div>
-            <div className="flex items-center gap-3 text-sm">
-              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-              <span className="text-gray-600">Executor node started campaign execution</span>
-              <span className="text-gray-400">12m ago</span>
+            <div className="bg-white border border-[#1a1510]/[0.07] rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-[15px] font-semibold text-[#1a1510] tracking-tight">Recent Activity</h2>
+                <Clock size={17} className="text-[#1a1510]/35" />
+              </div>
+              <div className="space-y-3">
+                {[
+                  { dot: "bg-emerald-500", text: "Parser node completed campaign processing", time: "2m ago" },
+                  { dot: "bg-blue-500", text: "Architect node generated campaign plan", time: "5m ago" },
+                  { dot: "bg-violet-500", text: "Validator node approved campaign manifest", time: "8m ago" },
+                  { dot: "bg-amber-500", text: "Executor node started campaign execution", time: "12m ago" },
+                ].map((a, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className={`w-1.5 h-1.5 rounded-full ${a.dot} shrink-0`} />
+                    <span className="text-[13px] text-[#1a1510]/70 flex-1 truncate">{a.text}</span>
+                    <span className="text-[12px] text-[#1a1510]/35 shrink-0">{a.time}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        </main>
+      )}
     </div>
   );
 }
