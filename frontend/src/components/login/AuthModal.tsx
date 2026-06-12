@@ -87,7 +87,7 @@ export const AuthModal = ({ isOpen, onClose, initialState = "signin", onSuccess 
               </div>
 
               {/* DYNAMIC HIGH-FIDELITY BOT PERSONAS - Responsive Scaling */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+              <div className="hidden">
                 <AnimatePresence mode="wait">
                   {/* LOGIN BOT (SLOW-MOTION MAJESTIC HIGH JUMP) */}
                   {isLogin ? (

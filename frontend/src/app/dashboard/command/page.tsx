@@ -18,6 +18,7 @@ export default function CommandPage() {
   const [operatorMode, setOperatorMode] = useState<"Manual" | "Assisted" | "Autopilot">("Assisted");
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [actionMenuOpen, setActionMenuOpen] = useState(false);
 
   // Fetch real data from backend
   React.useEffect(() => {
@@ -91,9 +92,51 @@ export default function CommandPage() {
             >
                 <LayoutDashboard size={15} /> <span className="hidden sm:inline">Back to Hub</span>
             </button>
-            <button className="btn-shine h-10 px-4 sm:px-6 rounded-none bg-[#1a1510] text-white text-xs font-semibold flex items-center gap-2 hover:bg-[#2a2118] transition-colors shrink-0">
+            <div className="relative">
+              <button
+                onClick={() => setActionMenuOpen((o) => !o)}
+                className="btn-shine h-10 px-4 sm:px-6 rounded-none bg-[#1a1510] text-white text-xs font-semibold flex items-center gap-2 hover:bg-[#2a2118] transition-colors shrink-0"
+              >
                 <Plus size={15} /> <span className="hidden xs:inline">Quick Action</span><span className="xs:hidden">Action</span>
-            </button>
+              </button>
+
+              <AnimatePresence>
+                {actionMenuOpen && (
+                  <>
+                    {/* Click-away overlay */}
+                    <div
+                      className="fixed inset-0 z-[60]"
+                      onClick={() => setActionMenuOpen(false)}
+                    />
+                    <motion.div
+                      initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute right-0 mt-2 w-52 bg-white border border-[#1a1510]/10 rounded-xl shadow-[0_12px_32px_-8px_rgba(26,21,16,0.18)] overflow-hidden z-[70] py-1.5"
+                    >
+                      {[
+                        { icon: Sparkles, label: "Create Campaign", path: "/dashboard/campaigns/build" },
+                        { icon: Layers, label: "New Workflow", path: "/dashboard/workflows" },
+                        { icon: Database, label: "Connect Tool", path: "/dashboard/tools" },
+                      ].map((item) => (
+                        <button
+                          key={item.label}
+                          onClick={() => {
+                            setActionMenuOpen(false);
+                            router.push(item.path);
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-[#1a1510]/70 hover:bg-[#f7f8f9] hover:text-[#1a1510] transition-colors text-left"
+                        >
+                          <item.icon size={15} className="text-[#1a1510]/40" />
+                          {item.label}
+                        </button>
+                      ))}
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
         </div>
       </header>
 
