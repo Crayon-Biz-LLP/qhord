@@ -33,5 +33,45 @@ class BetterContactsService {
         });
         return res.data;
     }
+    // --- Standardized integrations interface ---
+    async validateConnection() {
+        try {
+            if (!this.apiKey || this.apiKey.trim().length === 0) {
+                return { success: false, error: 'API Key missing' };
+            }
+            return { success: true };
+        }
+        catch (err) {
+            return { success: false, error: err.message };
+        }
+    }
+    async registerWebhook(url, event) {
+        return { success: false, error: 'Webhooks not supported on BetterContacts' };
+    }
+    async fetchCampaigns() {
+        return [];
+    }
+    async enrollLead(payload) {
+        throw new Error('Lead enrollment not supported on BetterContacts');
+    }
+    async enrichLead(payload) {
+        return this.enrichContacts(payload);
+    }
+    async checkReply(payload) {
+        return { replied: false };
+    }
+    async sendLinkedInAction(payload) {
+        throw new Error('LinkedIn actions not supported on BetterContacts');
+    }
+    async getSenderHealth() {
+        return [];
+    }
+    async handleWebhookEvent(event) {
+        return {
+            event: 'contact_enriched',
+            email: event.email,
+            raw: event
+        };
+    }
 }
 exports.BetterContactsService = BetterContactsService;

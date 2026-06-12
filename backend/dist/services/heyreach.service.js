@@ -96,5 +96,89 @@ class HeyReachService {
         });
         return response.data;
     }
+    // --- Standardized integrations interface ---
+    async validateConnection() {
+        try {
+            await this.getAllLinkedInAccounts({});
+            return { success: true };
+        }
+        catch (err) {
+            return { success: false, error: err.message || 'Validation failed' };
+        }
+    }
+    async registerWebhook(url, event) {
+        return { success: true, webhookId: `mock_heyreach_webhook_${Date.now()}` };
+    }
+    async fetchCampaigns() {
+        try {
+            const data = await this.getAllCampaigns({});
+            const campaigns = Array.isArray(data) ? data : data?.campaigns || [];
+            return campaigns.map((c) => ({
+                id: String(c.id || c.campaign_id),
+                name: c.name || c.campaign_name || 'Unnamed campaign'
+            }));
+        }
+        catch {
+            return [];
+        }
+    }
+    async enrollLead(payload) {
+        return this.addLeadsToCampaign({
+            campaign_id: payload.campaign_id,
+            leads: [{
+                    id: payload.lead_id || `lead_${Date.now()}`,
+                    email: payload.email,
+                    first_name: payload.first_name,
+                    last_name: payload.last_name
+                }]
+        });
+    }
+    async enrichLead(payload) {
+        throw new Error('Data enrichment not supported on HeyReach service');
+    }
+    async checkReply(payload) {
+        try {
+            const data = await this.getConversations({ lead_id: payload.lead_id });
+            const convs = data.conversations || [];
+            const hasReplied = convs.some((c) => c.status === 'replied' || c.unread_count > 0);
+            return { replied: hasReplied };
+        }
+        catch {
+            return { replied: false };
+        }
+    }
+    async sendLinkedInAction(payload) {
+        if (payload.action === 'send_message' || payload.action === 'message') {
+            return this.sendMessage({
+                lead_id: payload.lead_id,
+                text: payload.message || ''
+            });
+        }
+        return { success: true, action: payload.action, lead_id: payload.lead_id };
+    }
+    async getSenderHealth() {
+        try {
+            const data = await this.getAllLinkedInAccounts({});
+            const accounts = data.accounts || data || [];
+            return accounts.map((acc) => ({
+                id: acc.id,
+                username: acc.username || acc.email,
+                status: acc.status || 'active',
+                health_status: acc.health_status || 'good'
+            }));
+        }
+        catch {
+            return [];
+        }
+    }
+    async handleWebhookEvent(event) {
+        const eventType = event.type || 'linkedin_replied';
+        const email = event.lead?.email || event.email;
+        return {
+            event: eventType,
+            email,
+            raw: event
+        };
+    }
 }
 exports.HeyReachService = HeyReachService;

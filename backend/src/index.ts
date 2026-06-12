@@ -27,6 +27,7 @@ import unifiedInboxRoutes from './routes/unified-inbox';
 import inboxWebhookRoutes from './routes/inbox-webhooks';
 import { prisma } from './lib/prisma';
 import { campaignWorker } from './workers/campaign-worker';
+import { workflowWorker } from './workers/workflow-worker';
 
 const app = express();
 

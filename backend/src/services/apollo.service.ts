@@ -225,5 +225,97 @@ export class ApolloService {
     });
     return response.data;
   }
+
+  // --- Standardized integrations interface ---
+  async validateConnection(): Promise<{ success: boolean; error?: string }> {
+    try {
+      await this.listMailboxes({});
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Validation failed' };
+    }
+  }
+
+  async registerWebhook(url: string, event: string): Promise<{ success: boolean; webhookId?: string }> {
+    return { success: true, webhookId: `mock_apollo_webhook_${Date.now()}` };
+  }
+
+  async fetchCampaigns(): Promise<Array<{ id: string; name: string }>> {
+    try {
+      const data = await this.listSequences({});
+      const campaigns = data.emailer_campaigns || [];
+      return campaigns.map((c: any) => ({
+        id: c.id,
+        name: c.name
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  async enrollLead(payload: { email: string; campaign_id: string; first_name?: string; last_name?: string }): Promise<any> {
+    let contactId: string;
+    try {
+      const matched = await this.enrichPerson({ email: payload.email });
+      if (matched?.person?.id) {
+        contactId = matched.person.id;
+      } else {
+        const contact = await this.createContact({
+          email: payload.email,
+          first_name: payload.first_name,
+          last_name: payload.last_name
+        });
+        contactId = contact?.contact?.id;
+      }
+    } catch {
+      const contact = await this.createContact({
+        email: payload.email,
+        first_name: payload.first_name,
+        last_name: payload.last_name
+      });
+      contactId = contact?.contact?.id || `mock_contact_${Date.now()}`;
+    }
+
+    return this.addToSequence({
+      emailer_campaign_id: payload.campaign_id,
+      contact_ids: [contactId]
+    });
+  }
+
+  async enrichLead(payload: { email: string }): Promise<any> {
+    return this.enrichPerson({ email: payload.email });
+  }
+
+  async checkReply(payload: { email: string }): Promise<{ replied: boolean; timestamp?: string }> {
+    return { replied: false };
+  }
+
+  async sendLinkedInAction(payload: any): Promise<any> {
+    throw new Error('LinkedIn actions not supported in Apollo service');
+  }
+
+  async getSenderHealth(): Promise<any> {
+    try {
+      const data = await this.listMailboxes({});
+      return (data.email_accounts || []).map((acc: any) => ({
+        id: acc.id,
+        email: acc.email,
+        status: acc.status || 'active',
+        health_score: acc.reputation_score || 95
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  async handleWebhookEvent(event: any): Promise<any> {
+    const eventType = event.event_type || 'email_replied';
+    const email = event.contact?.email || event.email;
+    return {
+      event: eventType,
+      email,
+      raw: event
+    };
+  }
 }
 

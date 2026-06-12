@@ -9,6 +9,8 @@ import { ExecutionQueue } from '../services/execution.queue';
 import { ensureToolAccountsForPipeline } from '../ai/pipeline/ensure-tool-accounts';
 import { campaignWorker } from '../workers/campaign-worker';
 import { useFreeDemoStack } from '../config/demo-stack';
+import { workflowEngine } from '../services/workflow.engine';
+import { workflowQueue } from '../queue/workflow-queue';
 
 const router = Router();
 const executionQueue = new ExecutionQueue();
@@ -38,60 +40,20 @@ async function getClientCredit(clientId: string) {
   return credit;
 }
 
-async function consumeCreditsForStep(
-  clientId: string,
-  tool: string,
-  action: string,
-  campaignId: string,
-  executionId?: string,
-) {
-  const cost = CREDIT_COST[tool] || 1;
-  const credit = await getClientCredit(clientId);
-  if (credit.balance < cost) return;
-  await prisma.clientCredit.update({
-    where: { id: credit.id },
-    data: { balance: { decrement: cost }, total_used: { increment: cost } },
-  });
-  await prisma.creditTransaction.create({
-    data: {
-      credit_id: credit.id,
-      amount: cost,
-      type: 'debit',
-      description: `${tool}:${action}`,
-      tool_name: tool,
-      action,
-      campaign_id: campaignId,
-      execution_id: executionId,
-    },
-  });
-}
-
 router.use(requireAuth);
 
-interface CreateWorkflowRequest {
-  prompt: string;
-  name?: string;
-}
-
+// ── GET /api/workflows ───────────────────────────────────────────
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const operatorId = req.user!.id;
     const clientId = req.query.clientId as string | undefined;
 
     if (!clientId) {
       return res.status(400).json({ success: false, error: 'clientId query parameter is required' });
     }
 
-    const workflows = await prisma.campaign.findMany({
+    const workflows = await prisma.workflow.findMany({
       where: {
-        client_id: clientId,
-        created_by_operator_id: operatorId,
-        status: 'workflow_template'
-      },
-      include: {
-        steps: {
-          orderBy: { step_order: 'asc' }
-        }
+        client_id: clientId
       },
       orderBy: { created_at: 'desc' },
       take: 100
@@ -99,23 +61,22 @@ router.get('/', async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      workflows: workflows.map((workflow) => ({
-        id: workflow.id,
-        name: workflow.name,
-        description: workflow.description,
-        status: 'draft',
-        createdAt: workflow.created_at,
-        updatedAt: workflow.updated_at,
-        estimatedCost: workflow.estimated_cost || 0,
-        estimatedDuration: workflow.estimated_duration || 0,
-        manifest: workflow.manifest,
-        steps: workflow.steps.map((step) => ({
-          id: step.id,
-          order: step.step_order,
-          tool: step.tool_name,
-          action: step.action,
-          dependencies: step.dependencies
-        }))
+      workflows: workflows.map((w) => ({
+        id: w.id,
+        name: w.name,
+        description: w.name + ' workflow',
+        status: w.status,
+        createdAt: w.created_at,
+        updatedAt: w.updated_at,
+        manifest: {
+          trigger: w.trigger_type,
+          target: w.target_type,
+          path: w.path_actions,
+          builderType: w.mode,
+          enrollment: w.enrollment_filters,
+          guardrails: w.guardrails,
+          mode: w.execution_mode
+        }
       }))
     });
   } catch (error) {
@@ -124,10 +85,395 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
-/** Preview plan from NL prompt without saving */
+// ── POST /api/workflows ──────────────────────────────────────────
+router.post('/', async (req: Request, res: Response) => {
+  try {
+    const { name, mode, executionMode, trigger, target, enrollment, guardrails, path, status, clientId } = req.body;
+    const operatorId = req.user!.id;
+
+    if (!clientId) {
+      return res.status(400).json({ success: false, error: 'clientId is required' });
+    }
+
+    const wf = await prisma.workflow.create({
+      data: {
+        name: name || 'Untitled workflow',
+        mode: mode || 'standard',
+        execution_mode: executionMode || 'auto_with_guardrails',
+        trigger_type: trigger || 'Manual run',
+        target_type: target || 'people',
+        enrollment_filters: enrollment || [],
+        guardrails: guardrails || [],
+        path_actions: path || [],
+        status: status || 'draft',
+        created_by_operator_id: operatorId,
+        client_id: clientId
+      }
+    });
+
+    res.status(201).json({ success: true, workflow: wf });
+  } catch (error) {
+    console.error('Create workflow error:', error);
+    res.status(500).json({ success: false, error: 'Failed to create workflow' });
+  }
+});
+
+// ── GET /api/workflows/:id ───────────────────────────────────────
+router.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const wf = await prisma.workflow.findUnique({
+      where: { id: req.params.id }
+    });
+    if (!wf) {
+      return res.status(404).json({ success: false, error: 'Workflow not found' });
+    }
+    res.json({ success: true, workflow: wf });
+  } catch (error) {
+    console.error('Get workflow error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch workflow' });
+  }
+});
+
+// ── PUT /api/workflows/:id ───────────────────────────────────────
+router.put('/:id', async (req: Request, res: Response) => {
+  try {
+    const { name, mode, executionMode, trigger, target, enrollment, guardrails, path, status } = req.body;
+    const wf = await prisma.workflow.update({
+      where: { id: req.params.id },
+      data: {
+        name,
+        mode,
+        execution_mode: executionMode,
+        trigger_type: trigger,
+        target_type: target,
+        enrollment_filters: enrollment,
+        guardrails,
+        path_actions: path,
+        status
+      }
+    });
+    res.json({ success: true, workflow: wf });
+  } catch (error) {
+    console.error('Update workflow error:', error);
+    res.status(500).json({ success: false, error: 'Failed to update workflow' });
+  }
+});
+
+// ── DELETE /api/workflows/:id ────────────────────────────────────
+router.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    await prisma.workflow.delete({
+      where: { id: req.params.id }
+    });
+    res.json({ success: true, message: 'Workflow deleted successfully' });
+  } catch (error) {
+    console.error('Delete workflow error:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete workflow' });
+  }
+});
+
+// ── POST /api/workflows/:id/save-draft ───────────────────────────
+router.post('/:id/save-draft', async (req: Request, res: Response) => {
+  try {
+    const wf = await prisma.workflow.update({
+      where: { id: req.params.id },
+      data: {
+        status: 'draft',
+        ...req.body
+      }
+    });
+    res.json({ success: true, workflow: wf });
+  } catch (error) {
+    console.error('Save draft error:', error);
+    res.status(500).json({ success: false, error: 'Failed to save draft' });
+  }
+});
+
+// ── POST /api/workflows/:id/launch ───────────────────────────────
+router.post('/:id/launch', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const wf = await prisma.workflow.findUnique({ where: { id } });
+    if (!wf) return res.status(404).json({ success: false, error: 'Workflow not found' });
+
+    // Validate tools
+    const pathPreset = wf.path_actions as string;
+    const accounts = await prisma.clientToolAccount.findMany({
+      where: { client_id: wf.client_id }
+    });
+
+    // Validate trigger tool connection
+    const triggerStr = wf.trigger_type || '';
+    const triggerParts = triggerStr.split(': ');
+    if (triggerParts.length === 2) {
+      const toolName = triggerParts[0].toLowerCase();
+      const mappedToolName = toolName === 'bettercontact' ? 'bettercontacts' : toolName;
+      const hasAccount = accounts.some(a => a.tool_name.toLowerCase() === mappedToolName);
+      if (!hasAccount) {
+        return res.status(400).json({
+          success: false,
+          error: `Tool "${triggerParts[0]}" is not connected. Please connect it first.`
+        });
+      }
+    }
+
+    if (pathPreset === 'Email-first cadence') {
+      const smartleadAcc = accounts.find(a => a.tool_name === 'smartlead');
+      const apolloAcc = accounts.find(a => a.tool_name === 'apollo');
+      const instantlyAcc = accounts.find(a => a.tool_name === 'instantly');
+      if (!smartleadAcc && !apolloAcc && !instantlyAcc) {
+        return res.status(400).json({ success: false, error: 'Apollo not connected / Smartlead/Instantly campaign missing' });
+      }
+    } else if (pathPreset === 'LinkedIn-first') {
+      const heyreachAcc = accounts.find(a => a.tool_name === 'heyreach');
+      if (!heyreachAcc) {
+        return res.status(400).json({ success: false, error: 'HeyReach workspace not selected' });
+      }
+    } else if (pathPreset === 'Route by channel readiness') {
+      const emailAcc = accounts.some(a => ['smartlead', 'apollo', 'instantly'].includes(a.tool_name));
+      const linkedinAcc = accounts.some(a => a.tool_name === 'heyreach');
+      const enrichAcc = accounts.some(a => ['clay', 'bettercontacts'].includes(a.tool_name));
+      if (!emailAcc && !linkedinAcc && !enrichAcc) {
+        return res.status(400).json({ success: false, error: 'Clay API key missing / BetterContact credits missing' });
+      }
+    }
+
+    const updated = await prisma.workflow.update({
+      where: { id },
+      data: { status: 'active' }
+    });
+
+    res.json({ success: true, workflow: updated });
+  } catch (error) {
+    console.error('Launch workflow error:', error);
+    res.status(500).json({ success: false, error: 'Failed to launch workflow' });
+  }
+});
+
+// ── POST /api/workflows/:id/pause ────────────────────────────────
+router.post('/:id/pause', async (req: Request, res: Response) => {
+  try {
+    const wf = await prisma.workflow.update({
+      where: { id: req.params.id },
+      data: { status: 'paused' }
+    });
+    res.json({ success: true, workflow: wf });
+  } catch (error) {
+    console.error('Pause workflow error:', error);
+    res.status(500).json({ success: false, error: 'Failed to pause workflow' });
+  }
+});
+
+// ── POST /api/workflows/:id/resume ───────────────────────────────
+router.post('/:id/resume', async (req: Request, res: Response) => {
+  try {
+    const wf = await prisma.workflow.update({
+      where: { id: req.params.id },
+      data: { status: 'active' }
+    });
+    res.json({ success: true, workflow: wf });
+  } catch (error) {
+    console.error('Resume workflow error:', error);
+    res.status(500).json({ success: false, error: 'Failed to resume workflow' });
+  }
+});
+
+// ── POST /api/workflows/:id/test-run ─────────────────────────────
+router.post('/:id/test-run', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const wf = await prisma.workflow.findUnique({ where: { id } });
+    if (!wf) return res.status(404).json({ success: false, error: 'Workflow not found' });
+
+    const payload = {
+      email: 'test_prospect@example.com',
+      first_name: 'Test',
+      last_name: 'Prospect',
+      company: 'Test Company',
+      linkedin_url: 'https://linkedin.com/in/testprospect',
+      score: 85,
+      region: 'US',
+      record_id: `test_rec_${Date.now()}`
+    };
+
+    // Execute synchronous test run
+    await workflowEngine.executeWorkflow(id, payload, req.user!.id);
+
+    res.json({ success: true, message: 'Test run executed successfully. Check run history.' });
+  } catch (error) {
+    console.error('Test run workflow error:', error);
+    res.status(500).json({ success: false, error: 'Failed to trigger test run' });
+  }
+});
+
+// ── GET /api/workflows/:id/runs ──────────────────────────────────
+router.get('/:id/runs', async (req: Request, res: Response) => {
+  try {
+    const runs = await prisma.workflowRun.findMany({
+      where: { workflow_id: req.params.id },
+      orderBy: { timestamp: 'desc' }
+    });
+    res.json({ success: true, runs });
+  } catch (error) {
+    console.error('Get workflow runs error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch runs' });
+  }
+});
+
+// ── POST /api/webhooks/tools/:tool/:event ──────────────────────
+router.post('/webhooks/tools/:tool/:event', async (req: Request, res: Response) => {
+  try {
+    const { tool, event } = req.params;
+    const payload = req.body;
+    const clientId = req.query.clientId as string || payload.clientId || payload.client_id;
+
+    if (!clientId) {
+      return res.status(400).json({ success: false, error: 'clientId parameter is required' });
+    }
+
+    let formattedTool = tool.charAt(0).toUpperCase() + tool.slice(1);
+    if (tool.toLowerCase() === 'bettercontacts' || tool.toLowerCase() === 'bettercontact') {
+      formattedTool = 'BetterContact';
+    } else if (tool.toLowerCase() === 'smartlead') {
+      formattedTool = 'Smartlead';
+    } else if (tool.toLowerCase() === 'heyreach') {
+      formattedTool = 'HeyReach';
+    }
+
+    let cleanEvent = event;
+    const lowerEvent = event.toLowerCase();
+
+    if (lowerEvent.includes('reply') || lowerEvent.includes('replied')) {
+      cleanEvent = formattedTool === 'HeyReach' ? 'LinkedIn replied' : 'Email replied';
+    } else if (lowerEvent.includes('sequence_step') || lowerEvent.includes('step_completed')) {
+      cleanEvent = 'Sequence step completed';
+    } else if (lowerEvent.includes('sequence_added') || lowerEvent.includes('added_to_sequence')) {
+      cleanEvent = 'Contact added to sequence';
+    } else if (lowerEvent.includes('meeting_booked') || lowerEvent.includes('booked')) {
+      if (formattedTool === 'Apollo') {
+        cleanEvent = 'Meeting booked, if Apollo calendar data is available';
+      } else {
+        cleanEvent = 'Meeting booked';
+      }
+    } else if (lowerEvent.includes('meeting_cancelled') || lowerEvent.includes('cancelled')) {
+      cleanEvent = 'Meeting cancelled';
+    } else if (lowerEvent.includes('meeting_rescheduled') || lowerEvent.includes('rescheduled')) {
+      cleanEvent = 'Meeting rescheduled';
+    } else if (lowerEvent.includes('enrich') || lowerEvent.includes('enriched')) {
+      if (lowerEvent.includes('company')) {
+        cleanEvent = 'Company enriched';
+      } else {
+        cleanEvent = 'Lead enriched';
+      }
+    } else if (lowerEvent.includes('enrich_failed') || lowerEvent.includes('failed')) {
+      cleanEvent = 'Enrichment failed';
+    } else if (lowerEvent.includes('data_updated') || lowerEvent.includes('updated')) {
+      cleanEvent = 'Data updated';
+    } else if (lowerEvent.includes('bounced') || lowerEvent.includes('bounce')) {
+      cleanEvent = 'Email bounced';
+    } else if (lowerEvent.includes('unsubscribe') || lowerEvent.includes('unsubscribed')) {
+      cleanEvent = 'Unsubscribed';
+    } else if (lowerEvent.includes('campaign_step') || lowerEvent.includes('step')) {
+      cleanEvent = 'Campaign step completed';
+    } else if (lowerEvent.includes('added_to_campaign') || lowerEvent.includes('lead_added')) {
+      cleanEvent = 'Lead added to campaign';
+    } else if (lowerEvent.includes('email_verified') || lowerEvent.includes('verified_email')) {
+      cleanEvent = 'Email verified';
+    } else if (lowerEvent.includes('phone_verified') || lowerEvent.includes('verified_phone')) {
+      cleanEvent = 'Phone verified';
+    } else if (lowerEvent.includes('invalid') || lowerEvent.includes('invalid_contact')) {
+      cleanEvent = 'Invalid contact detected';
+    } else if (lowerEvent.includes('connection_accepted') || lowerEvent.includes('accepted')) {
+      cleanEvent = 'Connection request accepted';
+    } else if (lowerEvent.includes('message_sent') || lowerEvent.includes('sent')) {
+      cleanEvent = 'Message sent';
+    } else if (lowerEvent.includes('campaign_completed') || lowerEvent.includes('completed')) {
+      cleanEvent = 'Campaign completed';
+    }
+
+    const triggerEvent = `${formattedTool}: ${cleanEvent}`;
+    await workflowEngine.triggerWorkflow(triggerEvent, clientId, payload);
+
+    res.json({ success: true, message: `Webhook processed. Triggered event: ${triggerEvent}` });
+  } catch (error) {
+    console.error('Webhook processing error:', error);
+    res.status(500).json({ success: false, error: 'Failed to process webhook' });
+  }
+});
+
+// ── Legacy support endpoints ─────────────────────────────────────
+router.post('/manual', async (req: Request, res: Response) => {
+  try {
+    const { name, trigger, target, enrollment, guardrails, path, mode, status, clientId } = req.body;
+    const operatorId = req.user!.id;
+
+    if (!clientId) {
+      return res.status(400).json({ success: false, error: 'Please select a client to save workflow.' });
+    }
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      return res.status(400).json({ success: false, error: 'Workflow name is required.' });
+    }
+
+    const workflow = await prisma.workflow.create({
+      data: {
+        client_id: clientId,
+        name: name.trim(),
+        mode: req.body.builderType || 'standard',
+        execution_mode: mode || 'auto_with_guardrails',
+        trigger_type: trigger || 'Manual run',
+        target_type: target || 'people',
+        enrollment_filters: enrollment || [],
+        guardrails: guardrails || [],
+        path_actions: path || [],
+        status: status || 'draft',
+        created_by_operator_id: operatorId
+      }
+    });
+
+    res.status(201).json({
+      success: true,
+      workflow: {
+        id: workflow.id,
+        name: workflow.name,
+        description: workflow.name + ' workflow'
+      }
+    });
+  } catch (error) {
+    console.error('Create manual workflow error:', error);
+    res.status(500).json({ success: false, error: 'Failed to save workflow template.' });
+  }
+});
+
+router.post('/:id/create-campaign', async (req: Request, res: Response) => {
+  try {
+    const operatorId = req.user!.id;
+    const { id } = req.params;
+
+    const workflow = await prisma.workflow.findUnique({
+      where: { id }
+    });
+
+    if (!workflow) {
+      return res.status(404).json({ success: false, error: 'Workflow not found' });
+    }
+
+    // Launch a workflow run immediately
+    await workflowEngine.executeWorkflow(workflow.id, { email: 'manual_trigger@example.com' }, operatorId);
+
+    res.status(201).json({
+      success: true,
+      campaignId: workflow.id
+    });
+  } catch (error) {
+    console.error('Create run error:', error);
+    res.status(500).json({ success: false, error: 'Failed to launch workflow run.' });
+  }
+});
+
+// Kept for AI NL workflows
 router.post('/compile', async (req: Request, res: Response) => {
   try {
-    const { prompt } = req.body as CreateWorkflowRequest;
+    const { prompt } = req.body;
     const operatorId = req.user!.id;
 
     if (!prompt?.trim()) {
@@ -164,12 +510,9 @@ router.post('/compile', async (req: Request, res: Response) => {
   }
 });
 
-/**
- * Compile prompt → create runnable campaign → approve → queue (mock/live via EXECUTION_MODE)
- */
 router.post('/run-prompt', async (req: Request, res: Response) => {
   try {
-    const { prompt, name } = req.body as CreateWorkflowRequest;
+    const { prompt, name } = req.body;
     const operatorId = req.user!.id;
 
     if (!prompt?.trim()) {
@@ -245,9 +588,7 @@ router.post('/run-prompt', async (req: Request, res: Response) => {
         });
         return res.status(400).json({
           success: false,
-          error: `Insufficient credits. Required: ${totalCreditCost}, Available: ${creditRecord.balance}. Top up at /dashboard/settings.`,
-          creditBalance: creditRecord.balance,
-          creditRequired: totalCreditCost,
+          error: `Insufficient credits. top up at /dashboard/settings.`,
         });
       }
     }
@@ -263,13 +604,10 @@ router.post('/run-prompt', async (req: Request, res: Response) => {
       jobId = job?.id;
     }
 
-    const updated = await prisma.campaign.findUnique({ where: { id: campaign.id } });
-
     res.status(201).json({
       success: true,
       campaignId: campaign.id,
       jobId,
-      status: updated?.status,
       sync: syncPipeline,
       pipelineResult,
       name: campaign.name,
@@ -278,291 +616,10 @@ router.post('/run-prompt', async (req: Request, res: Response) => {
         action: s.action,
         label: s.label,
       })),
-      message: syncPipeline
-        ? 'Pipeline executed synchronously (Hunter/Brevo live when keys are set).'
-        : 'Pipeline queued for background execution.',
     });
   } catch (error) {
     console.error('Run prompt workflow error:', error);
-    res.status(500).json({ success: false, error: 'Failed to run workflow from prompt', detail: error instanceof Error ? error.message : String(error) });
-  }
-});
-
-router.post('/', async (req: Request, res: Response) => {
-  try {
-    const { prompt, name } = req.body as CreateWorkflowRequest;
-    const operatorId = req.user!.id;
-
-    if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Prompt is required'
-      });
-    }
-
-    const clientId = await getClientIdForOperator(operatorId);
-    if (!clientId) {
-      return res.status(400).json({
-        success: false,
-        error: 'No client found for this operator'
-      });
-    }
-
-    const activeTools = await getActiveToolsForClient(operatorId);
-    const planResult = await compileWorkflowPlan(prompt, activeTools);
-
-    if (planResult.error || !planResult.validatedPlan) {
-      return res.status(400).json({
-        success: false,
-        error: planResult.error || 'Failed to generate workflow plan'
-      });
-    }
-
-    const manifest = {
-      ...(planResult.validatedPlan as any),
-      workflow_type: 'template',
-      source_prompt: prompt
-    };
-
-    const workflow = await prisma.campaign.create({
-      data: {
-        client_id: clientId,
-        name: name?.trim() || planResult.validatedPlan.name,
-        description: planResult.validatedPlan.description,
-        status: 'workflow_template',
-        approval_status: 'draft',
-        manifest: manifest as any,
-        estimated_cost: planResult.validatedPlan.estimated_cost,
-        estimated_duration: planResult.validatedPlan.estimated_duration,
-        created_by_operator_id: operatorId
-      }
-    });
-
-    if (planResult.validatedPlan.steps.length > 0) {
-      await prisma.campaignStep.createMany({
-        data: planResult.validatedPlan.steps.map((step) => ({
-          campaign_id: workflow.id,
-          step_order: step.order,
-          tool_name: step.tool,
-          action: step.action,
-          params: step.params as any,
-          status: 'pending',
-          dependencies: step.dependencies as any,
-          created_at: new Date(),
-          updated_at: new Date()
-        }))
-      });
-    }
-
-    res.status(201).json({
-      success: true,
-      workflow: {
-        id: workflow.id,
-        name: workflow.name,
-        description: workflow.description,
-        estimatedCost: workflow.estimated_cost,
-        estimatedDuration: workflow.estimated_duration
-      },
-      warnings: planResult.warnings || []
-    });
-  } catch (error) {
-    console.error('Create workflow error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create workflow template'
-    });
-  }
-});
-
-router.post('/:id/create-campaign', async (req: Request, res: Response) => {
-  try {
-    const operatorId = req.user!.id;
-    const { id } = req.params;
-
-    const workflow = await prisma.campaign.findFirst({
-      where: {
-        id,
-        created_by_operator_id: operatorId,
-        status: 'workflow_template'
-      },
-      include: {
-        steps: {
-          orderBy: { step_order: 'asc' }
-        }
-      }
-    });
-
-    if (!workflow) {
-      return res.status(404).json({ success: false, error: 'Workflow not found' });
-    }
-
-    const parentManifest = workflow.manifest ? (workflow.manifest as any) : {};
-    const runManifest = {
-      ...parentManifest,
-      parent_template_id: workflow.id,
-      workflow_type: 'campaign_run'
-    };
-
-    const campaign = await prisma.campaign.create({
-      data: {
-        client_id: workflow.client_id,
-        name: `${workflow.name} Run`,
-        description: workflow.description,
-        status: 'draft',
-        approval_status: 'draft',
-        manifest: runManifest,
-        estimated_cost: workflow.estimated_cost,
-        estimated_duration: workflow.estimated_duration,
-        created_by_operator_id: operatorId
-      }
-    });
-
-    if (workflow.steps.length > 0) {
-      await prisma.campaignStep.createMany({
-        data: workflow.steps.map((step) => ({
-          campaign_id: campaign.id,
-          step_order: step.step_order,
-          tool_name: step.tool_name,
-          action: step.action,
-          params: step.params as any,
-          status: 'pending',
-          dependencies: step.dependencies as any,
-          created_at: new Date(),
-          updated_at: new Date()
-        }))
-      });
-    }
-
-    res.status(201).json({
-      success: true,
-      campaignId: campaign.id
-    });
-  } catch (error) {
-    console.error('Create campaign from workflow error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create campaign from workflow'
-    });
-  }
-});
-
-router.post('/manual', async (req: Request, res: Response) => {
-  try {
-    const { name, description, trigger, target, enrollment, guardrails, path, mode, status, clientId } = req.body as any;
-    const operatorId = req.user!.id;
-
-    if (!clientId) {
-      return res.status(400).json({ success: false, error: 'Please select a client to save workflow.' });
-    }
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      return res.status(400).json({ success: false, error: 'Workflow name is required.' });
-    }
-
-    const stepsList: any[] = [];
-    if (path) {
-      if (path === "Email-first cadence") {
-        stepsList.push({ order: 1, tool: "smartlead", action: "send_email", params: {}, dependencies: [] });
-      } else if (path === "LinkedIn-first") {
-        stepsList.push({ order: 1, tool: "heyreach", action: "send_message", params: {}, dependencies: [] });
-      } else if (path === "Route by channel readiness") {
-        stepsList.push({ order: 1, tool: "heyreach", action: "view_profile", params: {}, dependencies: [] });
-        stepsList.push({ order: 2, tool: "smartlead", action: "send_email", params: {}, dependencies: [1] });
-      } else if (path === "Notify + assign owner") {
-        stepsList.push({ order: 1, tool: "hubspot", action: "create_task", params: {}, dependencies: [] });
-      } else if (Array.isArray(path)) {
-        path.forEach((s: any, idx: number) => {
-          stepsList.push({
-            order: s.order || idx + 1,
-            tool: s.tool || "smartlead",
-            action: s.action || "send_email",
-            params: s.params || {},
-            dependencies: s.dependencies || []
-          });
-        });
-      }
-    }
-
-    if (status === 'active' && stepsList.length === 0) {
-      return res.status(400).json({ success: false, error: 'At least one workflow step/path is required before launch.' });
-    }
-
-    const manifest = {
-      trigger,
-      target,
-      enrollment,
-      guardrails,
-      path: path || "",
-      mode,
-      status,
-      workflow_type: 'manual',
-      builder_state: req.body
-    };
-
-    const workflow = await prisma.campaign.create({
-      data: {
-        client_id: clientId,
-        name: name.trim(),
-        description: description || `Manual workflow triggered by: ${trigger || "N/A"}`,
-        status: 'workflow_template',
-        approval_status: status === 'active' ? 'approved' : 'draft',
-        manifest: manifest as any,
-        estimated_cost: stepsList.length * 2,
-        estimated_duration: stepsList.length * 10,
-        created_by_operator_id: operatorId
-      }
-    });
-
-    if (stepsList.length > 0) {
-      await prisma.campaignStep.createMany({
-        data: stepsList.map((step) => ({
-          campaign_id: workflow.id,
-          step_order: step.order,
-          tool_name: step.tool,
-          action: step.action,
-          params: step.params as any,
-          status: 'pending',
-          dependencies: step.dependencies as any,
-          created_at: new Date(),
-          updated_at: new Date()
-        }))
-      });
-    }
-
-    res.status(201).json({
-      success: true,
-      workflow: {
-        id: workflow.id,
-        name: workflow.name,
-        description: workflow.description
-      }
-    });
-  } catch (error) {
-    console.error('Create manual workflow error:', error);
-    res.status(500).json({ success: false, error: 'Failed to save workflow template.' });
-  }
-});
-
-router.delete('/:id', async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const operatorId = req.user!.id;
-
-    const result = await prisma.campaign.deleteMany({
-      where: {
-        id,
-        created_by_operator_id: operatorId,
-        status: 'workflow_template'
-      }
-    });
-
-    if (result.count === 0) {
-      return res.status(404).json({ success: false, error: 'Workflow template not found.' });
-    }
-
-    res.json({ success: true, message: 'Workflow template deleted successfully.' });
-  } catch (error) {
-    console.error('Delete workflow error:', error);
-    res.status(500).json({ success: false, error: 'Failed to delete workflow template.' });
+    res.status(500).json({ success: false, error: 'Failed to run workflow from prompt' });
   }
 });
 
@@ -654,4 +711,3 @@ async function getClientIdForOperator(operatorId: string): Promise<string | null
 }
 
 export default router;
-

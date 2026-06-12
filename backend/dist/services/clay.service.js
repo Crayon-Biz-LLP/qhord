@@ -34,5 +34,45 @@ class ClayService {
         });
         return response.data;
     }
+    // --- Standardized integrations interface ---
+    async validateConnection() {
+        try {
+            if (!this.apiKey || this.apiKey.trim().length === 0) {
+                return { success: false, error: 'API Key missing' };
+            }
+            return { success: true };
+        }
+        catch (err) {
+            return { success: false, error: err.message };
+        }
+    }
+    async registerWebhook(url, event) {
+        return { success: false, error: 'Webhooks not supported on Clay service' };
+    }
+    async fetchCampaigns() {
+        return [];
+    }
+    async enrollLead(payload) {
+        throw new Error('Lead enrollment not supported on Clay service');
+    }
+    async enrichLead(payload) {
+        return this.runWorkflow(payload);
+    }
+    async checkReply(payload) {
+        return { replied: false };
+    }
+    async sendLinkedInAction(payload) {
+        throw new Error('LinkedIn actions not supported on Clay service');
+    }
+    async getSenderHealth() {
+        return [];
+    }
+    async handleWebhookEvent(event) {
+        return {
+            event: 'data_enrichment_completed',
+            email: event.email,
+            raw: event
+        };
+    }
 }
 exports.ClayService = ClayService;

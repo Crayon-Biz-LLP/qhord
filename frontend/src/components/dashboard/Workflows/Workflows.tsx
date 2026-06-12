@@ -109,17 +109,6 @@ const INITIAL_ENROLLMENT: EnrollmentFilter[] = [
    { id: "e12", label: "Seniority", value: "VP+", active: false },
 ];
 
-type WorkflowCard = {
-   id: string;
-   name: string;
-   status: "active" | "draft";
-   trigger: string;
-   target: string;
-   path: string;
-   metrics: { reply: string; meetings: string; pipeline: string; aiScore: string };
-   suggestion: string;
-};
-
 const STANDARD_STEPS = [
    { title: "Trigger", subtitle: "When does this run?" },
    { title: "Target", subtitle: "What does it act on?" },
@@ -130,18 +119,52 @@ const STANDARD_STEPS = [
 ] as const;
 
 const TRIGGER_OPTIONS = [
-   { name: "New lead added", desc: "Run when a fresh record lands in Lead Source.", source: "QHORD" },
-   { name: "Lead enriched", desc: "Run after enrichment completes (Clay / Apollo).", source: "QHORD" },
-   { name: "Meeting booked", desc: "Run on Calendly or Qhord booking events.", source: "QHORD" },
-   { name: "Email replied", desc: "Run when a prospect replies to a sequence.", source: "APOLLO" },
-   { name: "LinkedIn replied", desc: "Run when a HeyReach conversation gets a reply.", source: "HEYREACH" },
-   { name: "Intent spike detected", desc: "Run when account intent crosses a threshold.", source: "QHORD" },
-   { name: "Deal stage changed", desc: "Run when a CRM deal moves stage.", source: "HUBSPOT" },
-   { name: "Manual run", desc: "Run on demand against a saved audience.", source: "QHORD" },
+   // Apollo
+   { name: "Email replied", desc: "Run when a prospect replies to an Apollo sequence.", source: "Apollo" },
+   { name: "Contact added to sequence", desc: "Run when a contact is enrolled in an Apollo sequence.", source: "Apollo" },
+   { name: "Sequence step completed", desc: "Run when a contact completes a step in an Apollo sequence.", source: "Apollo" },
+   { name: "Meeting booked, if Apollo calendar data is available", desc: "Meeting booked, if Apollo calendar data is available.", source: "Apollo" },
+
+   // Clay
+   { name: "Lead enriched", desc: "Run after enrichment completes.", source: "Clay" },
+   { name: "Company enriched", desc: "Run after company enrichment completes.", source: "Clay" },
+   { name: "Enrichment failed", desc: "Run when enrichment fails.", source: "Clay" },
+   { name: "Data updated", desc: "Run when data is updated.", source: "Clay" },
+
+   // Smartlead
+   { name: "Email replied", desc: "Run when a prospect replies to a Smartlead campaign.", source: "Smartlead" },
+   { name: "Lead added to campaign", desc: "Run when a lead is added to Smartlead campaign.", source: "Smartlead" },
+   { name: "Campaign step completed", desc: "Run when a campaign step is completed in Smartlead.", source: "Smartlead" },
+   { name: "Email bounced", desc: "Run when email bounces.", source: "Smartlead" },
+   { name: "Unsubscribed", desc: "Run when a contact unsubscribes.", source: "Smartlead" },
+
+   // Instantly
+   { name: "Email replied", desc: "Run when a prospect replies to an Instantly campaign.", source: "Instantly" },
+   { name: "Lead added to campaign", desc: "Run when a lead is added to Instantly campaign.", source: "Instantly" },
+   { name: "Campaign step completed", desc: "Run when a campaign step is completed in Instantly.", source: "Instantly" },
+   { name: "Email bounced", desc: "Run when email bounces.", source: "Instantly" },
+   { name: "Unsubscribed", desc: "Run when a contact unsubscribes.", source: "Instantly" },
+
+   // BetterContact
+   { name: "Email verified", desc: "Run when BetterContact verifies an email.", source: "BetterContact" },
+   { name: "Phone verified", desc: "Run when BetterContact verifies a phone number.", source: "BetterContact" },
+   { name: "Contact enriched", desc: "Run when contact enrichment is completed.", source: "BetterContact" },
+   { name: "Invalid contact detected", desc: "Run when BetterContact detects an invalid contact.", source: "BetterContact" },
+
+   // HeyReach
+   { name: "LinkedIn replied", desc: "Run when a LinkedIn conversation gets a reply.", source: "HeyReach" },
+   { name: "Connection request accepted", desc: "Run when connection request is accepted.", source: "HeyReach" },
+   { name: "Message sent", desc: "Run when a message is sent in campaign.", source: "HeyReach" },
+   { name: "Campaign completed", desc: "Run when campaign is completed.", source: "HeyReach" },
+
+   // Calendly
+   { name: "Meeting booked", desc: "Run when a meeting is booked.", source: "Calendly" },
+   { name: "Meeting cancelled", desc: "Run when a meeting is cancelled.", source: "Calendly" },
+   { name: "Meeting rescheduled", desc: "Run when a meeting is rescheduled.", source: "Calendly" }
 ];
 
 const PATH_PRESETS = [
-   { name: "Email-first cadence", desc: "Add to Apollo sequence with reply detection.", icon: Mail },
+   { name: "Email-first cadence", desc: "Add to Apollo/Smartlead sequence with reply detection.", icon: Mail },
    { name: "LinkedIn-first", desc: "HeyReach connection + DM with delay.", icon: Send },
    { name: "Route by channel readiness", desc: "Email path or LinkedIn path based on data.", icon: GitBranch },
    { name: "Notify + assign owner", desc: "Slack alert + Qhord task.", icon: Bell },
@@ -190,9 +213,8 @@ function GuardrailActionDropdown({
                         onSelect(opt);
                         onToggle();
                      }}
-                     className={`w-full text-left px-4 py-2 text-sm hover:bg-[#f7f8f9] flex items-center justify-between ${
-                        opt === action ? "text-[#1a1510] font-semibold" : "text-[#1a1510]/75"
-                     }`}
+                     className={`w-full text-left px-4 py-2 text-sm hover:bg-[#f7f8f9] flex items-center justify-between ${opt === action ? "text-[#1a1510] font-semibold" : "text-[#1a1510]/75"
+                        }`}
                   >
                      {opt}
                      {opt === action && <Check size={14} className="text-emerald-600" />}
@@ -215,6 +237,9 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
    const [isDeleting, setIsDeleting] = useState<string | null>(null);
    const [workflowName, setWorkflowName] = useState("Untitled workflow");
 
+   const [connectedTools, setConnectedTools] = useState<string[]>([]);
+   const [editingWorkflowId, setEditingWorkflowId] = useState<string | null>(null);
+
    const fetchTemplates = useCallback(async () => {
       if (!selectedClient?.id) {
          setTemplates([]);
@@ -233,9 +258,73 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
       }
    }, [selectedClient?.id]);
 
+   const fetchConnectedTools = useCallback(async () => {
+      if (!selectedClient?.id) {
+         setConnectedTools([]);
+         return;
+      }
+      try {
+         const { data } = await api.get(`/tools/accounts/${selectedClient.id}`);
+         if (data.accounts) {
+            setConnectedTools(data.accounts.map((a: any) => a.tool_name.toLowerCase()));
+         }
+      } catch (err) {
+         console.error("Failed to fetch connected tools", err);
+      }
+   }, [selectedClient?.id]);
+
    useEffect(() => {
       fetchTemplates();
-   }, [fetchTemplates]);
+      fetchConnectedTools();
+   }, [fetchTemplates, fetchConnectedTools]);
+
+   const openEditWorkflow = (template: any) => {
+      setEditingWorkflowId(template.id);
+      setWorkflowName(template.name);
+
+      const manifest = template.manifest || {};
+
+      const dbTrigger = manifest.trigger || "Apollo: Email replied";
+      const parts = dbTrigger.split(": ");
+      if (parts.length === 2) {
+         setSelectedTriggerSource(parts[0]);
+         setSelectedTrigger(parts[1]);
+      } else {
+         // Fallback if old format
+         const found = TRIGGER_OPTIONS.find(t => t.name === dbTrigger);
+         if (found) {
+            setSelectedTriggerSource(found.source);
+            setSelectedTrigger(found.name);
+         } else {
+            setSelectedTriggerSource("Apollo");
+            setSelectedTrigger("Email replied");
+         }
+      }
+
+      setSelectedTarget(manifest.target || "People");
+      setSelectedPath(manifest.path || "Email-first cadence");
+      setExecutionMode(manifest.mode || "Auto with guardrails");
+
+      const savedFilters = manifest.enrollment?.filters || [];
+      setEnrollmentFilters(INITIAL_ENROLLMENT.map(f => {
+         const saved = savedFilters.find((sf: any) => sf.id === f.id || sf.label === f.label);
+         return { ...f, active: !!saved };
+      }));
+      setAllowReEnrollment(!!manifest.enrollment?.allowReEnrollment);
+
+      const savedGuardrails = manifest.guardrails || [];
+      setGuardrails(INITIAL_GUARDRAILS.map(g => {
+         const saved = savedGuardrails.find((sg: any) => sg.id === g.id || sg.title === g.title);
+         return {
+            ...g,
+            enabled: saved ? !!saved.enabled : g.enabled,
+            action: saved ? saved.action : g.action
+         };
+      }));
+
+      setView(template.manifest?.builderType === "advanced" ? "advanced" : "standard");
+      setStandardStep(1);
+   };
 
    const handleSaveWorkflow = async (launchStatus: "draft" | "active" = "draft", builder: "standard" | "advanced" = "standard") => {
       if (!selectedClient?.id) {
@@ -255,8 +344,8 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
       try {
          const payload = {
             name: workflowName,
-            description: `Manual workflow (${builder} builder) triggered by: ${selectedTrigger}`,
-            trigger: selectedTrigger,
+            description: `Workflow (${builder} builder) triggered by: ${selectedTriggerSource}: ${selectedTrigger}`,
+            trigger: `${selectedTriggerSource}: ${selectedTrigger}`,
             target: selectedTarget,
             enrollment: {
                filters: enrollmentFilters.filter((f) => f.active),
@@ -268,20 +357,41 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
             status: launchStatus,
             clientId: selectedClient.id,
             builderType: builder,
-            advancedState: builder === "advanced" ? { showBlockPicker, blockSearch } : null,
          };
 
-         const { data } = await api.post("/workflows/manual", payload);
-         if (data.success) {
-            setLaunchToast(launchStatus === "active" ? "Workflow launched successfully!" : "Workflow template saved successfully!");
-            fetchTemplates();
-            if (launchStatus === "active" && data.workflow?.id) {
-               await handleLaunchCampaign(data.workflow.id);
+         let success = false;
+         let errorMsg = "";
+         let wfId = editingWorkflowId;
+
+         if (editingWorkflowId) {
+            if (launchStatus === "active") {
+               const { data } = await api.post(`/workflows/${editingWorkflowId}/launch`, payload);
+               success = data.success;
+               errorMsg = data.error;
             } else {
-               closeBuilder();
+               const { data } = await api.put(`/workflows/${editingWorkflowId}`, payload);
+               success = data.success;
+               errorMsg = data.error;
             }
          } else {
-            setLaunchToast(data.error || "Failed to save workflow template.");
+            const { data } = await api.post("/workflows", payload);
+            success = data.success;
+            errorMsg = data.error;
+            wfId = data.workflow?.id;
+
+            if (success && launchStatus === "active" && wfId) {
+               const launchRes = await api.post(`/workflows/${wfId}/launch`, payload);
+               success = launchRes.data.success;
+               errorMsg = launchRes.data.error;
+            }
+         }
+
+         if (success) {
+            setLaunchToast(launchStatus === "active" ? "Workflow launched successfully!" : "Workflow template saved successfully!");
+            fetchTemplates();
+            closeBuilder();
+         } else {
+            setLaunchToast(errorMsg || "Failed to save workflow template.");
          }
       } catch (err: any) {
          console.error("Save workflow error:", err);
@@ -330,6 +440,7 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
 
    const [standardStep, setStandardStep] = useState(1);
    const [selectedTrigger, setSelectedTrigger] = useState("Email replied");
+   const [selectedTriggerSource, setSelectedTriggerSource] = useState("Apollo");
    const [selectedTarget, setSelectedTarget] = useState("People");
    const [selectedPath, setSelectedPath] = useState("Email-first cadence");
    const [accountScope, setAccountScope] = useState("Whole workspace");
@@ -365,11 +476,37 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
    const activeGuardrailCount = guardrails.filter((g) => g.enabled).length;
    const pathStepCount = selectedPath ? 1 : 0;
 
-   const triggerDesc = TRIGGER_OPTIONS.find((t) => t.name === selectedTrigger)?.desc ?? "";
+   const triggerDesc = TRIGGER_OPTIONS.find((t) => t.name === selectedTrigger && t.source.toLowerCase() === selectedTriggerSource.toLowerCase())?.desc ?? "";
 
    const openStandardBuilder = () => {
+      setEditingWorkflowId(null);
+      setWorkflowName("Untitled workflow");
+      setSelectedTrigger("Email replied");
+      setSelectedTriggerSource("Apollo");
+      setSelectedTarget("People");
+      setSelectedPath("Email-first cadence");
+      setExecutionMode("Auto with guardrails");
+      setEnrollmentFilters(INITIAL_ENROLLMENT.map(f => ({ ...f, active: false })));
+      setAllowReEnrollment(false);
+      setGuardrails(INITIAL_GUARDRAILS.map(g => ({ ...g, enabled: g.id === "g1" || g.id === "g4" || g.id === "g9", action: g.action })));
       setView("standard");
       setStandardStep(1);
+      setOpenActionMenuId(null);
+   };
+
+   const openAdvancedBuilder = () => {
+      setEditingWorkflowId(null);
+      setWorkflowName("Untitled workflow");
+      setSelectedTrigger("Email replied");
+      setSelectedTriggerSource("Apollo");
+      setSelectedTarget("People");
+      setSelectedPath("Email-first cadence");
+      setExecutionMode("Auto with guardrails");
+      setEnrollmentFilters(INITIAL_ENROLLMENT.map(f => ({ ...f, active: false })));
+      setAllowReEnrollment(false);
+      setGuardrails(INITIAL_GUARDRAILS.map(g => ({ ...g, enabled: g.id === "g1" || g.id === "g4" || g.id === "g9", action: g.action })));
+      setView("advanced");
+      setShowBlockPicker(false);
       setOpenActionMenuId(null);
    };
 
@@ -502,7 +639,7 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                      <span className="flex items-center gap-1"><CheckCircle2 size={12} /> Pre-launch review</span>
                   </div>
                </button>
-               <button type="button" disabled={!selectedClient} onClick={() => { setView("advanced"); setShowBlockPicker(false); }} className="text-left bg-white border border-[#1a1510]/10 rounded-2xl p-6 hover:border-brand-gold/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+               <button type="button" disabled={!selectedClient} onClick={openAdvancedBuilder} className="text-left bg-white border border-[#1a1510]/10 rounded-2xl p-6 hover:border-brand-gold/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                   <div className="flex items-center justify-between">
                      <div className="w-11 h-11 rounded-xl bg-[#1a1510]/5 text-[#1a1510] flex items-center justify-center">
                         <GitBranch size={20} />
@@ -578,66 +715,66 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                      const resp = r.response || {};
                      let summary: React.ReactNode = null;
                      if (r.tool === 'hunter' && r.action === 'search_leads') {
-                       const leads = resp.leads || resp.people || [];
-                       summary = (
-                         <div className="space-y-1">
-                           <p className="font-semibold text-emerald-700">{leads.length} leads found</p>
-                           {leads.slice(0, 5).map((l: any, j: number) => (
-                             <p key={j} className="text-xs text-[#1a1510]/70">• {l.first_name} {l.last_name} — {l.email}</p>
-                           ))}
-                           {leads.length > 5 && <p className="text-xs text-[#1a1510]/40">+{leads.length - 5} more</p>}
-                         </div>
-                       );
+                        const leads = resp.leads || resp.people || [];
+                        summary = (
+                           <div className="space-y-1">
+                              <p className="font-semibold text-emerald-700">{leads.length} leads found</p>
+                              {leads.slice(0, 5).map((l: any, j: number) => (
+                                 <p key={j} className="text-xs text-[#1a1510]/70">• {l.first_name} {l.last_name} — {l.email}</p>
+                              ))}
+                              {leads.length > 5 && <p className="text-xs text-[#1a1510]/40">+{leads.length - 5} more</p>}
+                           </div>
+                        );
                      } else if (r.tool === 'bettercontacts') {
-                       summary = (
-                         <div className="space-y-1">
-                           <p className="font-semibold text-emerald-700">Enrichment submitted</p>
-                           <p className="text-xs text-[#1a1510]/70">Request ID: <span className="font-mono">{resp.request_id || resp.id}</span></p>
-                         </div>
-                       );
+                        summary = (
+                           <div className="space-y-1">
+                              <p className="font-semibold text-emerald-700">Enrichment submitted</p>
+                              <p className="text-xs text-[#1a1510]/70">Request ID: <span className="font-mono">{resp.request_id || resp.id}</span></p>
+                           </div>
+                        );
                      } else if (r.tool === 'brevo' && r.action === 'prepare_campaign') {
-                       summary = (
-                         <div className="space-y-1">
-                           <p className="font-semibold text-emerald-700">Campaign #{resp.campaign_id || resp.id} created</p>
-                           <p className="text-xs text-[#1a1510]/70">List ID: {resp.list_id}</p>
-                         </div>
-                       );
+                        summary = (
+                           <div className="space-y-1">
+                              <p className="font-semibold text-emerald-700">Campaign #{resp.campaign_id || resp.id} created</p>
+                              <p className="text-xs text-[#1a1510]/70">List ID: {resp.list_id}</p>
+                           </div>
+                        );
                      } else if (r.tool === 'brevo' && r.action === 'sync_contacts') {
-                       summary = (
-                         <div className="space-y-1">
-                           <p className="font-semibold text-emerald-700">{resp.added_count} contacts synced</p>
-                         </div>
-                       );
+                        summary = (
+                           <div className="space-y-1">
+                              <p className="font-semibold text-emerald-700">{resp.added_count} contacts synced</p>
+                           </div>
+                        );
                      } else if (r.tool === 'brevo' && r.action === 'send_campaign_now') {
-                       summary = (
-                         <div className="space-y-1">
-                           <p className="font-semibold text-emerald-700">Campaign sent ✓</p>
-                         </div>
-                       );
+                        summary = (
+                           <div className="space-y-1">
+                              <p className="font-semibold text-emerald-700">Campaign sent ✓</p>
+                           </div>
+                        );
                      } else if (r.tool === 'calendly') {
-                       const bookingUrl = resp?.resource?.booking_url || resp?.booking_url;
-                       summary = (
-                         <div className="space-y-1">
-                           <p className="font-semibold text-emerald-700">Scheduling link ready</p>
-                           {bookingUrl ? (
-                             <a href={bookingUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline font-medium">{bookingUrl}</a>
-                           ) : (
-                             <p className="text-xs text-[#1a1510]/70">No booking URL</p>
-                           )}
-                         </div>
-                       );
+                        const bookingUrl = resp?.resource?.booking_url || resp?.booking_url;
+                        summary = (
+                           <div className="space-y-1">
+                              <p className="font-semibold text-emerald-700">Scheduling link ready</p>
+                              {bookingUrl ? (
+                                 <a href={bookingUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline font-medium">{bookingUrl}</a>
+                              ) : (
+                                 <p className="text-xs text-[#1a1510]/70">No booking URL</p>
+                              )}
+                           </div>
+                        );
                      }
                      return (
-                       <div key={i} className={`rounded-lg border p-3 ${r.status === 'success' ? 'border-emerald-200 bg-emerald-50' : r.status === 'error' ? 'border-red-200 bg-red-50' : 'border-[#1a1510]/10 bg-[#f7f8f9]'}`}>
-                         <div className="flex items-center justify-between gap-2 mb-1">
-                           <span className="font-semibold text-sm text-[#1a1510]">{r.tool}.{r.action}</span>
-                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${r.status === 'success' ? 'bg-emerald-200 text-emerald-800' : r.status === 'error' ? 'bg-red-200 text-red-800' : 'bg-slate-200 text-slate-600'}`}>
-                              {r.status.toUpperCase()}
-                           </span>
-                         </div>
-                         {r.error && <p className="text-xs text-red-600 mt-1">{r.error}</p>}
-                         {summary}
-                       </div>
+                        <div key={i} className={`rounded-lg border p-3 ${r.status === 'success' ? 'border-emerald-200 bg-emerald-50' : r.status === 'error' ? 'border-red-200 bg-red-50' : 'border-[#1a1510]/10 bg-[#f7f8f9]'}`}>
+                           <div className="flex items-center justify-between gap-2 mb-1">
+                              <span className="font-semibold text-sm text-[#1a1510]">{r.tool}.{r.action}</span>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${r.status === 'success' ? 'bg-emerald-200 text-emerald-800' : r.status === 'error' ? 'bg-red-200 text-red-800' : 'bg-slate-200 text-slate-600'}`}>
+                                 {r.status.toUpperCase()}
+                              </span>
+                           </div>
+                           {r.error && <p className="text-xs text-red-600 mt-1">{r.error}</p>}
+                           {summary}
+                        </div>
                      );
                   })}
                </div>
@@ -653,7 +790,7 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                Saved Workflow Templates
                {selectedClient && <span className="text-sm font-medium text-[#1a1510]/45 ml-2">({selectedClient.name})</span>}
             </h2>
-            
+
             {!selectedClient ? (
                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
                   <Building2 className="mx-auto text-amber-500 mb-3" size={32} />
@@ -671,7 +808,11 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
             ) : (
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {templates.map((template) => (
-                     <div key={template.id} className="bg-white border border-[#1a1510]/10 rounded-2xl p-6 hover:border-brand-gold/20 transition-all flex flex-col justify-between">
+                     <div
+                        key={template.id}
+                        onClick={() => openEditWorkflow(template)}
+                        className="bg-white border border-[#1a1510]/10 rounded-2xl p-6 hover:border-brand-gold/20 cursor-pointer transition-all flex flex-col justify-between"
+                     >
                         <div>
                            <div className="flex items-start justify-between gap-3">
                               <h3 className="font-bold text-lg text-[#1a1510] leading-snug">{template.name}</h3>
@@ -679,8 +820,8 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                                  {template.manifest?.builderType === "advanced" ? "Advanced" : "Standard"}
                               </span>
                            </div>
-                           <p className="text-sm text-[#1a1510]/55 mt-2 leading-relaxed">{template.description}</p>
-                           
+                           <p className="text-sm text-[#1a1510]/55 mt-2 leading-relaxed">{template.description || "Active workflow motion."}</p>
+
                            <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-[#1a1510]/50">
                               <div className="bg-[#f7f8f9] rounded-lg p-2">
                                  <span className="font-semibold block uppercase tracking-wider text-[9px] text-[#1a1510]/35">Trigger</span>
@@ -693,7 +834,7 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                            </div>
                         </div>
 
-                        <div className="mt-6 pt-4 border-t border-[#1a1510]/5 flex items-center justify-between gap-3">
+                        <div className="mt-6 pt-4 border-t border-[#1a1510]/5 flex items-center justify-between gap-3" onClick={(e) => e.stopPropagation()}>
                            <button
                               type="button"
                               disabled={isLaunching || isDeleting !== null}
@@ -731,19 +872,26 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                </div>
                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
                   {TRIGGER_OPTIONS.map((t) => {
-                     const selected = selectedTrigger === t.name;
+                     const selected = selectedTrigger === t.name && selectedTriggerSource === t.source;
+                     const sourceTool = t.source.toLowerCase() === "bettercontact" ? "bettercontacts" : t.source.toLowerCase();
+                     const isConnected = sourceTool === "qhord" || connectedTools.includes(sourceTool);
+
                      return (
                         <button
-                           key={t.name}
+                           key={`${t.source}-${t.name}`}
                            type="button"
-                           onClick={() => setSelectedTrigger(t.name)}
-                           className={`text-left rounded-xl border p-4 transition-colors ${
-                              selected ? "border-brand-gold/50 bg-brand-gold/5 ring-1 ring-brand-gold/20" : "border-[#1a1510]/[0.09] bg-white hover:border-[#1a1510]/20"
-                           }`}
+                           disabled={!isConnected}
+                           onClick={() => {
+                              setSelectedTrigger(t.name);
+                              setSelectedTriggerSource(t.source);
+                           }}
+                           className={`text-left rounded-xl border p-4 transition-colors relative ${selected ? "border-brand-gold/50 bg-brand-gold/5 ring-1 ring-brand-gold/20" : "border-[#1a1510]/[0.09] bg-white hover:border-[#1a1510]/20"
+                              } ${!isConnected ? "opacity-50 cursor-not-allowed" : ""}`}
                         >
                            <div className="flex items-center justify-between">
                               <h4 className="font-semibold text-[15px] text-[#1a1510]">{t.name}</h4>
                               {selected && <Check size={15} className="text-emerald-600" />}
+                              {!isConnected && <span className="text-[10px] text-red-500 font-semibold bg-red-50 px-1.5 py-0.5 rounded font-sans">Connect tool first</span>}
                            </div>
                            <p className="text-[13px] text-[#1a1510]/45 mt-1 leading-relaxed">{t.desc}</p>
                            <p className="mt-3 text-[10px] font-medium tracking-wider text-[#1a1510]/35 uppercase">{t.source}</p>
@@ -754,7 +902,7 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 flex items-start gap-3">
                   <CheckCircle2 size={18} className="text-emerald-600 shrink-0 mt-0.5" />
                   <div>
-                     <p className="font-semibold text-emerald-800">Trigger configured</p>
+                     <p className="font-semibold text-emerald-800">Trigger configured ({selectedTriggerSource})</p>
                      <p className="text-sm text-emerald-700 mt-0.5">{triggerDesc}</p>
                   </div>
                </div>
@@ -782,7 +930,7 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                            key={name}
                            type="button"
                            onClick={() => setSelectedTarget(name)}
-                           className={`text-left rounded-xl border p-4 ${selected ? "border-brand-gold/50 bg-brand-gold/5 ring-1 ring-brand-gold/20" : "border-[#1a1510]/[0.09] bg-white"}`}
+                           className={`text-left rounded-xl border p-4 transition-colors ${selected ? "border-brand-gold/50 bg-brand-gold/5 ring-1 ring-brand-gold/20" : "border-[#1a1510]/[0.09] bg-white hover:border-[#1a1510]/20"}`}
                         >
                            <div className="flex items-center justify-between mb-3">
                               <Icon size={18} className="text-[#1a1510]/50" />
@@ -833,9 +981,8 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                         key={f.id}
                         type="button"
                         onClick={() => toggleEnrollment(f.id)}
-                        className={`min-h-[60px] rounded-xl border px-4 py-2.5 flex items-center justify-between text-left transition-colors ${
-                           f.active ? "border-brand-gold/40 bg-brand-gold/5" : "border-[#1a1510]/[0.09] bg-white hover:bg-[#f7f8f9]"
-                        }`}
+                        className={`min-h-[60px] rounded-xl border px-4 py-2.5 flex items-center justify-between text-left transition-colors ${f.active ? "border-brand-gold/40 bg-brand-gold/5 ring-1 ring-brand-gold/10" : "border-[#1a1510]/[0.09] bg-white hover:bg-[#f7f8f9]"
+                           }`}
                      >
                         <div>
                            <p className="text-[13px] font-semibold text-[#1a1510]">{f.label}</p>
@@ -871,18 +1018,20 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                </div>
                <div className="space-y-3">
                   {guardrails.map((g) => (
-                     <div key={g.id} className="rounded-xl border border-[#1a1510]/10 bg-white p-4">
+                     <div
+                        key={g.id}
+                        onClick={() => toggleGuardrail(g.id)}
+                        className={`rounded-xl border p-4 cursor-pointer transition-colors ${g.enabled ? "border-brand-gold/45 bg-brand-gold/5 ring-1 ring-brand-gold/10" : "border-[#1a1510]/10 bg-white hover:bg-[#f7f8f9]"
+                           }`}
+                     >
                         <div className="flex flex-wrap items-start justify-between gap-3">
                            <div className="flex items-start gap-3 flex-1 min-w-0">
-                              <button
-                                 type="button"
-                                 onClick={() => toggleGuardrail(g.id)}
-                                 className={`mt-1 w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ${
-                                    g.enabled ? "bg-[#1a1510] border-[#1a1510]" : "border-[#1a1510]/25 bg-white"
-                                 }`}
+                              <div
+                                 className={`mt-1 w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ${g.enabled ? "bg-[#1a1510] border-[#1a1510]" : "border-[#1a1510]/25 bg-white"
+                                    }`}
                               >
                                  {g.enabled && <Check size={12} className="text-white" />}
-                              </button>
+                              </div>
                               <div>
                                  <div className="flex flex-wrap items-center gap-2">
                                     <p className="text-[14px] font-semibold text-[#1a1510]">{g.title}</p>
@@ -895,12 +1044,14 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                            </div>
                         </div>
                         {g.enabled && (
-                           <GuardrailActionDropdown
-                              action={g.action}
-                              open={openActionMenuId === g.id}
-                              onToggle={() => setOpenActionMenuId((id) => (id === g.id ? null : g.id))}
-                              onSelect={(a) => setGuardrailAction(g.id, a)}
-                           />
+                           <div onClick={(e) => e.stopPropagation()}>
+                              <GuardrailActionDropdown
+                                 action={g.action}
+                                 open={openActionMenuId === g.id}
+                                 onToggle={() => setOpenActionMenuId((id) => (id === g.id ? null : g.id))}
+                                 onSelect={(a) => setGuardrailAction(g.id, a)}
+                              />
+                           </div>
                         )}
                      </div>
                   ))}
@@ -919,14 +1070,33 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
                   {PATH_PRESETS.map(({ name, desc, icon: Icon }) => {
                      const selected = selectedPath === name;
+                     let isAvailable = true;
+                     let reason = "";
+
+                     if (name === "Email-first cadence") {
+                        isAvailable = connectedTools.includes("apollo") || connectedTools.includes("smartlead") || connectedTools.includes("instantly");
+                        reason = "Connect Apollo, Smartlead, or Instantly first";
+                     } else if (name === "LinkedIn-first") {
+                        isAvailable = connectedTools.includes("heyreach");
+                        reason = "Connect HeyReach first";
+                     } else if (name === "Route by channel readiness") {
+                        isAvailable = connectedTools.includes("heyreach") || connectedTools.includes("clay") || connectedTools.includes("bettercontacts") || connectedTools.includes("apollo");
+                        reason = "Connect HeyReach, Clay, or BetterContact first";
+                     }
+
                      return (
                         <button
                            key={name}
                            type="button"
+                           disabled={!isAvailable}
                            onClick={() => setSelectedPath(name)}
-                           className={`text-left rounded-xl border p-5 ${selected ? "border-brand-gold/50 bg-brand-gold/5" : "border-[#1a1510]/10 bg-white"}`}
+                           className={`text-left rounded-xl border p-5 transition-colors relative ${selected ? "border-brand-gold/50 bg-brand-gold/5" : "border-[#1a1510]/10 bg-white"
+                              } ${!isAvailable ? "opacity-50 cursor-not-allowed" : ""}`}
                         >
-                           <Icon size={18} className="text-[#1a1510]/45 mb-2.5" />
+                           <div className="flex items-start justify-between">
+                              <Icon size={18} className="text-[#1a1510]/45 mb-2.5" />
+                              {!isAvailable && <span className="text-[10px] text-red-500 font-semibold bg-red-50 px-2 py-0.5 rounded">{reason}</span>}
+                           </div>
                            <h4 className="text-[15px] font-semibold text-[#1a1510]">{name}</h4>
                            <p className="text-[13px] text-[#1a1510]/45 mt-1.5 leading-relaxed">{desc}</p>
                         </button>
@@ -954,6 +1124,9 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
          );
       }
 
+      const activeFiltersList = enrollmentFilters.filter(f => f.active).map(f => f.label).join(", ") || "Anyone matching trigger";
+      const activeGuardrailsList = guardrails.filter(g => g.enabled).map(g => g.title).join(", ") || "No guardrails";
+
       return (
          <div className="space-y-6 pb-4">
             <div>
@@ -962,11 +1135,12 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
             </div>
             <div className="grid grid-cols-2 gap-3">
                {[
-                  ["TRIGGER", selectedTrigger.replace(/ /g, "_")],
-                  ["TARGET", selectedTarget],
+                  ["Tool", selectedTriggerSource],
+                  ["Trigger", selectedTrigger],
+                  ["Target", selectedTarget],
+                  ["Path", selectedPath || "No pathpreset selected"],
                   ["ENROLLMENT FILTERS", String(activeFilterCount)],
                   ["GUARDRAILS", String(activeGuardrailCount)],
-                  ["PATH STEPS", String(pathStepCount)],
                   ["MODE", executionMode],
                ].map(([label, value]) => (
                   <div key={label} className="rounded-xl border border-[#1a1510]/10 bg-white p-4">
@@ -977,11 +1151,11 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
             </div>
             <div className="space-y-3">
                {[
-                  { title: "Trigger configured", sub: triggerDesc },
-                  { title: "Enrollment criteria set", sub: `${activeFilterCount} filter${activeFilterCount !== 1 ? "s" : ""} active` },
-                  { title: "Guardrails configured", sub: `${activeGuardrailCount} guardrails active` },
-                  { title: "Actions defined", sub: `${pathStepCount} step${pathStepCount !== 1 ? "s" : ""} in path` },
-                  { title: "Execution mode", sub: "Executes automatically. Guardrails stop or reroute risky actions." },
+                  { title: "Trigger configured", sub: `Tool: ${selectedTriggerSource} - Trigger: ${selectedTrigger} (${triggerDesc})` },
+                  { title: "Enrollment criteria set", sub: activeFiltersList },
+                  { title: "Guardrails configured", sub: activeGuardrailsList },
+                  { title: "Actions defined", sub: selectedPath || "No pathpreset selected" },
+                  { title: "Execution mode", sub: `${executionMode} - automatically checks guardrails before executing paths.` },
                ].map((item) => (
                   <div key={item.title} className="rounded-xl border border-[#1a1510]/10 bg-white p-4 flex items-start gap-3">
                      <CheckCircle2 size={18} className="text-emerald-600 shrink-0 mt-0.5" />
@@ -1040,29 +1214,34 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
             <aside className="w-64 shrink-0 border-r border-[#1a1510]/[0.07] bg-white p-4 overflow-y-auto">
                <p className="text-[10px] font-semibold text-[#1a1510]/35 uppercase tracking-wider px-1.5 mb-3">Setup steps</p>
                <div className="relative">
-                  {/* connecting line */}
                   <div className="absolute left-[15px] top-3 bottom-3 w-px bg-[#1a1510]/[0.08]" />
                   {STANDARD_STEPS.map((step, index) => {
                      const idx = index + 1;
                      const active = idx === standardStep;
                      const done = idx < standardStep;
+
+                     let subtitle: string = step.subtitle;
+                     if (idx === 1) subtitle = `${selectedTriggerSource}: ${selectedTrigger}` || step.subtitle;
+                     if (idx === 2) subtitle = selectedTarget || step.subtitle;
+                     if (idx === 3) subtitle = `${activeFilterCount} active filters`;
+                     if (idx === 4) subtitle = `${activeGuardrailCount} active guardrails`;
+                     if (idx === 5) subtitle = selectedPath || step.subtitle;
+
                      return (
                         <button
                            key={step.title}
                            type="button"
                            onClick={() => { setStandardStep(idx); setOpenActionMenuId(null); }}
-                           className={`relative w-full text-left rounded-lg px-2 py-2 transition-colors flex items-center gap-2.5 ${
-                              active ? "bg-[#f7f8f9]" : "hover:bg-[#f7f8f9]"
-                           }`}
+                           className={`relative w-full text-left rounded-lg px-2 py-2 transition-colors flex items-center gap-2.5 ${active ? "bg-[#f7f8f9]" : "hover:bg-[#f7f8f9]"
+                              }`}
                         >
-                           <div className={`w-[22px] h-[22px] rounded-full flex items-center justify-center shrink-0 z-10 transition-colors ${
-                              done ? "bg-emerald-500 text-white" : active ? "bg-[#1a1510] text-brand-gold" : "bg-white border border-[#1a1510]/20 text-[#1a1510]/40"
-                           }`}>
+                           <div className={`w-[22px] h-[22px] rounded-full flex items-center justify-center shrink-0 z-10 transition-colors ${done ? "bg-emerald-500 text-white" : active ? "bg-[#1a1510] text-brand-gold" : "bg-white border border-[#1a1510]/20 text-[#1a1510]/40"
+                              }`}>
                               {done ? <Check size={12} strokeWidth={3} /> : <span className="text-[11px] font-semibold">{idx}</span>}
                            </div>
                            <div className="min-w-0">
                               <p className={`text-[13px] font-semibold leading-tight ${active ? "text-[#1a1510]" : done ? "text-[#1a1510]/70" : "text-[#1a1510]/50"}`}>{step.title}</p>
-                              <p className="text-[11px] text-[#1a1510]/35 leading-tight mt-0.5">{step.subtitle}</p>
+                              <p className="text-[11px] text-[#1a1510]/35 leading-tight mt-0.5 truncate">{subtitle}</p>
                            </div>
                         </button>
                      );
@@ -1071,7 +1250,7 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
             </aside>
 
             <div className="flex-1 flex flex-col min-h-0 min-w-0">
-               <main className="flex-1 overflow-y-auto p-8 min-h-0">{renderStepContent()}</main>
+               <main className="flex-1 overflow-y-auto p-8 pb-24 min-h-0">{renderStepContent()}</main>
                <footer className="shrink-0 border-t border-[#1a1510]/10 bg-white px-8 py-4 flex items-center justify-between">
                   <button
                      type="button"
@@ -1125,7 +1304,7 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
 
    const blockSections = useMemo(() => {
       const q = blockSearch.toLowerCase();
-       const filter = (items: any[][]) => items.filter(([t]) => !q || t.toLowerCase().includes(q));
+      const filter = (items: any[][]) => items.filter(([t]) => !q || t.toLowerCase().includes(q));
       return { q, filter };
    }, [blockSearch]);
 
@@ -1171,31 +1350,85 @@ export const Workflows = ({ onBackToDashboard }: WorkflowsProps) => {
          </header>
 
          <div className="h-10 shrink-0 border-b border-[#1a1510]/[0.07] bg-white px-4 sm:px-6 text-[11px] font-medium text-[#1a1510]/45 flex items-center gap-5 overflow-x-auto scrollbar-hide">
-            <span className="uppercase tracking-wide">Steps 0</span><span className="uppercase tracking-wide">Enrolled 0</span><span className="uppercase tracking-wide">In flight 0</span><span className="uppercase tracking-wide">Completed 0</span><span className="uppercase tracking-wide">Avg cycle —</span><span className="uppercase tracking-wide">Success —</span>
+            <span className="uppercase tracking-wide">Steps 5</span><span className="uppercase tracking-wide">Enrolled 0</span><span className="uppercase tracking-wide">In flight 0</span><span className="uppercase tracking-wide">Completed 0</span><span className="uppercase tracking-wide">Avg cycle —</span><span className="uppercase tracking-wide">Success —</span>
             <span className="ml-auto text-[#1a1510]/35 whitespace-nowrap hidden md:inline">Configure trigger to see live volume</span>
          </div>
 
          <div className="flex-1 flex min-h-0 overflow-hidden">
-            <main className="flex-1 overflow-auto min-h-0">
-               <div className="min-h-full py-16 px-10 bg-[radial-gradient(#1a151010_1px,transparent_1px)] [background-size:16px_16px] flex flex-col items-center">
-                  <div className="w-full max-w-[340px] rounded-2xl border-2 border-dashed border-brand-gold/30 bg-white p-5 shadow-sm">
+            <main className="flex-1 overflow-auto min-h-0 pb-24">
+               <div className="min-h-full py-16 px-10 bg-[radial-gradient(#1a151010_1px,transparent_1px)] [background-size:16px_16px] flex flex-col items-center space-y-4">
+                  {/* Trigger Node */}
+                  <div className="w-full max-w-[340px] rounded-2xl border border-brand-gold/30 bg-white p-5 shadow-sm">
                      <div className="w-9 h-9 rounded-lg bg-brand-gold/15 flex items-center justify-center mb-3">
                         <Zap size={18} className="text-brand-gold" />
                      </div>
-                     <p className="text-[11px] font-medium text-[#1a1510]/40 uppercase tracking-wide">1 · Trigger</p>
-                     <h3 className="text-[16px] font-bold text-[#1a1510] mt-1">When this happens…</h3>
-                     <p className="text-[13px] text-[#1a1510]/45 mt-1">Choose an app &amp; event to start.</p>
+                     <p className="text-[11px] font-medium text-[#1a1510]/40 uppercase tracking-wide">1 · Trigger ({selectedTriggerSource})</p>
+                     <h3 className="text-[16px] font-bold text-[#1a1510] mt-1">{selectedTrigger}</h3>
+                     <p className="text-[13px] text-[#1a1510]/45 mt-1">{triggerDesc}</p>
                   </div>
+
                   <div className="w-px h-8 bg-[#1a1510]/15" />
-                  <button
-                     type="button"
-                     onClick={() => setShowBlockPicker(true)}
-                     className="w-10 h-10 rounded-full border-2 border-[#1a1510]/15 bg-white flex items-center justify-center hover:border-brand-gold/50 shadow-sm"
-                  >
-                     <Plus size={18} className="text-[#1a1510]/50" />
-                  </button>
-                  <p className="text-xs text-[#1a1510]/40 mt-2">Add your first action below</p>
+
+                  {/* Target Node */}
+                  <div className="w-full max-w-[340px] rounded-2xl border border-[#1a1510]/10 bg-white p-5 shadow-sm">
+                     <div className="w-9 h-9 rounded-lg bg-[#1a1510]/5 flex items-center justify-center mb-3">
+                        <Target size={18} className="text-[#1a1510]/60" />
+                     </div>
+                     <p className="text-[11px] font-medium text-[#1a1510]/40 uppercase tracking-wide">2 · Target</p>
+                     <h3 className="text-[16px] font-bold text-[#1a1510] mt-1">{selectedTarget}</h3>
+                     <p className="text-[13px] text-[#1a1510]/45 mt-1">Actions apply to target records of type {selectedTarget.toLowerCase()}.</p>
+                  </div>
+
+                  {/* Enrollment Filters Node */}
+                  {activeFilterCount > 0 && (
+                     <>
+                        <div className="w-px h-8 bg-[#1a1510]/15" />
+                        <div className="w-full max-w-[340px] rounded-2xl border border-[#1a1510]/10 bg-white p-5 shadow-sm">
+                           <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center mb-3">
+                              <Filter size={18} className="text-blue-600" />
+                           </div>
+                           <p className="text-[11px] font-medium text-[#1a1510]/40 uppercase tracking-wide">3 · Enrollment ({activeFilterCount} Active)</p>
+                           <div className="mt-2 flex flex-wrap gap-1">
+                              {enrollmentFilters.filter(f => f.active).map(f => (
+                                 <span key={f.id} className="text-[11px] bg-[#f7f8f9] text-[#1a1510]/80 px-2 py-0.5 rounded border border-[#1a1510]/5">{f.label}</span>
+                              ))}
+                           </div>
+                        </div>
+                     </>
+                  )}
+
+                  {/* Guardrails Node */}
+                  {activeGuardrailCount > 0 && (
+                     <>
+                        <div className="w-px h-8 bg-[#1a1510]/15" />
+                        <div className="w-full max-w-[340px] rounded-2xl border border-[#1a1510]/10 bg-white p-5 shadow-sm">
+                           <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center mb-3">
+                              <Shield size={18} className="text-emerald-600" />
+                           </div>
+                           <p className="text-[11px] font-medium text-[#1a1510]/40 uppercase tracking-wide">4 · Guardrails ({activeGuardrailCount} Enabled)</p>
+                           <div className="mt-2 space-y-1">
+                              {guardrails.filter(g => g.enabled).map(g => (
+                                 <p key={g.id} className="text-xs text-[#1a1510]/60">• {g.title} → <span className="font-semibold text-[#1a1510]">{g.action}</span></p>
+                              ))}
+                           </div>
+                        </div>
+                     </>
+                  )}
+
                   <div className="w-px h-8 bg-[#1a1510]/15" />
+
+                  {/* Path Preset Node */}
+                  <div className="w-full max-w-[340px] rounded-2xl border border-brand-gold/30 bg-white p-5 shadow-sm">
+                     <div className="w-9 h-9 rounded-lg bg-brand-gold/15 flex items-center justify-center mb-3">
+                        <GitBranch size={18} className="text-brand-gold" />
+                     </div>
+                     <p className="text-[11px] font-medium text-[#1a1510]/40 uppercase tracking-wide">5 · Path preset</p>
+                     <h3 className="text-[16px] font-bold text-[#1a1510] mt-1">{selectedPath || "No path preset"}</h3>
+                     <p className="text-[13px] text-[#1a1510]/45 mt-1">Active motion: {selectedPath ? `Executes ${selectedPath.toLowerCase()}` : "Manual tasks only"}.</p>
+                  </div>
+
+                  <div className="w-px h-8 bg-[#1a1510]/15" />
+
                   <div className="rounded-full border border-[#1a1510]/15 bg-white px-4 py-2 text-sm text-[#1a1510]/55 flex items-center gap-2">
                      <Circle size={14} /> End of workflow
                   </div>

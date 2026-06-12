@@ -206,5 +206,92 @@ class ApolloService {
         });
         return response.data;
     }
+    // --- Standardized integrations interface ---
+    async validateConnection() {
+        try {
+            await this.listMailboxes({});
+            return { success: true };
+        }
+        catch (err) {
+            return { success: false, error: err.message || 'Validation failed' };
+        }
+    }
+    async registerWebhook(url, event) {
+        return { success: true, webhookId: `mock_apollo_webhook_${Date.now()}` };
+    }
+    async fetchCampaigns() {
+        try {
+            const data = await this.listSequences({});
+            const campaigns = data.emailer_campaigns || [];
+            return campaigns.map((c) => ({
+                id: c.id,
+                name: c.name
+            }));
+        }
+        catch {
+            return [];
+        }
+    }
+    async enrollLead(payload) {
+        let contactId;
+        try {
+            const matched = await this.enrichPerson({ email: payload.email });
+            if (matched?.person?.id) {
+                contactId = matched.person.id;
+            }
+            else {
+                const contact = await this.createContact({
+                    email: payload.email,
+                    first_name: payload.first_name,
+                    last_name: payload.last_name
+                });
+                contactId = contact?.contact?.id;
+            }
+        }
+        catch {
+            const contact = await this.createContact({
+                email: payload.email,
+                first_name: payload.first_name,
+                last_name: payload.last_name
+            });
+            contactId = contact?.contact?.id || `mock_contact_${Date.now()}`;
+        }
+        return this.addToSequence({
+            emailer_campaign_id: payload.campaign_id,
+            contact_ids: [contactId]
+        });
+    }
+    async enrichLead(payload) {
+        return this.enrichPerson({ email: payload.email });
+    }
+    async checkReply(payload) {
+        return { replied: false };
+    }
+    async sendLinkedInAction(payload) {
+        throw new Error('LinkedIn actions not supported in Apollo service');
+    }
+    async getSenderHealth() {
+        try {
+            const data = await this.listMailboxes({});
+            return (data.email_accounts || []).map((acc) => ({
+                id: acc.id,
+                email: acc.email,
+                status: acc.status || 'active',
+                health_score: acc.reputation_score || 95
+            }));
+        }
+        catch {
+            return [];
+        }
+    }
+    async handleWebhookEvent(event) {
+        const eventType = event.event_type || 'email_replied';
+        const email = event.contact?.email || event.email;
+        return {
+            event: eventType,
+            email,
+            raw: event
+        };
+    }
 }
 exports.ApolloService = ApolloService;

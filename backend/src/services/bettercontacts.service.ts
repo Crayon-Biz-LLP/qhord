@@ -45,4 +45,52 @@ export class BetterContactsService {
     });
     return res.data;
   }
+
+  // --- Standardized integrations interface ---
+  async validateConnection(): Promise<{ success: boolean; error?: string }> {
+    try {
+      if (!this.apiKey || this.apiKey.trim().length === 0) {
+        return { success: false, error: 'API Key missing' };
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  async registerWebhook(url: string, event: string): Promise<{ success: boolean; webhookId?: string; error?: string }> {
+    return { success: false, error: 'Webhooks not supported on BetterContacts' };
+  }
+
+  async fetchCampaigns(): Promise<Array<{ id: string; name: string }>> {
+    return [];
+  }
+
+  async enrollLead(payload: any): Promise<any> {
+    throw new Error('Lead enrollment not supported on BetterContacts');
+  }
+
+  async enrichLead(payload: any): Promise<any> {
+    return this.enrichContacts(payload);
+  }
+
+  async checkReply(payload: any): Promise<{ replied: boolean; timestamp?: string }> {
+    return { replied: false };
+  }
+
+  async sendLinkedInAction(payload: any): Promise<any> {
+    throw new Error('LinkedIn actions not supported on BetterContacts');
+  }
+
+  async getSenderHealth(): Promise<any> {
+    return [];
+  }
+
+  async handleWebhookEvent(event: any): Promise<any> {
+    return {
+      event: 'contact_enriched',
+      email: event.email,
+      raw: event
+    };
+  }
 }

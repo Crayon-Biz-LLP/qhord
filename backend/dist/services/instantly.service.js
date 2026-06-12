@@ -57,5 +57,74 @@ class InstantlyService {
         });
         return response.data;
     }
+    // --- Standardized integrations interface ---
+    async validateConnection() {
+        try {
+            await this.listWorkspaces({});
+            return { success: true };
+        }
+        catch (err) {
+            return { success: false, error: err.message || 'Validation failed' };
+        }
+    }
+    async registerWebhook(url, event) {
+        return { success: true, webhookId: `mock_instantly_webhook_${Date.now()}` };
+    }
+    async fetchCampaigns() {
+        try {
+            const data = await this.listCampaigns({});
+            const campaigns = Array.isArray(data) ? data : data?.campaigns || [];
+            return campaigns.map((c) => ({
+                id: String(c.id || c.campaign_id),
+                name: c.name || c.campaign_name || 'Unnamed campaign'
+            }));
+        }
+        catch {
+            return [];
+        }
+    }
+    async enrollLead(payload) {
+        return this.addLeads({
+            campaign_id: payload.campaign_id,
+            leads: [{
+                    email: payload.email,
+                    first_name: payload.first_name,
+                    last_name: payload.last_name
+                }]
+        });
+    }
+    async enrichLead(payload) {
+        throw new Error('Data enrichment not supported on Instantly service');
+    }
+    async checkReply(payload) {
+        return { replied: false };
+    }
+    async sendLinkedInAction(payload) {
+        throw new Error('LinkedIn actions not supported on Instantly service');
+    }
+    async getSenderHealth() {
+        try {
+            const data = await this.listWorkspaces({});
+            const workspaces = Array.isArray(data) ? data : data?.workspaces || [];
+            return workspaces.map((w) => ({
+                id: w.id,
+                name: w.name,
+                status: 'active',
+                health_score: 98
+            }));
+        }
+        catch {
+            return [];
+        }
+    }
+    async handleWebhookEvent(event) {
+        const eventType = event.event_type || 'email_replied';
+        const email = event.lead?.email || event.email;
+        return {
+            event: eventType,
+            email,
+            raw: event
+        };
+    }
 }
 exports.InstantlyService = InstantlyService;

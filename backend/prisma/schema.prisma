@@ -30,6 +30,7 @@ model Operator {
   requested_approvals   CampaignApproval[]   @relation("approval_requested_by")
   approved_approvals    CampaignApproval[]   @relation("approval_approved_by")
   notifications         Notification[]
+  workflows             Workflow[]
 
   @@map("operators")
 }
@@ -104,6 +105,7 @@ model Client {
   deals              Deal[]
   inbox_messages     InboxMessage[]
   inbox_conversations InboxConversation[]
+  workflows          Workflow[]
 
   @@map("clients")
 }
@@ -435,5 +437,50 @@ model InboxConversationMessage {
 
   @@index([conversation_id])
   @@map("inbox_conversation_messages")
+}
+
+model Workflow {
+  id                     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                   String
+  mode                   String    @default("standard") // standard / advanced
+  execution_mode         String    @default("auto_with_guardrails") // auto_with_guardrails / manual / approval_required
+  trigger_type           String
+  target_type            String    @default("people") // people / companies / deals
+  account_scope          String?
+  campaign_scope         String?
+  enrollment_filters     Json      @default("[]")
+  guardrails             Json      @default("[]")
+  path_actions           Json      @default("[]")
+  tool_configuration     Json      @default("{}")
+  status                 String    @default("draft") // draft / active / paused / completed
+  created_by_operator_id String    @db.Uuid
+  workspace_id           String?   @db.Uuid
+  client_id              String    @db.Uuid
+  created_at             DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  created_by             Operator  @relation(fields: [created_by_operator_id], references: [id], onDelete: Cascade)
+  client                 Client    @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  runs                   WorkflowRun[]
+
+  @@map("workflows")
+}
+
+model WorkflowRun {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workflow_id     String   @db.Uuid
+  workflow        Workflow @relation(fields: [workflow_id], references: [id], onDelete: Cascade)
+  trigger_event   String
+  record_id       String?
+  target_type     String
+  filter_result   Json?    // stores details of filter evaluation
+  guardrail_result Json?   // stores details of guardrail evaluation
+  action_executed String?  // step/action executed
+  tool_used       String?  // tool used
+  status          String   @default("pending") // pending / running / completed / failed / held
+  error_message   String?
+  timestamp       DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("workflow_runs")
 }
 

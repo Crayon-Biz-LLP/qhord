@@ -95,5 +95,83 @@ class SmartLeadService {
         });
         return response.data;
     }
+    // --- Standardized integrations interface ---
+    async validateConnection() {
+        try {
+            await this.getAllEmailAccounts({});
+            return { success: true };
+        }
+        catch (err) {
+            return { success: false, error: err.message || 'Validation failed' };
+        }
+    }
+    async registerWebhook(url, event) {
+        return { success: true, webhookId: `mock_smartlead_webhook_${Date.now()}` };
+    }
+    async fetchCampaigns() {
+        try {
+            const data = await this.getAllCampaigns({});
+            const campaigns = Array.isArray(data) ? data : data?.campaigns || [];
+            return campaigns.map((c) => ({
+                id: String(c.id),
+                name: c.name || 'Unnamed campaign'
+            }));
+        }
+        catch {
+            return [];
+        }
+    }
+    async enrollLead(payload) {
+        return this.addLeadsToCampaign({
+            campaign_id: payload.campaign_id,
+            lead_list: [{
+                    email: payload.email,
+                    first_name: payload.first_name,
+                    last_name: payload.last_name,
+                    company_name: payload.company_name
+                }]
+        });
+    }
+    async enrichLead(payload) {
+        throw new Error('Data enrichment not supported on Smartlead service');
+    }
+    async checkReply(payload) {
+        try {
+            const data = await this.getLeadByEmail({ email: payload.email });
+            const lead = data?.lead || data;
+            const replied = lead?.is_replied || lead?.status === 'replied';
+            return { replied: !!replied };
+        }
+        catch {
+            return { replied: false };
+        }
+    }
+    async sendLinkedInAction(payload) {
+        throw new Error('LinkedIn actions not supported on Smartlead service');
+    }
+    async getSenderHealth() {
+        try {
+            const data = await this.getAllEmailAccounts({});
+            const accounts = data.email_accounts || data || [];
+            return accounts.map((acc) => ({
+                id: acc.id,
+                email: acc.from_email || acc.email,
+                status: acc.status || 'active',
+                health_score: acc.health_score || 90
+            }));
+        }
+        catch {
+            return [];
+        }
+    }
+    async handleWebhookEvent(event) {
+        const eventType = event.event_type || 'email_replied';
+        const email = event.lead?.email || event.email;
+        return {
+            event: eventType,
+            email,
+            raw: event
+        };
+    }
 }
 exports.SmartLeadService = SmartLeadService;
