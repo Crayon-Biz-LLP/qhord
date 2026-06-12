@@ -1,17 +1,15 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { 
+import {
   Bot, Database, Plus, CheckCircle, Clock, RefreshCw, MoreHorizontal, Target,
-  LayoutDashboard
+  LayoutDashboard, ArrowUpRight, Sparkles,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { CreateCampaignModal } from "@/components/campaigns/CreateCampaignModal";
 import { Loader } from "@/components/ui/Loader";
 
 export default function CampaignsPage() {
   const router = useRouter();
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -28,7 +26,7 @@ export default function CampaignsPage() {
           "Content-Type": "application/json"
         }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setCampaigns(data.campaigns || []);
@@ -40,153 +38,148 @@ export default function CampaignsPage() {
     }
   };
 
+  const goBuild = () => router.push("/dashboard/campaigns/build");
+
+  const stats = [
+    { label: "Total Campaigns", value: campaigns.length, sub: "Created by you", icon: Database, tint: "text-brand-gold" },
+    { label: "Approved", value: campaigns.filter((c) => c.status === "approved").length, sub: "Ready for execution", icon: CheckCircle, tint: "text-emerald-500" },
+    { label: "Pending", value: campaigns.filter((c) => c.status === "pending_approval").length, sub: "Awaiting approval", icon: Clock, tint: "text-orange-500" },
+  ];
+
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#f7f8f9] text-[#1a1510] font-sans selection:bg-[#D4AF37]/30">
-      
-      <nav className="h-20 border-b border-[#1a1510]/5 bg-white flex items-center justify-between px-4 sm:px-8 shrink-0 z-50 shadow-sm relative">
+    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#f7f8f9] text-[#1a1510] font-sans selection:bg-brand-gold/30">
+
+      {/* Header */}
+      <header className="h-16 border-b border-[#1a1510]/[0.07] bg-white flex items-center justify-between px-4 sm:px-8 shrink-0 z-50 relative">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#1a1510] text-brand-gold rounded-xl shadow-lg shrink-0">
-            <Target size={18} />
+          <div className="w-9 h-9 bg-[#1a1510] text-brand-gold rounded-lg flex items-center justify-center shrink-0">
+            <Target size={17} />
           </div>
           <div className="hidden sm:block truncate">
-            <h2 className="text-sm font-black tracking-tight text-[#1a1510] uppercase truncate">Campaigns</h2>
-            <p className="text-[10px] font-bold text-[#1a1510]/30 uppercase tracking-widest mt-0.5 truncate">
-               Tactical Orchestration
-            </p>
+            <h1 className="text-[13px] font-bold tracking-tight text-[#1a1510] uppercase">Campaigns</h1>
+            <p className="text-[11px] font-medium text-[#1a1510]/40 truncate">Tactical orchestration</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={() => router.push('/dashboard')}
-            className="h-10 px-3 sm:px-5 rounded-xl border border-[#1a1510]/10 text-[10px] font-black uppercase tracking-widest text-[#1a1510] flex items-center gap-2 hover:bg-[#f7f8f9] transition-all"
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <button
+            onClick={() => router.push("/dashboard")}
+            className="btn-shine btn-shine-dark h-10 px-3 sm:px-5 rounded-none border border-[#1a1510]/10 text-xs font-semibold text-[#1a1510] flex items-center gap-2 hover:bg-[#1a1510]/[0.02] transition-colors"
           >
-            <LayoutDashboard size={14} /> <span className="hidden sm:inline">Back</span>
+            <LayoutDashboard size={15} /> <span className="hidden sm:inline">Back to Hub</span>
           </button>
-          <button 
-            onClick={() => setIsCreateModalOpen(true)}
-            className="h-10 px-4 sm:px-6 rounded-xl bg-brand-gold text-[#1a1510] text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center gap-2 hover:translate-y-[-1px] transition-all"
+          <button
+            onClick={goBuild}
+            className="btn-shine h-10 px-4 sm:px-6 rounded-none bg-[#1a1510] text-white text-xs font-semibold flex items-center gap-2 hover:bg-[#2a2118] transition-colors shrink-0"
           >
-            <Plus size={14} /> <span className="hidden xs:inline">New Campaign</span>
+            <Plus size={15} /> <span className="hidden xs:inline">New Campaign</span><span className="xs:hidden">New</span>
           </button>
         </div>
-      </nav>
+      </header>
 
       <main className="flex-1 overflow-y-auto scrollbar-hide pb-32">
-        <div className="max-w-7xl mx-auto p-4 sm:p-8 space-y-12">
-           
-           <div className="p-8">
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-               <div className="bg-white rounded-xl p-6 border border-[#1a1510]/5 shadow-sm">
-                 <div className="flex items-center justify-between mb-4">
-                   <span className="text-xs font-bold text-[#1a1510]/40 uppercase tracking-widest">TOTAL CAMPAIGNS</span>
-                   <Database className="w-4 h-4 text-brand-gold" />
-                 </div>
-                 <div className="text-2xl font-bold text-[#1a1510]">{campaigns.length}</div>
-                 <div className="text-xs text-[#1a1510]/40">Created by you</div>
-               </div>
-               
-               <div className="bg-white rounded-xl p-6 border border-[#1a1510]/5 shadow-sm">
-                 <div className="flex items-center justify-between mb-4">
-                   <span className="text-xs font-bold text-[#1a1510]/40 uppercase tracking-widest">APPROVED</span>
-                   <CheckCircle className="w-4 h-4 text-emerald-500" />
-                 </div>
-                 <div className="text-2xl font-bold text-[#1a1510]">
-                   {campaigns.filter(c => c.status === 'approved').length}
-                 </div>
-                 <div className="text-xs text-[#1a1510]/40">Ready for execution</div>
-               </div>
-               
-               <div className="bg-white rounded-xl p-6 border border-[#1a1510]/5 shadow-sm">
-                 <div className="flex items-center justify-between mb-4">
-                   <span className="text-xs font-bold text-[#1a1510]/40 uppercase tracking-widest">PENDING</span>
-                   <Clock className="w-4 h-4 text-orange-500" />
-                 </div>
-                 <div className="text-2xl font-bold text-[#1a1510]">
-                   {campaigns.filter(c => c.status === 'pending_approval').length}
-                 </div>
-                 <div className="text-xs text-[#1a1510]/40">Awaiting approval</div>
-               </div>
-             </div>
-           </div>
+        <div className="max-w-6xl mx-auto p-4 sm:p-8 space-y-8">
 
-           <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold text-[#1a1510]">Your Campaigns</h3>
-              <div className="flex items-center gap-2">
-                 <button className="p-2 bg-white border border-[#1a1510]/5 rounded-lg hover:bg-[#f7f8f9] transition-colors">
-                    <RefreshCw size={16} className="text-[#1a1510]/60" />
-                 </button>
+          {/* Stat ribbon */}
+          <section className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+            {stats.map((s) => (
+              <div key={s.label} className="bg-white p-5 rounded-2xl border border-[#1a1510]/[0.07] flex flex-col justify-between h-32 group hover:border-[#1a1510]/15 transition-colors">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-[#1a1510]/40 tracking-wider uppercase">{s.label}</span>
+                  <s.icon size={15} className={s.tint} />
+                </div>
+                <div>
+                  <h3 className="text-3xl font-bold text-[#1a1510] tracking-tight tabular-nums">{s.value}</h3>
+                  <p className="text-[11px] font-medium text-[#1a1510]/40 mt-0.5">{s.sub}</p>
+                </div>
               </div>
-           </div>
+            ))}
+          </section>
 
-           <div className="bg-white rounded-xl border border-[#1a1510]/5 overflow-hidden">
+          {/* Campaigns list */}
+          <section className="space-y-4">
+            <div className="flex items-center justify-between px-1">
+              <h2 className="text-[15px] font-bold text-[#1a1510]">Your Campaigns</h2>
+              <button
+                onClick={fetchCampaigns}
+                className="w-9 h-9 flex items-center justify-center bg-white border border-[#1a1510]/[0.07] rounded-lg hover:bg-[#f7f8f9] transition-colors"
+              >
+                <RefreshCw size={15} className="text-[#1a1510]/50" />
+              </button>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-[#1a1510]/[0.07] overflow-hidden">
               {loading ? (
-                 <div className="p-8 flex flex-col items-center justify-center gap-4">
-                    <Loader size={36} />
-                    <p className="text-[13px] text-[#1a1510]/40">Loading campaigns…</p>
-                 </div>
+                <div className="p-12 flex flex-col items-center justify-center gap-4">
+                  <Loader size={36} />
+                  <p className="text-[13px] text-[#1a1510]/40">Loading campaigns…</p>
+                </div>
               ) : campaigns.length === 0 ? (
-                 <div className="p-8 text-center">
-                    <Bot className="w-12 h-12 text-[#1a1510]/20 mx-auto mb-4" />
-                    <h3 className="text-lg font-bold text-[#1a1510] mb-2">No campaigns yet</h3>
-                    <p className="text-[#1a1510]/60 mb-4">Create your first AI-powered campaign</p>
-                    <button 
-                       onClick={() => setIsCreateModalOpen(true)}
-                       className="px-4 py-2 bg-brand-gold text-[#1a1510] rounded-lg font-semibold hover:bg-brand-gold/90 transition-colors"
-                    >
-                       Create Campaign
-                    </button>
-                 </div>
+                <div className="flex flex-col items-center justify-center text-center py-16 px-6">
+                  <div className="relative mb-5">
+                    <div className="absolute -inset-2 bg-brand-gold/15 rounded-2xl blur-lg" />
+                    <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-[#1a1510] to-[#2a2118] flex items-center justify-center text-brand-gold ring-1 ring-brand-gold/20">
+                      <Bot size={24} />
+                    </div>
+                  </div>
+                  <p className="text-[15px] font-semibold text-[#1a1510]">No campaigns yet</p>
+                  <p className="text-[13px] text-[#1a1510]/40 mt-1.5 max-w-xs leading-relaxed">Create your first AI-powered campaign and it will appear here.</p>
+                  <button
+                    onClick={goBuild}
+                    className="btn-shine mt-6 h-10 px-6 rounded-none bg-[#1a1510] text-white text-xs font-semibold flex items-center gap-2 hover:bg-[#2a2118] transition-colors"
+                  >
+                    <Sparkles size={14} className="text-brand-gold" /> Create Campaign
+                  </button>
+                </div>
               ) : (
-                 <div className="divide-y divide-[#1a1510]/5">
-                    {campaigns.map((campaign) => (
-                       <div key={campaign.id} className="p-6 hover:bg-[#f7f8f9] transition-colors">
-                          <div className="flex items-center justify-between">
-                             <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-2">
-                                   <h4 className="font-bold text-[#1a1510]">{campaign.name}</h4>
-                                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                      campaign.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
-                                      campaign.status === 'pending_approval' ? 'bg-orange-100 text-orange-700' :
-                                      campaign.status === 'draft' ? 'bg-gray-100 text-gray-700' :
-                                      'bg-blue-100 text-blue-700'
-                                   }`}>
-                                      {campaign.status}
-                                   </span>
-                                </div>
-                                <p className="text-sm text-[#1a1510]/60 mb-2">{campaign.description}</p>
-                                <div className="flex items-center gap-4 text-xs text-[#1a1510]/40">
-                                   <span>💰 ${campaign.estimatedCost}</span>
-                                   <span>⏱️ {campaign.estimatedDuration} min</span>
-                                   <span>📊 {campaign.stepCount} steps</span>
-                                   <span>📅 {new Date(campaign.createdAt).toLocaleDateString()}</span>
-                                </div>
-                             </div>
-                             <div className="flex items-center gap-2">
-                                {campaign.status === 'draft' && (
-                                   <button className="px-3 py-1 bg-brand-gold text-[#1a1510] rounded-lg text-xs font-semibold hover:bg-brand-gold/90 transition-colors">
-                                      Submit for Approval
-                                   </button>
-                                )}
-                                <button className="p-2 bg-white border border-[#1a1510]/5 rounded-lg hover:bg-[#f7f8f9] transition-colors">
-                                   <MoreHorizontal size={16} className="text-[#1a1510]/60" />
-                                </button>
-                             </div>
+                <div className="divide-y divide-[#1a1510]/[0.06]">
+                  {campaigns.map((campaign) => (
+                    <div key={campaign.id} className="p-5 sm:p-6 hover:bg-[#fafafa] transition-colors group">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-start gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-xl bg-[#f7f8f9] flex items-center justify-center text-[#1a1510]/40 group-hover:text-brand-gold transition-colors shrink-0">
+                            <Target size={18} />
                           </div>
-                       </div>
-                    ))}
-                 </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2.5">
+                              <h4 className="text-[14px] font-semibold text-[#1a1510] truncate">{campaign.name}</h4>
+                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md capitalize ${
+                                campaign.status === "approved" ? "bg-emerald-50 text-emerald-600" :
+                                campaign.status === "pending_approval" ? "bg-amber-50 text-amber-600" :
+                                campaign.status === "draft" ? "bg-[#1a1510]/5 text-[#1a1510]/50" :
+                                "bg-blue-50 text-blue-600"
+                              }`}>
+                                {String(campaign.status || "").replace("_", " ")}
+                              </span>
+                            </div>
+                            {campaign.description && (
+                              <p className="text-[13px] text-[#1a1510]/50 mt-1 line-clamp-1">{campaign.description}</p>
+                            )}
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-[11px] text-[#1a1510]/40">
+                              {campaign.estimatedCost != null && <span>${campaign.estimatedCost} est. cost</span>}
+                              {campaign.estimatedDuration != null && <span>{campaign.estimatedDuration} min</span>}
+                              {campaign.stepCount != null && <span>{campaign.stepCount} steps</span>}
+                              {campaign.createdAt && <span>{new Date(campaign.createdAt).toLocaleDateString()}</span>}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {campaign.status === "draft" && (
+                            <button className="btn-shine h-9 px-4 rounded-none bg-[#1a1510] text-white text-[11px] font-semibold hover:bg-[#2a2118] transition-colors flex items-center gap-1.5">
+                              <ArrowUpRight size={13} className="text-brand-gold" /> Submit
+                            </button>
+                          )}
+                          <button className="w-9 h-9 flex items-center justify-center bg-white border border-[#1a1510]/[0.07] rounded-lg hover:bg-[#f7f8f9] transition-colors">
+                            <MoreHorizontal size={16} className="text-[#1a1510]/50" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
-           </div>
-
-      <CreateCampaignModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onSuccess={(campaign) => {
-          console.log('Campaign created:', campaign);
-          fetchCampaigns();
-        }}
-      />
+            </div>
+          </section>
         </div>
       </main>
     </div>
