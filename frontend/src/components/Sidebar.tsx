@@ -16,10 +16,7 @@ export function Sidebar() {
     { href: "/dashboard/inbox", label: "Inbox" },
     { href: "/dashboard/pipeline", label: "Pipeline" },
     { href: "/dashboard/leads", label: "Leads" },
-    { href: "/dashboard/accounts", label: "Accounts" },
     { href: "/dashboard/tools", label: "Tools" },
-    { href: "/dashboard/playbooks", label: "Playbooks" },
-    { href: "/dashboard/apis", label: "APIs" },
     { href: "/dashboard/pricing", label: "Pricing" },
     { href: "/dashboard/settings", label: "Settings" },
   ];

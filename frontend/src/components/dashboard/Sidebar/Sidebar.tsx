@@ -151,17 +151,6 @@ export const Sidebar = ({ onSignOut, activeView = 'dashboard', onViewChange }: S
               { icon: DealsIcon, label: "Deals", id: 'pipeline', href: '/dashboard/pipeline' },
               { icon: AnalyticsIcon, label: "Analytics", id: 'analytics', href: '/dashboard/analytics' },
               { icon: ToolsIcon, label: "Tools Config", id: 'tools', href: '/dashboard/tools' },
-              { icon: BookOpen, label: "Playbooks", id: 'playbooks', href: '/dashboard/playbooks' },
-              { icon: KeyRound, label: "APIs & Keys", id: 'apis', href: '/dashboard/apis' },
-              { icon: AccountNodesIcon, label: "Account Nodes", id: 'accounts', href: '/dashboard/accounts' },
-            ]
-          },
-          {
-            title: "INTELLIGENCE",
-            items: [
-              { icon: Megaphone, label: "AI SDR", id: 'ai-sdr', href: '/dashboard/ai-sdr' },
-              { icon: Bot, label: "AI Operator", id: 'ai-operator', href: '/dashboard/ai-operator' },
-              { icon: BrainCircuit, label: "AI Engine", id: 'ai-engine', href: '/dashboard/ai-engine' },
             ]
           },
           {
