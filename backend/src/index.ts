@@ -25,6 +25,7 @@ import dealsRoutes from './routes/deals';
 import inboxRoutes from './routes/inbox';
 import unifiedInboxRoutes from './routes/unified-inbox';
 import inboxWebhookRoutes from './routes/inbox-webhooks';
+import webhookRoutes from './routes/webhooks';
 import { prisma } from './lib/prisma';
 import { campaignWorker } from './workers/campaign-worker';
 import { workflowWorker } from './workers/workflow-worker';
@@ -82,6 +83,7 @@ app.use('/api/playbooks', playbooksRoutes);
 app.use('/api/deals', dealsRoutes);
 app.use('/api/inbox', inboxRoutes);
 app.use('/api/webhooks/inbox', inboxWebhookRoutes);
+app.use('/api/webhooks', webhookRoutes);
 
 // Optional: background inbox sync (BullMQ + Redis). Off by default so the app
 // runs without Redis; enable with INBOX_BACKGROUND_SYNC=true.

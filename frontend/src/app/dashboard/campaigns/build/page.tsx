@@ -452,7 +452,15 @@ export default function BuildCampaignPage() {
           "Content-Type": "application/json",
           "ngrok-skip-browser-warning": "true",
         },
-        body: JSON.stringify({ prompt: buildPrompt() }),
+        body: JSON.stringify({
+          prompt: buildPrompt(),
+          workflows: workflows.map((w) => ({
+            name: w.name,
+            actions: w.actions.map((a) => ({
+              label: a.label,
+            })),
+          })),
+        }),
       });
     } catch (e) {
       console.error("Build campaign failed:", e);

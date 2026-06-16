@@ -38,13 +38,19 @@ export class WorkflowWorker {
     });
   }
 
-  private async processWorkflowJob(job: Job<WorkflowJobData, any, string>) {
-    const { workflowId, payload, operatorId } = job.data;
+  private async processWorkflowJob(job: Job<any, any, string>) {
+    const { workflowId, payload, operatorId, runId, nextNodeId } = job.data;
     try {
-      console.log(`[WorkflowWorker] Processing job for workflow: ${workflowId}`);
-      await workflowEngine.executeWorkflow(workflowId, payload, operatorId);
+      if (runId && nextNodeId) {
+        console.log(`[WorkflowWorker] Resuming execution of campaign workflow run: ${runId} from node: ${nextNodeId}`);
+        const { campaignWorkflowEngine } = await import('../services/campaign-workflow.engine');
+        await campaignWorkflowEngine.executeNode(runId, nextNodeId);
+      } else {
+        console.log(`[WorkflowWorker] Processing job for legacy workflow: ${workflowId}`);
+        await workflowEngine.executeWorkflow(workflowId, payload, operatorId);
+      }
     } catch (error) {
-      console.error(`[WorkflowWorker] Job processing error for workflow ${workflowId}:`, error);
+      console.error(`[WorkflowWorker] Job processing error:`, error);
       throw error;
     }
   }

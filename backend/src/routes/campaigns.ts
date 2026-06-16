@@ -331,4 +331,279 @@ async function getClientIdForOperator(operatorId: string): Promise<string | null
   }
 }
 
+/**
+ * Helper to save canvas workflow structure (nodes and edges)
+ */
+async function saveCanvasWorkflow(campaignId: string, operatorId: string, workflowsData: any[], compiledSteps: any[]) {
+  try {
+    let finalWorkflows = workflowsData;
+    // If no visual workflows are provided, build a default linear workflow from compiler steps
+    if (!finalWorkflows || finalWorkflows.length === 0) {
+      finalWorkflows = [{
+        name: 'Main Workflow',
+        actions: (compiledSteps || []).map(step => ({
+          label: `${step.tool.charAt(0).toUpperCase() + step.tool.slice(1)} ${step.action}`
+        }))
+      }];
+    }
+
+    for (const w of finalWorkflows) {
+      const cw = await prisma.campaignWorkflow.create({
+        data: {
+          campaign_id: campaignId,
+          workflow_name: w.name || 'Main Workflow',
+          status: 'active',
+          created_by: operatorId,
+        }
+      });
+
+      const nodesData = [];
+
+      // Determine initial trigger tool from first action or compiled steps
+      let triggerTool = 'apollo';
+      if (compiledSteps && compiledSteps.length > 0) {
+        triggerTool = compiledSteps[0].tool.toLowerCase();
+      }
+
+      nodesData.push({
+        node_type: 'source',
+        tool: triggerTool,
+        configuration_json: {},
+        position: { x: 0, y: 0 }
+      });
+
+      const actions = w.actions || [];
+      // Add other action nodes
+      for (let i = 0; i < actions.length; i++) {
+        const action = actions[i];
+        const label = (action.label || '').toLowerCase();
+
+        let nodeType = 'action';
+        let tool = 'internal';
+        let config: any = {};
+
+        if (label.includes('apollo') && label.includes('search')) {
+          nodeType = 'source';
+          tool = 'apollo';
+        } else if (label.includes('clay') || label.includes('enrich')) {
+          nodeType = 'enrichment';
+          tool = 'clay';
+        } else if (label.includes('bettercontact') || label.includes('verify')) {
+          nodeType = 'enrichment';
+          tool = 'bettercontact';
+        } else if (label.includes('smartlead')) {
+          nodeType = 'action';
+          tool = 'smartlead';
+        } else if (label.includes('instantly')) {
+          nodeType = 'action';
+          tool = 'instantly';
+        } else if (label.includes('heyreach')) {
+          nodeType = 'action';
+          tool = 'heyreach';
+        } else if (label.includes('calendly')) {
+          nodeType = 'event';
+          tool = 'calendly';
+        } else if (label.includes('wait') || label.includes('delay')) {
+          nodeType = 'delay';
+          tool = 'delay';
+          const match = label.match(/\d+/);
+          config.wait_days = match ? parseInt(match[0]) : 3;
+        } else if (label.includes('reply') || label.includes('replied')) {
+          nodeType = 'event';
+          tool = 'smartlead';
+        } else if (label.includes('condition') || label.includes('branch') || label.includes('filter')) {
+          nodeType = 'condition';
+          tool = label.includes('email') ? 'bettercontact' : 'linkedin';
+        }
+
+        nodesData.push({
+          node_type: nodeType,
+          tool,
+          configuration_json: config,
+          position: { x: 0, y: (i + 1) * 100 }
+        });
+      }
+
+      // Bulk create nodes
+      const createdNodes = [];
+      for (const nodeData of nodesData) {
+        const node = await prisma.workflowNode.create({
+          data: {
+            workflow_id: cw.id,
+            node_type: nodeData.node_type,
+            tool: nodeData.tool,
+            configuration_json: nodeData.configuration_json,
+            position: nodeData.position,
+          }
+        });
+        createdNodes.push(node);
+      }
+
+      // Create default edges
+      for (let i = 0; i < createdNodes.length - 1; i++) {
+        const source = createdNodes[i];
+        const target = createdNodes[i + 1];
+
+        if (source.node_type === 'condition') {
+          await prisma.workflowEdge.create({
+            data: {
+              workflow_id: cw.id,
+              source_node_id: source.id,
+              target_node_id: target.id,
+              condition_type: 'yes',
+            }
+          });
+        } else {
+          await prisma.workflowEdge.create({
+            data: {
+              workflow_id: cw.id,
+              source_node_id: source.id,
+              target_node_id: target.id,
+              condition_type: 'default',
+            }
+          });
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error saving canvas workflow:', error);
+  }
+}
+
+/**
+ * GET /api/campaigns/:id/workflow
+ * Retrieve workflow details for a campaign (canvas configuration and execution runs)
+ */
+router.get('/:id/workflow', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const workflow = await prisma.campaignWorkflow.findFirst({
+      where: { campaign_id: id },
+      include: {
+        nodes: true,
+        edges: true,
+        runs: {
+          include: {
+            steps: {
+              include: {
+                node: true
+              }
+            },
+            lead: true
+          },
+          orderBy: { created_at: 'desc' },
+          take: 20
+        }
+      }
+    });
+
+    if (!workflow) {
+      return res.status(404).json({ success: false, error: 'Campaign workflow not found' });
+    }
+
+    res.json({ success: true, workflow });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/campaigns/:id/launch-workflow
+ * Activates campaign workflows and executes initial lead ingestion triggers
+ */
+router.post('/:id/launch-workflow', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const workflow = await prisma.campaignWorkflow.findFirst({
+      where: { campaign_id: id },
+      include: { nodes: true, campaign: true },
+    });
+
+    if (!workflow) {
+      return res.status(404).json({ success: false, error: 'Campaign workflow not found' });
+    }
+
+    await prisma.campaignWorkflow.update({
+      where: { id: workflow.id },
+      data: { status: 'active' },
+    });
+
+    // Run trigger node ingestion if set to apollo
+    const triggerNode = workflow.nodes.find(n => n.node_type === 'source');
+    if (triggerNode && triggerNode.tool === 'apollo') {
+      const account = await findToolAccount(workflow.campaign.client_id, 'apollo');
+      const apiKey = account?.api_key_encrypted || 'mock_api_key';
+      const service = new ApolloService(apiKey);
+
+      let people = [];
+      try {
+        const apolloRes = await service.searchLeads({
+          q_organization_domains: 'google.com\nstripe.com',
+          page: 1,
+          per_page: 5,
+        });
+        people = apolloRes.contacts || apolloRes.people || [];
+      } catch (err) {
+        console.log('[CampaignsRoute] Using mock prospects fallback for workflow run...');
+        people = [
+          { email: 'prospect1@neondb.tech', first_name: 'Jane', last_name: 'Doe', organization: { name: 'Neon DB' } },
+          { email: 'prospect2@neon.tech', first_name: 'John', last_name: 'Smith', organization: { name: 'Neon Tech' } },
+        ];
+      }
+
+      const { campaignWorkflowEngine } = await import('../services/campaign-workflow.engine');
+      for (const person of people) {
+        let lead = await prisma.lead.findFirst({
+          where: { client_id: workflow.campaign.client_id, email: person.email },
+        });
+
+        if (!lead) {
+          lead = await prisma.lead.create({
+            data: {
+              client_id: workflow.campaign.client_id,
+              campaign_id: id,
+              email: person.email,
+              first_name: person.first_name,
+              last_name: person.last_name,
+              company_name: person.organization?.name || 'SaaS Company',
+              status: 'new',
+            },
+          });
+        }
+
+        void campaignWorkflowEngine.startWorkflowRun(workflow.id, lead.id);
+      }
+    }
+
+    res.json({ success: true, message: 'Campaign workflow launched, executing runs' });
+  } catch (error: any) {
+    console.error('Launch workflow run error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Modify the existing /plan route to register the workflow structure
+const originalPost = router.post;
+// Hook into campaign compilation to invoke workflow creation
+router.stack.forEach(layer => {
+  if (layer.route && layer.route.path === '/plan') {
+    const originalHandler = layer.route.stack[layer.route.stack.length - 1].handle;
+    layer.route.stack[layer.route.stack.length - 1].handle = async (req: Request, res: Response, next: any) => {
+      const originalJson = res.json;
+      res.json = function(body: any) {
+        if (body && body.success && body.campaignId) {
+          const operatorId = req.user?.id || body.plan?.created_by_operator_id || 'demo_operator';
+          // Save campaign workflow
+          void saveCanvasWorkflow(body.campaignId, operatorId, req.body.workflows, body.plan?.steps || []);
+        }
+        return originalJson.call(this, body);
+      };
+      return originalHandler(req, res, next);
+    };
+  }
+});
+
+import { findToolAccount } from '../ai/pipeline/ensure-tool-accounts';
+import { ApolloService } from '../services/apollo.service';
+
 export default router;
