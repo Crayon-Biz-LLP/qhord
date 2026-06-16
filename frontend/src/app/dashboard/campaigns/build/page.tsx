@@ -12,7 +12,7 @@ import {
   Phone, Database, Search, Upload, Pencil, ClipboardList, Puzzle,
   Wand2, Trash2, ArrowLeftRight, X, AlertTriangle, Plus,
   LayoutGrid, UserPlus, GitBranch, Shuffle, GitFork, LogOut, Bot,
-  Star, Activity, Eye, ThumbsUp, ListChecks, DollarSign, Bell, Download,
+  Star, Activity, Eye, ThumbsUp, ListChecks, DollarSign, Bell, Download, Info,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -89,6 +89,19 @@ const GUARDRAILS = [
 
 type WfAction = { id: string; label: string };
 type WorkflowTab = { id: string; name: string; actions: WfAction[] };
+
+// Block-detail config (Trigger panel) options
+const TRIGGER_MODES = [
+  { id: "event", title: "When something happens", desc: "When a lead replies, books a meeting, signs up…", icon: Zap },
+  { id: "schedule", title: "On a schedule", desc: "On a specific date, or weekly on Mondays.", icon: Calendar },
+] as const;
+const TRIGGER_APPS = [
+  { id: "Qhord", icon: Sparkles },
+  { id: "HeyReach", icon: Linkedin },
+] as const;
+const EVERY_UNITS = ["days", "weeks", "months"] as const;
+const WEEK_DAYS = ["S", "M", "T", "W", "T", "F", "S"] as const;
+const TARGET_TABS = ["People", "Companies", "Deals"] as const;
 
 const FIX_MODES = ["Suggest Only", "Require Approval", "Auto-Run (guardrailed)", "Fully Autonomous"] as const;
 
@@ -298,6 +311,17 @@ export default function BuildCampaignPage() {
   });
   const [blockPanelOpen, setBlockPanelOpen] = useState(false);
   const [blockSearch, setBlockSearch] = useState("");
+  const [detailBlock, setDetailBlock] = useState<string | null>(null);
+  const [trigCfg, setTrigCfg] = useState({
+    mode: "event" as string,
+    run: "every" as string,
+    everyCount: 1,
+    everyUnit: "weeks" as string,
+    days: [2] as number[],
+    app: "HeyReach" as string,
+    target: "People" as string,
+    enrollment: "Any saved contacts" as string,
+  });
   const [fixModes, setFixModes] = useState<Record<string, string>>({ mercedes: "Require Approval", nike: "Require Approval" });
   const [openCats, setOpenCats] = useState<Record<string, boolean>>({
     trigger: true, rules: true, agents: true, linkedin: true, actions: true,
@@ -614,10 +638,17 @@ export default function BuildCampaignPage() {
     setWorkflows((prev) => prev.map((w) => (w.id === activeWf ? { ...w, actions: w.actions.filter((a) => a.id !== aid) } : w)));
   const toggleGuardrail = (id: string) => setGuardrails((prev) => ({ ...prev, [id]: !prev[id] }));
   const toggleCat = (key: string) => setOpenCats((prev) => ({ ...prev, [key]: !prev[key] }));
-  const selectBlock = (name: string) => {
-    addAction(name);
+  const closeBlockPanel = () => {
     setBlockPanelOpen(false);
+    setDetailBlock(null);
     setBlockSearch("");
+  };
+  const setTrig = (patch: Partial<typeof trigCfg>) => setTrigCfg((prev) => ({ ...prev, ...patch }));
+  const toggleDay = (i: number) =>
+    setTrigCfg((prev) => ({ ...prev, days: prev.days.includes(i) ? prev.days.filter((d) => d !== i) : [...prev.days, i] }));
+  const confirmBlock = () => {
+    if (detailBlock) addAction(detailBlock);
+    closeBlockPanel();
   };
   // Light heuristic so the badges respond to the actual content
   const personalized = emailSteps.some((s) => /\{\{/.test(s.body));
@@ -1953,7 +1984,7 @@ export default function BuildCampaignPage() {
           <>
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setBlockPanelOpen(false)}
+              onClick={closeBlockPanel}
               className="fixed inset-0 bg-[#1a1510]/20 z-[110]"
             />
             <motion.aside
@@ -1961,81 +1992,253 @@ export default function BuildCampaignPage() {
               transition={{ type: "spring", stiffness: 320, damping: 34 }}
               className="fixed top-0 right-0 bottom-0 w-full max-w-sm bg-white border-l border-[#1a1510]/10 shadow-[-12px_0_40px_-12px_rgba(26,21,16,0.18)] z-[120] flex flex-col"
             >
-              {/* Drawer header */}
-              <div className="flex items-center justify-between px-5 py-4 border-b border-[#1a1510]/[0.07] shrink-0">
-                <h3 className="text-[15px] font-bold text-[#1a1510]">Choose a block</h3>
-                <button onClick={() => setBlockPanelOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-lg text-[#1a1510]/40 hover:text-[#1a1510] hover:bg-[#f7f8f9] transition-colors">
-                  <X size={17} />
-                </button>
-              </div>
+              {detailBlock === null ? (
+                <>
+                  {/* Drawer header */}
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-[#1a1510]/[0.07] shrink-0">
+                    <h3 className="text-[15px] font-bold text-[#1a1510]">Choose a block</h3>
+                    <button onClick={closeBlockPanel} className="w-8 h-8 flex items-center justify-center rounded-lg text-[#1a1510]/40 hover:text-[#1a1510] hover:bg-[#f7f8f9] transition-colors">
+                      <X size={17} />
+                    </button>
+                  </div>
 
-              {/* Search */}
-              <div className="px-5 py-3 border-b border-[#1a1510]/[0.07] shrink-0">
-                <div className="relative">
-                  <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#1a1510]/30" />
-                  <input
-                    value={blockSearch}
-                    onChange={(e) => setBlockSearch(e.target.value)}
-                    placeholder="Search blocks…"
-                    className="w-full h-10 pl-10 pr-4 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
-                  />
-                </div>
-              </div>
-
-              {/* Categories */}
-              <div className="flex-1 overflow-y-auto scrollbar-hide px-5 py-4 space-y-5">
-                {BLOCK_LIBRARY.map((cat) => {
-                  const q = blockSearch.trim().toLowerCase();
-                  const blocks = cat.blocks.filter((b) => !q || b.name.toLowerCase().includes(q) || b.desc.toLowerCase().includes(q));
-                  if (blocks.length === 0) return null;
-                  const expanded = q ? true : openCats[cat.key] !== false;
-                  return (
-                    <div key={cat.key}>
-                      <button
-                        onClick={() => toggleCat(cat.key)}
-                        className="w-full flex items-center gap-2 mb-2.5"
-                      >
-                        <span className="text-[12px] font-bold text-[#1a1510]">{cat.title}</span>
-                        {"badge" in cat && cat.badge && (
-                          <span className="text-[9px] font-bold uppercase tracking-wider text-brand-gold px-1.5 py-0.5 rounded bg-brand-gold/10">{cat.badge}</span>
-                        )}
-                        <ChevronDown size={15} className={`ml-auto text-[#1a1510]/30 transition-transform ${expanded ? "" : "-rotate-90"}`} />
-                      </button>
-                      <AnimatePresence initial={false}>
-                        {expanded && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.18 }} className="overflow-hidden"
-                          >
-                            <div className="space-y-2">
-                              {blocks.map((b) => (
-                                <button
-                                  key={b.name}
-                                  onClick={() => selectBlock(b.name)}
-                                  className="w-full flex items-start gap-3 p-3 rounded-xl border border-[#1a1510]/[0.07] bg-white text-left hover:border-brand-gold/40 hover:bg-brand-gold/[0.03] transition-all"
-                                >
-                                  <div className="w-8 h-8 rounded-lg bg-[#f7f8f9] text-[#1a1510]/50 flex items-center justify-center shrink-0">
-                                    <b.icon size={16} />
-                                  </div>
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-1.5">
-                                      <p className="text-[13px] font-bold text-[#1a1510]">{b.name}</p>
-                                      {"badge" in b && b.badge && (
-                                        <span className="text-[9px] font-bold uppercase tracking-wider text-[#1a1510]/40 px-1.5 py-0.5 rounded bg-[#f7f8f9]">{b.badge}</span>
-                                      )}
-                                    </div>
-                                    <p className="text-[11px] text-[#1a1510]/45 mt-0.5">{b.desc}</p>
-                                  </div>
-                                </button>
-                              ))}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                  {/* Search */}
+                  <div className="px-5 py-3 border-b border-[#1a1510]/[0.07] shrink-0">
+                    <div className="relative">
+                      <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#1a1510]/30" />
+                      <input
+                        value={blockSearch}
+                        onChange={(e) => setBlockSearch(e.target.value)}
+                        placeholder="Search blocks…"
+                        className="w-full h-10 pl-10 pr-4 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
+                      />
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+
+                  {/* Categories */}
+                  <div className="flex-1 overflow-y-auto scrollbar-hide px-5 py-4 space-y-5">
+                    {BLOCK_LIBRARY.map((cat) => {
+                      const q = blockSearch.trim().toLowerCase();
+                      const blocks = cat.blocks.filter((b) => !q || b.name.toLowerCase().includes(q) || b.desc.toLowerCase().includes(q));
+                      if (blocks.length === 0) return null;
+                      const expanded = q ? true : openCats[cat.key] !== false;
+                      return (
+                        <div key={cat.key}>
+                          <button
+                            onClick={() => toggleCat(cat.key)}
+                            className="w-full flex items-center gap-2 mb-2.5"
+                          >
+                            <span className="text-[12px] font-bold text-[#1a1510]">{cat.title}</span>
+                            {"badge" in cat && cat.badge && (
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-brand-gold px-1.5 py-0.5 rounded bg-brand-gold/10">{cat.badge}</span>
+                            )}
+                            <ChevronDown size={15} className={`ml-auto text-[#1a1510]/30 transition-transform ${expanded ? "" : "-rotate-90"}`} />
+                          </button>
+                          <AnimatePresence initial={false}>
+                            {expanded && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.18 }} className="overflow-hidden"
+                              >
+                                <div className="space-y-2">
+                                  {blocks.map((b) => (
+                                    <button
+                                      key={b.name}
+                                      onClick={() => setDetailBlock(b.name)}
+                                      className="w-full flex items-start gap-3 p-3 rounded-xl border border-[#1a1510]/[0.07] bg-white text-left hover:border-brand-gold/40 hover:bg-brand-gold/[0.03] transition-all"
+                                    >
+                                      <div className="w-8 h-8 rounded-lg bg-[#f7f8f9] text-[#1a1510]/50 flex items-center justify-center shrink-0">
+                                        <b.icon size={16} />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                          <p className="text-[13px] font-bold text-[#1a1510]">{b.name}</p>
+                                          {"badge" in b && b.badge && (
+                                            <span className="text-[9px] font-bold uppercase tracking-wider text-[#1a1510]/40 px-1.5 py-0.5 rounded bg-[#f7f8f9]">{b.badge}</span>
+                                          )}
+                                        </div>
+                                        <p className="text-[11px] text-[#1a1510]/45 mt-0.5">{b.desc}</p>
+                                      </div>
+                                    </button>
+                                  ))}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Detail header */}
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-[#1a1510]/[0.07] shrink-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <button onClick={() => setDetailBlock(null)} className="w-8 h-8 flex items-center justify-center rounded-lg text-[#1a1510]/40 hover:text-[#1a1510] hover:bg-[#f7f8f9] transition-colors shrink-0">
+                        <ArrowLeft size={17} />
+                      </button>
+                      <h3 className="text-[15px] font-bold text-[#1a1510] truncate">{detailBlock}</h3>
+                    </div>
+                    <button onClick={closeBlockPanel} className="w-8 h-8 flex items-center justify-center rounded-lg text-[#1a1510]/40 hover:text-[#1a1510] hover:bg-[#f7f8f9] transition-colors">
+                      <X size={17} />
+                    </button>
+                  </div>
+
+                  {/* Detail body */}
+                  <div className="flex-1 overflow-y-auto scrollbar-hide px-5 py-4 space-y-6">
+                    {/* Run this workflow */}
+                    <div>
+                      <p className="text-[12px] font-bold text-[#1a1510] mb-2.5">Run this workflow</p>
+                      <div className="space-y-2">
+                        {TRIGGER_MODES.map((m) => {
+                          const active = trigCfg.mode === m.id;
+                          return (
+                            <button
+                              key={m.id}
+                              onClick={() => setTrig({ mode: m.id })}
+                              className={`w-full flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all ${
+                                active ? "border-brand-gold ring-2 ring-brand-gold/15 bg-brand-gold/[0.04]" : "border-[#1a1510]/[0.07] bg-white hover:border-[#1a1510]/15"
+                              }`}
+                            >
+                              <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${active ? "border-brand-gold" : "border-[#1a1510]/25"}`}>
+                                {active && <span className="w-2 h-2 rounded-full bg-brand-gold" />}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[13px] font-bold text-[#1a1510]">{m.title}</p>
+                                <p className="text-[11px] text-[#1a1510]/45">{m.desc}</p>
+                              </div>
+                              <m.icon size={16} className="text-[#1a1510]/35 shrink-0" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Frequency (schedule only) */}
+                    <AnimatePresence initial={false}>
+                      {trigCfg.mode === "schedule" && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }} className="overflow-hidden"
+                        >
+                          <p className="text-[12px] font-bold text-[#1a1510] mb-2.5">Frequency</p>
+                          <div className="space-y-3">
+                            <button onClick={() => setTrig({ run: "once" })} className="flex items-center gap-2.5">
+                              <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${trigCfg.run === "once" ? "border-brand-gold" : "border-[#1a1510]/25"}`}>
+                                {trigCfg.run === "once" && <span className="w-2 h-2 rounded-full bg-brand-gold" />}
+                              </span>
+                              <span className="text-[13px] font-semibold text-[#1a1510]">Run once</span>
+                            </button>
+                            <div className="flex items-center gap-2.5">
+                              <button onClick={() => setTrig({ run: "every" })} className="flex items-center gap-2.5 shrink-0">
+                                <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${trigCfg.run === "every" ? "border-brand-gold" : "border-[#1a1510]/25"}`}>
+                                  {trigCfg.run === "every" && <span className="w-2 h-2 rounded-full bg-brand-gold" />}
+                                </span>
+                                <span className="text-[13px] font-semibold text-[#1a1510]">Every</span>
+                              </button>
+                              <input
+                                type="number" min={1}
+                                value={trigCfg.everyCount}
+                                onChange={(e) => setTrig({ everyCount: Number(e.target.value) })}
+                                className="w-16 h-9 px-3 rounded-lg bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] font-semibold text-center focus:bg-white focus:outline-none focus:border-brand-gold/40 transition-all"
+                              />
+                              <select
+                                value={trigCfg.everyUnit}
+                                onChange={(e) => setTrig({ everyUnit: e.target.value })}
+                                className="h-9 px-3 rounded-lg bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] font-semibold focus:bg-white focus:outline-none focus:border-brand-gold/40 transition-all cursor-pointer"
+                              >
+                                {EVERY_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                              </select>
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[12px] font-semibold text-[#1a1510]/50 mr-1">On</span>
+                              {WEEK_DAYS.map((d, i) => {
+                                const on = trigCfg.days.includes(i);
+                                return (
+                                  <button
+                                    key={i}
+                                    onClick={() => toggleDay(i)}
+                                    className={`w-8 h-8 rounded-lg text-[12px] font-bold transition-all ${on ? "bg-[#1a1510] text-white" : "bg-[#f7f8f9] text-[#1a1510]/50 hover:bg-[#1a1510]/5"}`}
+                                  >
+                                    {d}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Choose an app */}
+                    <div>
+                      <p className="text-[12px] font-bold text-[#1a1510] mb-2.5">Choose an app</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        {TRIGGER_APPS.map((a) => {
+                          const active = trigCfg.app === a.id;
+                          return (
+                            <button
+                              key={a.id}
+                              onClick={() => setTrig({ app: a.id })}
+                              className={`flex flex-col items-center justify-center gap-2 py-5 rounded-xl border transition-all ${
+                                active ? "border-brand-gold ring-2 ring-brand-gold/15 bg-brand-gold/[0.04]" : "border-[#1a1510]/[0.07] bg-white hover:border-[#1a1510]/15"
+                              }`}
+                            >
+                              <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${active ? "bg-brand-gold/15 text-brand-gold" : "bg-[#f7f8f9] text-[#1a1510]/45"}`}>
+                                <a.icon size={18} />
+                              </div>
+                              <span className="text-[12px] font-bold text-[#1a1510]">{a.id}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Targets */}
+                    <div>
+                      <p className="text-[12px] font-bold text-[#1a1510] mb-2.5">Targets</p>
+                      <div className="flex p-1 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07]">
+                        {TARGET_TABS.map((t) => (
+                          <button
+                            key={t}
+                            onClick={() => setTrig({ target: t })}
+                            className={`flex-1 py-2 rounded-lg text-[12px] font-semibold transition-all ${
+                              trigCfg.target === t ? "bg-white text-[#1a1510] shadow-sm" : "text-[#1a1510]/45 hover:text-[#1a1510]/70"
+                            }`}
+                          >
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Enrollment criteria */}
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-2.5">
+                        <p className="text-[12px] font-bold text-[#1a1510]">Enrollment criteria</p>
+                        <Info size={13} className="text-[#1a1510]/30" />
+                      </div>
+                      <input
+                        value={trigCfg.enrollment}
+                        onChange={(e) => setTrig({ enrollment: e.target.value })}
+                        placeholder="e.g. Any saved contacts"
+                        className="w-full h-11 px-4 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Detail footer */}
+                  <div className="px-5 py-4 border-t border-[#1a1510]/[0.07] shrink-0 flex justify-end">
+                    <button
+                      onClick={confirmBlock}
+                      className="btn-shine h-10 px-6 rounded-xl bg-[#1a1510] text-white text-[13px] font-bold flex items-center gap-2 hover:bg-[#2a2118] transition-colors"
+                    >
+                      <Check size={15} className="text-brand-gold" /> Done
+                    </button>
+                  </div>
+                </>
+              )}
             </motion.aside>
           </>
         )}
