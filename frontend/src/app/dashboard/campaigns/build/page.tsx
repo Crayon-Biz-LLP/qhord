@@ -88,7 +88,7 @@ const GUARDRAILS = [
 ] as const;
 
 type WfAction = { id: string; label: string };
-type WorkflowTab = { id: string; name: string; actions: WfAction[] };
+type WorkflowTab = { id: string; name: string; trigger: WfAction | null; actions: WfAction[] };
 
 // Block-detail config (Trigger panel) options
 const TRIGGER_MODES = [
@@ -301,7 +301,7 @@ export default function BuildCampaignPage() {
   ]);
   const [linkedinSteps, setLinkedinSteps] = useState<EmailStep[]>([]);
   const [adaptiveMode, setAdaptiveMode] = useState(false);
-  const [workflows, setWorkflows] = useState<WorkflowTab[]>([{ id: "w1", name: "Main Workflow", actions: [] }]);
+  const [workflows, setWorkflows] = useState<WorkflowTab[]>([{ id: "w1", name: "Main Workflow", trigger: null, actions: [] }]);
   const [activeWf, setActiveWf] = useState("w1");
   const [wfCounter, setWfCounter] = useState(2);
   const [actionCounter, setActionCounter] = useState(1);
@@ -312,6 +312,7 @@ export default function BuildCampaignPage() {
   const [blockPanelOpen, setBlockPanelOpen] = useState(false);
   const [blockSearch, setBlockSearch] = useState("");
   const [detailBlock, setDetailBlock] = useState<string | null>(null);
+  const [pickerTarget, setPickerTarget] = useState<"trigger" | "action">("action");
   const [trigCfg, setTrigCfg] = useState({
     mode: "event" as string,
     run: "every" as string,
@@ -618,7 +619,7 @@ export default function BuildCampaignPage() {
   const activeWorkflow = workflows.find((w) => w.id === activeWf) ?? workflows[0];
   const addWorkflow = () => {
     const id = `w${wfCounter}`;
-    setWorkflows((prev) => [...prev, { id, name: `Workflow ${wfCounter}`, actions: [] }]);
+    setWorkflows((prev) => [...prev, { id, name: `Workflow ${wfCounter}`, trigger: null, actions: [] }]);
     setActiveWf(id);
     setWfCounter((c) => c + 1);
   };
@@ -646,9 +647,23 @@ export default function BuildCampaignPage() {
   const setTrig = (patch: Partial<typeof trigCfg>) => setTrigCfg((prev) => ({ ...prev, ...patch }));
   const toggleDay = (i: number) =>
     setTrigCfg((prev) => ({ ...prev, days: prev.days.includes(i) ? prev.days.filter((d) => d !== i) : [...prev.days, i] }));
+  const setWorkflowTrigger = (label: string) =>
+    setWorkflows((prev) => prev.map((w) => (w.id === activeWf ? { ...w, trigger: { id: `t-${w.id}`, label } } : w)));
+  const openTriggerPicker = () => { setPickerTarget("trigger"); setBlockPanelOpen(true); };
+  const openActionPicker = () => { setPickerTarget("action"); setBlockPanelOpen(true); };
   const confirmBlock = () => {
-    if (detailBlock) addAction(detailBlock);
+    if (detailBlock) {
+      if (pickerTarget === "trigger") setWorkflowTrigger(detailBlock);
+      else addAction(detailBlock);
+    }
     closeBlockPanel();
+  };
+  const getBlockIcon = (name: string) => {
+    for (const cat of BLOCK_LIBRARY) {
+      const b = cat.blocks.find((x) => x.name === name);
+      if (b) return b.icon;
+    }
+    return Zap;
   };
   // Light heuristic so the badges respond to the actual content
   const personalized = emailSteps.some((s) => /\{\{/.test(s.body));
@@ -1712,43 +1727,59 @@ export default function BuildCampaignPage() {
                     style={{ backgroundColor: "#fbfbfa", backgroundImage: "radial-gradient(circle at 1px 1px, rgba(26,21,16,0.08) 1px, transparent 0)", backgroundSize: "20px 20px" }}
                   >
                     {/* Trigger node */}
-                    <div className="w-full max-w-sm rounded-2xl border border-brand-gold/40 bg-brand-gold/[0.06] p-4">
+                    <button
+                      onClick={openTriggerPicker}
+                      className="w-full max-w-sm text-left rounded-2xl border border-brand-gold/40 bg-brand-gold/[0.06] p-4 hover:border-brand-gold transition-colors"
+                    >
                       <div className="flex items-center gap-2 mb-1.5">
                         <div className="w-7 h-7 rounded-lg bg-brand-gold/20 text-brand-gold flex items-center justify-center">
-                          <Zap size={15} />
+                          {(() => { const Icon = activeWorkflow.trigger ? getBlockIcon(activeWorkflow.trigger.label) : Zap; return <Icon size={15} />; })()}
                         </div>
                         <span className="text-[11px] font-bold uppercase tracking-wider text-[#1a1510]/50">Trigger</span>
                       </div>
-                      <p className="text-[14px] font-bold text-[#1a1510]">When this happens…</p>
-                      <p className="text-[12px] text-[#1a1510]/45">Choose an app & event to start</p>
-                    </div>
+                      {activeWorkflow.trigger ? (
+                        <p className="text-[14px] font-bold text-[#1a1510]">{activeWorkflow.trigger.label}</p>
+                      ) : (
+                        <>
+                          <p className="text-[14px] font-bold text-[#1a1510]">When this happens…</p>
+                          <p className="text-[12px] text-[#1a1510]/45">Choose an app & event to start</p>
+                        </>
+                      )}
+                    </button>
 
                     {/* Action nodes */}
-                    {activeWorkflow.actions.map((a) => (
-                      <React.Fragment key={a.id}>
-                        <div className="w-px h-6 bg-[#1a1510]/15" />
-                        <div className="w-full max-w-sm rounded-2xl border border-[#1a1510]/[0.07] bg-white p-4 flex items-center gap-3 group">
-                          <div className="w-7 h-7 rounded-lg bg-[#1a1510] text-brand-gold flex items-center justify-center shrink-0">
-                            <Mail size={14} />
+                    {activeWorkflow.actions.map((a) => {
+                      const Icon = getBlockIcon(a.label);
+                      return (
+                        <React.Fragment key={a.id}>
+                          <div className="w-px h-6 bg-[#1a1510]/15" />
+                          <div className="w-full max-w-sm rounded-2xl border border-[#1a1510]/[0.07] bg-white p-4 flex items-center gap-3 group">
+                            <div className="w-7 h-7 rounded-lg bg-[#1a1510] text-brand-gold flex items-center justify-center shrink-0">
+                              <Icon size={14} />
+                            </div>
+                            <span className="text-[13px] font-semibold text-[#1a1510] flex-1">{a.label}</span>
+                            <button onClick={() => removeAction(a.id)} className="text-[#1a1510]/25 hover:text-[#1a1510] transition-colors opacity-0 group-hover:opacity-100">
+                              <Trash2 size={14} />
+                            </button>
                           </div>
-                          <span className="text-[13px] font-semibold text-[#1a1510] flex-1">{a.label}</span>
-                          <button onClick={() => removeAction(a.id)} className="text-[#1a1510]/25 hover:text-[#1a1510] transition-colors opacity-0 group-hover:opacity-100">
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </React.Fragment>
-                    ))}
+                        </React.Fragment>
+                      );
+                    })}
 
                     {/* Connector + add */}
                     <div className="w-px h-6 bg-[#1a1510]/15" />
                     <button
-                      onClick={() => setBlockPanelOpen(true)}
+                      onClick={openActionPicker}
                       className="w-9 h-9 rounded-full bg-white border border-[#1a1510]/15 flex items-center justify-center text-[#1a1510]/50 hover:text-[#1a1510] hover:border-brand-gold/50 transition-colors"
                     >
                       <Plus size={16} />
                     </button>
                     <p className="text-[12px] text-[#1a1510]/35 mt-3">
-                      {activeWorkflow.actions.length === 0 ? "Add your first action below" : "End of workflow"}
+                      {!activeWorkflow.trigger
+                        ? "Select a trigger to start"
+                        : activeWorkflow.actions.length === 0
+                        ? "Add your first action below"
+                        : "End of workflow"}
                     </p>
                   </div>
 
@@ -2044,7 +2075,14 @@ export default function BuildCampaignPage() {
                                   {blocks.map((b) => (
                                     <button
                                       key={b.name}
-                                      onClick={() => setDetailBlock(b.name)}
+                                      onClick={() => {
+                                        if (pickerTarget === "trigger") {
+                                          setWorkflowTrigger(b.name);
+                                          closeBlockPanel();
+                                        } else {
+                                          setDetailBlock(b.name);
+                                        }
+                                      }}
                                       className="w-full flex items-start gap-3 p-3 rounded-xl border border-[#1a1510]/[0.07] bg-white text-left hover:border-brand-gold/40 hover:bg-brand-gold/[0.03] transition-all"
                                     >
                                       <div className="w-8 h-8 rounded-lg bg-[#f7f8f9] text-[#1a1510]/50 flex items-center justify-center shrink-0">
