@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useClient } from "../../../../contexts/ClientContext";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, ArrowRight, Save, Target, Layers, Users, Mail, RefreshCw,
@@ -248,6 +249,7 @@ const CHANNEL_STRATEGIES = [
 
 export default function BuildCampaignPage() {
   const router = useRouter();
+  const { clients, selectedClient } = useClient();
   const [step, setStep] = useState(0);
   const [building, setBuilding] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -308,6 +310,12 @@ export default function BuildCampaignPage() {
   });
 
   const set = (patch: Partial<typeof form>) => setForm((f) => ({ ...f, ...patch }));
+
+  useEffect(() => {
+    if (selectedClient && !form.parentAccount) {
+      set({ parentAccount: selectedClient.name });
+    }
+  }, [selectedClient, form.parentAccount]);
 
   const toggleChannel = (tool: string) =>
     set({
@@ -653,8 +661,8 @@ export default function BuildCampaignPage() {
                         className={`${inputCls} appearance-none pr-10 cursor-pointer ${form.parentAccount ? "" : "text-[#1a1510]/30"}`}
                       >
                         <option value="">Select account…</option>
-                        {PARENT_ACCOUNTS.map((a) => (
-                          <option key={a} value={a} className="text-[#1a1510]">{a}</option>
+                        {clients.map((c) => (
+                          <option key={c.id} value={c.name} className="text-[#1a1510]">{c.name}</option>
                         ))}
                       </select>
                       <ChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#1a1510]/40 pointer-events-none" />
