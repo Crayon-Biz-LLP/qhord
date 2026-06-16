@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { requireAuth } from '../middleware/auth';
 import { encrypt } from '../config/encryption';
+import { ApolloService } from '../services/apollo.service';
 
 const router = Router();
 
@@ -23,6 +24,22 @@ router.get('/', async (_req: Request, res: Response) => {
 });
 
 router.use(requireAuth);
+
+router.get('/apollo/status', async (req: Request, res: Response) => {
+  const clientAccountId = req.query.clientAccountId as string;
+  if (!clientAccountId) {
+    res.status(400).json({ success: false, error: 'clientAccountId is required' });
+    return;
+  }
+
+  try {
+    const apolloService = new ApolloService();
+    const result = await apolloService.validateConnection(clientAccountId);
+    res.json(result);
+  } catch (error: any) {
+    res.json({ success: false, error: error.message || 'Failed to validate Apollo connection' });
+  }
+});
 
 router.get('/accounts/:clientId', async (req: Request, res: Response) => {
   const { clientId } = req.params;

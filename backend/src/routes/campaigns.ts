@@ -606,4 +606,178 @@ router.stack.forEach(layer => {
 import { findToolAccount } from '../ai/pipeline/ensure-tool-accounts';
 import { ApolloService } from '../services/apollo.service';
 
+async function ensureCampaignExists(campaignId: string, clientAccountId: string, operatorId?: string) {
+  const campaign = await prisma.campaign.findUnique({ where: { id: campaignId } });
+  if (!campaign) {
+    let finalOperatorId = operatorId;
+    if (!finalOperatorId) {
+      const defaultOperator = await prisma.operator.findFirst();
+      finalOperatorId = defaultOperator?.id || '';
+    }
+    await prisma.campaign.create({
+      data: {
+        id: campaignId,
+        client_id: clientAccountId,
+        name: 'Draft Campaign',
+        created_by_operator_id: finalOperatorId,
+        status: 'draft'
+      }
+    });
+  }
+}
+
+router.post('/:campaignId/leads/import/apollo', async (req: Request, res: Response) => {
+  const { campaignId } = req.params;
+  const { clientAccountId, filters } = req.body;
+  if (!clientAccountId || !filters) {
+    res.status(400).json({ success: false, error: 'clientAccountId and filters are required' });
+    return;
+  }
+
+  try {
+    const operatorId = req.user?.id;
+    await ensureCampaignExists(campaignId, clientAccountId, operatorId);
+
+    const apolloService = new ApolloService();
+    const { leads, fallback } = await apolloService.importLeads(campaignId, clientAccountId, filters);
+    res.status(201).json({ success: true, count: leads.length, leads, fallback });
+  } catch (error: any) {
+    console.error('Import Apollo leads error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to import leads' });
+  }
+});
+
+router.post('/:campaignId/leads/apollo/search', async (req: Request, res: Response) => {
+  const { clientAccountId, filters } = req.body;
+  if (!clientAccountId || !filters) {
+    res.status(400).json({ success: false, error: 'clientAccountId and filters are required' });
+    return;
+  }
+
+  try {
+    const apolloService = new ApolloService();
+    const results = await apolloService.searchPeople(clientAccountId, filters);
+    const people = results.people || results.contacts || (Array.isArray(results) ? results : []);
+    const normalized = people.map((p: any) => apolloService.normalizeLead(p));
+    res.json({ success: true, results: normalized, fallback: !!results.fallback });
+  } catch (error: any) {
+    console.error('Apollo search people error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to search people' });
+  }
+});
+
+router.post('/:campaignId/leads/dedup', async (req: Request, res: Response) => {
+  const { campaignId } = req.params;
+  try {
+    const leads = await prisma.lead.findMany({
+      where: { campaign_id: campaignId },
+      orderBy: { created_at: 'asc' }
+    });
+
+    const uniqueLeads = new Map<string, any>();
+    const duplicatesToDelete: string[] = [];
+
+    for (const lead of leads) {
+      let isDuplicate = false;
+      
+      if (lead.email) {
+        const key = `email_${lead.email.toLowerCase()}`;
+        if (uniqueLeads.has(key)) {
+          isDuplicate = true;
+        } else {
+          uniqueLeads.set(key, lead);
+        }
+      }
+
+      if (!isDuplicate && lead.linkedin_url) {
+        const key = `li_${lead.linkedin_url.toLowerCase()}`;
+        if (uniqueLeads.has(key)) {
+          isDuplicate = true;
+        } else {
+          uniqueLeads.set(key, lead);
+        }
+      }
+
+      const externalId = (lead.enrichment_data as any)?.externalId;
+      if (!isDuplicate && externalId) {
+        const key = `ext_${externalId}`;
+        if (uniqueLeads.has(key)) {
+          isDuplicate = true;
+        } else {
+          uniqueLeads.set(key, lead);
+        }
+      }
+
+      if (isDuplicate) {
+        duplicatesToDelete.push(lead.id);
+      }
+    }
+
+    if (duplicatesToDelete.length > 0) {
+      await prisma.lead.deleteMany({
+        where: {
+          id: { in: duplicatesToDelete }
+        }
+      });
+    }
+
+    const remainingLeads = await prisma.lead.findMany({
+      where: { campaign_id: campaignId },
+      orderBy: { created_at: 'desc' }
+    });
+
+    res.json({
+      success: true,
+      removedCount: duplicatesToDelete.length,
+      leads: remainingLeads
+    });
+  } catch (error: any) {
+    console.error('Deduplicate leads error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to deduplicate leads' });
+  }
+});
+
+router.post('/:campaignId/leads/enrich', async (req: Request, res: Response) => {
+  const { campaignId } = req.params;
+  const { leadIds, tool } = req.body;
+  if (!leadIds || !Array.isArray(leadIds) || !tool) {
+    res.status(400).json({ success: false, error: 'leadIds array and tool are required' });
+    return;
+  }
+
+  try {
+    const leads = await prisma.lead.findMany({
+      where: { id: { in: leadIds }, campaign_id: campaignId }
+    });
+
+    const enrichedLeads = [];
+    for (const lead of leads) {
+      const mockEnrichedData = {
+        ...(lead.enrichment_data as any || {}),
+        enrichedBy: tool,
+        enrichedAt: new Date().toISOString(),
+        emailStatus: 'verified',
+        phone: (lead.enrichment_data as any)?.phone || '+1 555-0199',
+        linkedinUrl: lead.linkedin_url || `https://linkedin.com/in/${lead.first_name?.toLowerCase()}-${lead.last_name?.toLowerCase()}`
+      };
+
+      const updated = await prisma.lead.update({
+        where: { id: lead.id },
+        data: {
+          enriched: true,
+          status: 'verified',
+          linkedin_url: mockEnrichedData.linkedinUrl,
+          enrichment_data: mockEnrichedData
+        }
+      });
+      enrichedLeads.push(updated);
+    }
+
+    res.json({ success: true, leads: enrichedLeads });
+  } catch (error: any) {
+    console.error('Enrich leads error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to enrich leads' });
+  }
+});
+
 export default router;

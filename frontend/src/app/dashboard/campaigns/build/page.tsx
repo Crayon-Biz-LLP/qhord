@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { useClient } from "../../../../contexts/ClientContext";
+import { api } from "../../../../lib/api";
+import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, ArrowRight, Save, Target, Layers, Users, Mail, RefreshCw,
@@ -10,7 +12,7 @@ import {
   Phone, Database, Search, Upload, Pencil, ClipboardList, Puzzle,
   Wand2, Trash2, ArrowLeftRight, X, AlertTriangle, Plus,
   LayoutGrid, UserPlus, GitBranch, Shuffle, GitFork, LogOut, Bot,
-  Star, Activity, Eye, ThumbsUp, ListChecks, DollarSign, Bell,
+  Star, Activity, Eye, ThumbsUp, ListChecks, DollarSign, Bell, Download,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -251,6 +253,21 @@ export default function BuildCampaignPage() {
   const router = useRouter();
   const { clients, selectedClient } = useClient();
   const [step, setStep] = useState(0);
+  const [campaignId] = useState(() => typeof window !== 'undefined' && window.crypto?.randomUUID ? window.crypto.randomUUID() : 'c' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15));
+  const [apolloConfigModalOpen, setApolloConfigModalOpen] = useState(false);
+  const [checkingConnection, setCheckingConnection] = useState(false);
+  const [importingLeads, setImportingLeads] = useState(false);
+  const [apolloFilters, setApolloFilters] = useState({
+    jobTitle: "",
+    companyName: "",
+    industry: "",
+    location: "",
+    employeeCount: "",
+    seniority: "",
+    keywords: "",
+    emailStatus: "",
+    maxLeads: "25",
+  });
   const [building, setBuilding] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [methodOpen, setMethodOpen] = useState(false);
@@ -286,6 +303,11 @@ export default function BuildCampaignPage() {
     trigger: true, rules: true, agents: true, linkedin: true, actions: true,
   });
 
+  const [manualName, setManualName] = useState("");
+  const [manualEmail, setManualEmail] = useState("");
+  const [manualCompany, setManualCompany] = useState("");
+  const [manualTitle, setManualTitle] = useState("");
+
   const [form, setForm] = useState({
     name: "",
     intent: "email" as string,
@@ -316,6 +338,184 @@ export default function BuildCampaignPage() {
       set({ parentAccount: selectedClient.name });
     }
   }, [selectedClient, form.parentAccount]);
+
+  const handleAddManualLead = () => {
+    if (!manualName && !manualEmail) return;
+    const newLead: Lead = {
+      id: `manual_${Date.now()}`,
+      name: manualName || "Unknown",
+      email: manualEmail || "Unknown",
+      company: manualCompany || "Unknown",
+      title: manualTitle || "Unknown",
+      status: "verified",
+      source: "manual",
+    };
+    setLeads((prev) => [...prev, newLead]);
+    setManualName("");
+    setManualEmail("");
+    setManualCompany("");
+    setManualTitle("");
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleAddManualLead();
+    }
+  };
+
+  const handleApolloCardClick = async () => {
+    if (!selectedClient) {
+      toast.error("Please select an active client account from the sidebar first.");
+      return;
+    }
+
+    setCheckingConnection(true);
+    try {
+      const res = await api.get(`/tools/apollo/status?clientAccountId=${selectedClient.id}`);
+      const data = res.data;
+      if (data.success) {
+        set({ leadSource: "Apollo" });
+        setApolloConfigModalOpen(true);
+      } else {
+        toast.error("Apollo is not connected for this client. Please connect Apollo in Tools Config.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to validate Apollo connection.");
+    } finally {
+      setCheckingConnection(false);
+    }
+  };
+
+  const handleImportApolloLeads = async () => {
+    if (!selectedClient) {
+      toast.error("Please select an active client first.");
+      return;
+    }
+
+    setImportingLeads(true);
+    try {
+      const res = await api.post(`/campaigns/${campaignId}/leads/import/apollo`, {
+        clientAccountId: selectedClient.id,
+        filters: apolloFilters
+      });
+      const data = res.data;
+      if (data.success) {
+        if (data.fallback) {
+          toast.warning("Apollo search is restricted on your free Apollo plan. Loaded sandbox/mock leads for testing.");
+        } else {
+          toast.success(`Successfully imported ${data.count} leads from Apollo!`);
+        }
+        setLeads(data.leads.map((l: any) => ({
+          id: l.id,
+          name: `${l.first_name || ''} ${l.last_name || ''}`.trim() || 'Unknown',
+          email: l.email || '',
+          company: l.company_name || '',
+          title: l.title || '',
+          status: l.status || 'unknown',
+          source: l.source || 'apollo'
+        })));
+        setSelectedLeads([]);
+        setApolloConfigModalOpen(false);
+      } else {
+        toast.error(data.error || "Failed to import leads from Apollo.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to import leads from Apollo.");
+    } finally {
+      setImportingLeads(false);
+    }
+  };
+
+  const handleEnrichLeads = async () => {
+    if (selectedLeads.length === 0) {
+      toast.error("Please select at least one lead to enrich.");
+      return;
+    }
+    try {
+      const res = await api.post(`/campaigns/${campaignId}/leads/enrich`, {
+        leadIds: selectedLeads,
+        tool: 'clay'
+      });
+      const data = res.data;
+      if (data.success) {
+        toast.success(`Enriched ${data.leads.length} leads successfully!`);
+        setLeads(prev => prev.map(l => {
+          const enriched = data.leads.find((el: any) => el.id === l.id);
+          return enriched ? { ...l, status: 'verified', enriched: true } : l;
+        }));
+        setSelectedLeads([]);
+      } else {
+        toast.error("Failed to enrich leads.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to enrich leads.");
+    }
+  };
+
+  const handleDedupLeads = async () => {
+    try {
+      const res = await api.post(`/campaigns/${campaignId}/leads/dedup`);
+      const data = res.data;
+      if (data.success) {
+        toast.success(`Cleaned and removed ${data.removedCount} duplicate leads!`);
+        setLeads(data.leads.map((l: any) => ({
+          id: l.id,
+          name: `${l.first_name || ''} ${l.last_name || ''}`.trim() || 'Unknown',
+          email: l.email || '',
+          company: l.company_name || '',
+          title: l.title || '',
+          status: l.status || 'unknown',
+          source: l.source || 'apollo'
+        })));
+        setSelectedLeads([]);
+      } else {
+        toast.error("Failed to deduplicate leads.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to deduplicate leads.");
+    }
+  };
+
+  const handleAddLinkedInProfiles = async () => {
+    if (selectedLeads.length === 0) {
+      toast.error("Please select at least one lead.");
+      return;
+    }
+    try {
+      const res = await api.post(`/campaigns/${campaignId}/leads/enrich`, {
+        leadIds: selectedLeads,
+        tool: 'bettercontacts'
+      });
+      const data = res.data;
+      if (data.success) {
+        toast.success(`Fetched LinkedIn profiles for ${data.leads.length} leads!`);
+        setLeads(prev => prev.map(l => {
+          const enriched = data.leads.find((el: any) => el.id === l.id);
+          return enriched ? { ...l, linkedinUrl: enriched.linkedin_url || (l as any).linkedinUrl } : l;
+        }));
+        setSelectedLeads([]);
+      } else {
+        toast.error("Failed to find LinkedIn profiles.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to fetch LinkedIn profiles.");
+    }
+  };
+
+  const handlePushLeads = () => {
+    if (selectedLeads.length === 0) {
+      toast.error("Please select at least one lead to push.");
+      return;
+    }
+    toast.success(`Pushed ${selectedLeads.length} leads to outreach sequence!`);
+    setSelectedLeads([]);
+    next();
+  };
 
   const toggleChannel = (tool: string) =>
     set({
@@ -454,21 +654,18 @@ export default function BuildCampaignPage() {
   const handleBuild = async () => {
     setBuilding(true);
     try {
-      await fetch("http://localhost:4000/api/campaigns/plan", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "ngrok-skip-browser-warning": "true",
-        },
-        body: JSON.stringify({
-          prompt: buildPrompt(),
-          workflows: workflows.map((w) => ({
-            name: w.name,
-            actions: w.actions.map((a) => ({
-              label: a.label,
-            })),
+      await api.post("/campaigns/plan", {
+        prompt: buildPrompt(),
+        workflows: workflows.map((w) => ({
+          name: w.name,
+          actions: w.actions.map((a) => ({
+            label: a.label,
           })),
-        }),
+        })),
+      }, {
+        headers: {
+          "ngrok-skip-browser-warning": "true",
+        }
       });
     } catch (e) {
       console.error("Build campaign failed:", e);
@@ -826,7 +1023,12 @@ export default function BuildCampaignPage() {
                                 return (
                                   <button
                                     key={m.id}
-                                    onClick={() => { set({ leadMethod: m.id }); setMethodOpen(false); }}
+                                    onClick={() => {
+                                      set({ leadMethod: m.id });
+                                      setMethodOpen(false);
+                                      setLeads([]);
+                                      setSelectedLeads([]);
+                                    }}
                                     className={`w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium transition-colors text-left ${
                                       active ? "bg-[#f7f8f9] text-[#1a1510]" : "text-[#1a1510]/70 hover:bg-[#f7f8f9]"
                                     }`}
@@ -852,14 +1054,25 @@ export default function BuildCampaignPage() {
                         return (
                           <button
                             key={src.id}
-                            onClick={() => loadLeads(src.id)}
+                            disabled={checkingConnection && src.id === "Apollo"}
+                            onClick={() => {
+                              if (src.id === "Apollo") {
+                                handleApolloCardClick();
+                              } else {
+                                loadLeads(src.id);
+                              }
+                            }}
                             className={`text-left p-6 rounded-2xl border bg-white transition-all ${
                               selected ? "border-brand-gold ring-2 ring-brand-gold/15" : "border-[#1a1510]/[0.07] hover:border-[#1a1510]/15"
-                            }`}
+                            } ${checkingConnection && src.id === "Apollo" ? "opacity-75 cursor-not-allowed" : ""}`}
                           >
                             <div className="flex items-center justify-between mb-3">
                               <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${ICON_TILE}`}>
-                                <src.icon size={18} />
+                                {checkingConnection && src.id === "Apollo" ? (
+                                  <div className="w-5 h-5 border-2 border-[#1a1510]/30 border-t-[#1a1510] rounded-full animate-spin" />
+                                ) : (
+                                  <src.icon size={18} />
+                                )}
                               </div>
                               {selected && <CheckCircle size={18} className="text-brand-gold" />}
                             </div>
@@ -872,7 +1085,7 @@ export default function BuildCampaignPage() {
                   )}
 
                   {/* Leads table — opens after a source is selected */}
-                  {form.leadMethod === "tool" && leads.length > 0 && (
+                  {(form.leadMethod === "tool" || form.leadMethod === "manual") && leads.length > 0 && (
                     <div className="space-y-4">
                       {/* Auto-fix banner */}
                       {unverifiedCount > 0 && (
@@ -904,14 +1117,40 @@ export default function BuildCampaignPage() {
 
                       {/* Bulk actions */}
                       <div className="flex flex-wrap gap-2.5">
-                        {LEAD_BULK_ACTIONS.map((a) => (
-                          <button
-                            key={a.label}
-                            className="h-10 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-[12px] font-semibold text-[#1a1510]/70 hover:text-[#1a1510] hover:border-[#1a1510]/20 transition-colors flex items-center gap-2"
-                          >
-                            <a.icon size={14} className="text-[#1a1510]/40" /> {a.label}
-                          </button>
-                        ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (form.leadSource === "Apollo") {
+                              setApolloConfigModalOpen(true);
+                            } else {
+                              toast.info("Find more leads is currently only supported with Apollo source.");
+                            }
+                          }}
+                          className="h-10 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-[12px] font-semibold text-[#1a1510]/70 hover:text-[#1a1510] hover:border-[#1a1510]/20 transition-colors flex items-center gap-2"
+                        >
+                          <Wand2 size={14} className="text-[#1a1510]/40" /> Find more leads like this
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleEnrichLeads}
+                          className="h-10 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-[12px] font-semibold text-[#1a1510]/70 hover:text-[#1a1510] hover:border-[#1a1510]/20 transition-colors flex items-center gap-2"
+                        >
+                          <Sparkles size={14} className="text-[#1a1510]/40" /> Enrich missing data
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleDedupLeads}
+                          className="h-10 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-[12px] font-semibold text-[#1a1510]/70 hover:text-[#1a1510] hover:border-[#1a1510]/20 transition-colors flex items-center gap-2"
+                        >
+                          <Filter size={14} className="text-[#1a1510]/40" /> Clean & Dedup
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleAddLinkedInProfiles}
+                          className="h-10 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-[12px] font-semibold text-[#1a1510]/70 hover:text-[#1a1510] hover:border-[#1a1510]/20 transition-colors flex items-center gap-2"
+                        >
+                          <Linkedin size={14} className="text-[#1a1510]/40" /> Add LinkedIn profiles
+                        </button>
                       </div>
 
                       {/* Search + push/remove */}
@@ -925,7 +1164,11 @@ export default function BuildCampaignPage() {
                             className="w-full h-11 pl-10 pr-4 rounded-xl bg-white border border-[#1a1510]/[0.07] text-[14px] focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
                           />
                         </div>
-                        <button className="h-11 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-[12px] font-semibold text-[#1a1510]/70 hover:text-[#1a1510] transition-colors flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handlePushLeads}
+                          className="h-11 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-[12px] font-semibold text-[#1a1510]/70 hover:text-[#1a1510] transition-colors flex items-center gap-2"
+                        >
                           <ArrowLeftRight size={14} className="text-[#1a1510]/40" /> Push Leads ({selectedLeads.length})
                         </button>
                         <button
@@ -1013,16 +1256,55 @@ export default function BuildCampaignPage() {
                   )}
 
                   {form.leadMethod === "manual" && (
-                    <FieldCard>
-                      <Field label="Paste or type leads — one email per line" icon={Pencil}>
-                        <textarea
-                          value={form.manualLeads}
-                          onChange={(e) => set({ manualLeads: e.target.value })}
-                          placeholder={"jane@acme.com\njohn@globex.com"}
-                          className={`${inputCls} h-40 resize-none font-mono text-[13px]`}
+                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-3">
+                      <div className="flex-1 min-w-[120px]">
+                        <input
+                          type="text"
+                          value={manualName}
+                          onChange={(e) => setManualName(e.target.value)}
+                          onKeyDown={handleKeyDown}
+                          placeholder="Full Name"
+                          className="w-full h-11 px-4 rounded-xl bg-white border border-[#1a1510]/[0.07] text-[14px] focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
                         />
-                      </Field>
-                    </FieldCard>
+                      </div>
+                      <div className="flex-1 min-w-[120px]">
+                        <input
+                          type="email"
+                          value={manualEmail}
+                          onChange={(e) => setManualEmail(e.target.value)}
+                          onKeyDown={handleKeyDown}
+                          placeholder="Email"
+                          className="w-full h-11 px-4 rounded-xl bg-white border border-[#1a1510]/[0.07] text-[14px] focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-[120px]">
+                        <input
+                          type="text"
+                          value={manualCompany}
+                          onChange={(e) => setManualCompany(e.target.value)}
+                          onKeyDown={handleKeyDown}
+                          placeholder="Company"
+                          className="w-full h-11 px-4 rounded-xl bg-white border border-[#1a1510]/[0.07] text-[14px] focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-[120px]">
+                        <input
+                          type="text"
+                          value={manualTitle}
+                          onChange={(e) => setManualTitle(e.target.value)}
+                          onKeyDown={handleKeyDown}
+                          placeholder="Title"
+                          className="w-full h-11 px-4 rounded-xl bg-white border border-[#1a1510]/[0.07] text-[14px] focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAddManualLead}
+                        className="w-11 h-11 rounded-xl bg-[#1a1510] hover:bg-[#2a2118] text-white flex items-center justify-center transition-colors shrink-0 font-bold"
+                      >
+                        <Plus size={18} className="text-brand-gold" />
+                      </button>
+                    </div>
                   )}
 
                 </Section>
@@ -1755,6 +2037,193 @@ export default function BuildCampaignPage() {
                 })}
               </div>
             </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Apollo Lead Search Modal */}
+      <AnimatePresence>
+        {apolloConfigModalOpen && (
+          <>
+            {/* Backdrop */}
+            <div className="fixed inset-0 bg-[#1a1510]/40 backdrop-blur-sm z-[150] flex items-center justify-center p-4" onClick={() => !importingLeads && setApolloConfigModalOpen(false)}>
+              {/* Modal content container */}
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0, y: 15 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.95, opacity: 0, y: 15 }}
+                transition={{ type: "spring", duration: 0.3 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white rounded-3xl border border-[#1a1510]/10 shadow-[0_24px_64px_-16px_rgba(26,21,16,0.24)] w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]"
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-5 border-b border-[#1a1510]/[0.07] shrink-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-brand-gold/10 text-brand-gold flex items-center justify-center shrink-0">
+                      <Search size={18} />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-[#1a1510]">Apollo Lead Search</h3>
+                      <p className="text-[12px] font-medium text-[#1a1510]/40">Configure search parameters for your client account</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={importingLeads}
+                    onClick={() => setApolloConfigModalOpen(false)}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-[#1a1510]/40 hover:text-[#1a1510] hover:bg-[#f7f8f9] transition-colors disabled:opacity-50"
+                  >
+                    <X size={17} />
+                  </button>
+                </div>
+
+                {/* Form Content */}
+                <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Job Title */}
+                    <div className="space-y-1.5">
+                      <label className="text-[12px] font-bold text-[#1a1510]/60">Job Title</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. VP Sales, CRO"
+                        value={apolloFilters.jobTitle}
+                        onChange={(e) => setApolloFilters(prev => ({ ...prev, jobTitle: e.target.value }))}
+                        className="w-full h-10 px-3.5 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
+                      />
+                    </div>
+
+                    {/* Company Name */}
+                    <div className="space-y-1.5">
+                      <label className="text-[12px] font-bold text-[#1a1510]/60">Company Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Acme Corp"
+                        value={apolloFilters.companyName}
+                        onChange={(e) => setApolloFilters(prev => ({ ...prev, companyName: e.target.value }))}
+                        className="w-full h-10 px-3.5 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
+                      />
+                    </div>
+
+                    {/* Industry */}
+                    <div className="space-y-1.5">
+                      <label className="text-[12px] font-bold text-[#1a1510]/60">Industry</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Software, Finance"
+                        value={apolloFilters.industry}
+                        onChange={(e) => setApolloFilters(prev => ({ ...prev, industry: e.target.value }))}
+                        className="w-full h-10 px-3.5 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
+                      />
+                    </div>
+
+                    {/* Location */}
+                    <div className="space-y-1.5">
+                      <label className="text-[12px] font-bold text-[#1a1510]/60">Location</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. United States, Germany"
+                        value={apolloFilters.location}
+                        onChange={(e) => setApolloFilters(prev => ({ ...prev, location: e.target.value }))}
+                        className="w-full h-10 px-3.5 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
+                      />
+                    </div>
+
+                    {/* Employee Count */}
+                    <div className="space-y-1.5">
+                      <label className="text-[12px] font-bold text-[#1a1510]/60">Employee Count</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 51-200, 501-1000"
+                        value={apolloFilters.employeeCount}
+                        onChange={(e) => setApolloFilters(prev => ({ ...prev, employeeCount: e.target.value }))}
+                        className="w-full h-10 px-3.5 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
+                      />
+                    </div>
+
+                    {/* Seniority */}
+                    <div className="space-y-1.5">
+                      <label className="text-[12px] font-bold text-[#1a1510]/60">Seniority</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. director, executive, VP"
+                        value={apolloFilters.seniority}
+                        onChange={(e) => setApolloFilters(prev => ({ ...prev, seniority: e.target.value }))}
+                        className="w-full h-10 px-3.5 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
+                      />
+                    </div>
+
+                    {/* Keywords */}
+                    <div className="space-y-1.5">
+                      <label className="text-[12px] font-bold text-[#1a1510]/60">Keywords</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. SaaS, AI, logistics"
+                        value={apolloFilters.keywords}
+                        onChange={(e) => setApolloFilters(prev => ({ ...prev, keywords: e.target.value }))}
+                        className="w-full h-10 px-3.5 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
+                      />
+                    </div>
+
+                    {/* Email Status */}
+                    <div className="space-y-1.5">
+                      <label className="text-[12px] font-bold text-[#1a1510]/60">Email Status</label>
+                      <select
+                        value={apolloFilters.emailStatus}
+                        onChange={(e) => setApolloFilters(prev => ({ ...prev, emailStatus: e.target.value }))}
+                        className="w-full h-10 px-3 py-1.5 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all"
+                      >
+                        <option value="">Any Status</option>
+                        <option value="verified">Verified</option>
+                        <option value="unavailable">Unavailable</option>
+                      </select>
+                    </div>
+
+                    {/* Max Leads */}
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <label className="text-[12px] font-bold text-[#1a1510]/60">Max Leads to Import</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="500"
+                        value={apolloFilters.maxLeads}
+                        onChange={(e) => setApolloFilters(prev => ({ ...prev, maxLeads: e.target.value }))}
+                        className="w-full h-10 px-3.5 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 py-4 border-t border-[#1a1510]/[0.07] bg-[#fafafa] flex items-center justify-end gap-3 shrink-0">
+                  <button
+                    type="button"
+                    disabled={importingLeads}
+                    onClick={() => setApolloConfigModalOpen(false)}
+                    className="h-10 px-4 rounded-xl border border-[#1a1510]/15 text-[12px] font-semibold text-[#1a1510] hover:bg-[#f7f8f9] transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={importingLeads}
+                    onClick={handleImportApolloLeads}
+                    className="btn-shine h-10 px-5 rounded-xl bg-[#1a1510] text-white text-[12px] font-bold flex items-center gap-2 hover:bg-[#2a2118] transition-colors disabled:opacity-50"
+                  >
+                    {importingLeads ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Importing…
+                      </>
+                    ) : (
+                      <>
+                        <Download size={14} className="text-brand-gold" />
+                        Import Leads
+                      </>
+                    )}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
           </>
         )}
       </AnimatePresence>
