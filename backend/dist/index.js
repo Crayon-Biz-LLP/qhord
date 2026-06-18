@@ -63,22 +63,25 @@ const deals_1 = __importDefault(require("./routes/deals"));
 const inbox_1 = __importDefault(require("./routes/inbox"));
 const unified_inbox_1 = __importDefault(require("./routes/unified-inbox"));
 const inbox_webhooks_1 = __importDefault(require("./routes/inbox-webhooks"));
+const webhooks_1 = __importDefault(require("./routes/webhooks"));
 const prisma_1 = require("./lib/prisma");
 const app = (0, express_1.default)();
 const allowedOrigins = [
-    process.env.FRONTEND_URL || 'http://localhost:3000',
+    process.env.FRONTEND_URL,
     'http://localhost:3000'
-];
+].filter(Boolean);
 app.use((0, cors_1.default)({
     origin: (origin, callback) => {
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         }
         else {
-            callback(new Error('Not allowed by CORS'));
+            callback(null, false);
         }
     },
-    credentials: true
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    credentials: true,
+    optionsSuccessStatus: 200
 }));
 app.use(express_1.default.json({ limit: '1mb' }));
 app.get('/api/health', async (_req, res) => {
@@ -115,6 +118,7 @@ app.use('/api/playbooks', playbooks_1.default);
 app.use('/api/deals', deals_1.default);
 app.use('/api/inbox', inbox_1.default);
 app.use('/api/webhooks/inbox', inbox_webhooks_1.default);
+app.use('/api/webhooks', webhooks_1.default);
 // Optional: background inbox sync (BullMQ + Redis). Off by default so the app
 // runs without Redis; enable with INBOX_BACKGROUND_SYNC=true.
 if (process.env.INBOX_BACKGROUND_SYNC === 'true') {

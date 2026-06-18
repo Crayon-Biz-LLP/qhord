@@ -4,6 +4,7 @@ const express_1 = require("express");
 const prisma_1 = require("../lib/prisma");
 const auth_1 = require("../middleware/auth");
 const encryption_1 = require("../config/encryption");
+const apollo_service_1 = require("../services/apollo.service");
 const router = (0, express_1.Router)();
 router.get('/', async (_req, res) => {
     try {
@@ -23,6 +24,21 @@ router.get('/', async (_req, res) => {
     }
 });
 router.use(auth_1.requireAuth);
+router.get('/apollo/status', async (req, res) => {
+    const clientAccountId = req.query.clientAccountId;
+    if (!clientAccountId) {
+        res.status(400).json({ success: false, error: 'clientAccountId is required' });
+        return;
+    }
+    try {
+        const apolloService = new apollo_service_1.ApolloService();
+        const result = await apolloService.validateConnection(clientAccountId);
+        res.json(result);
+    }
+    catch (error) {
+        res.json({ success: false, error: error.message || 'Failed to validate Apollo connection' });
+    }
+});
 router.get('/accounts/:clientId', async (req, res) => {
     const { clientId } = req.params;
     try {
