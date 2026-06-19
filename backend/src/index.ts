@@ -34,6 +34,7 @@ const app = express();
 
 const allowedOrigins = [
   process.env.FRONTEND_URL,
+  'https://qhord.seenode.app',
   'http://localhost:3000'
 ].filter(Boolean) as string[];
 
@@ -42,7 +43,7 @@ app.use(cors({
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(null, false);
+      callback(new Error(`CORS blocked: ${origin}`), false);
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

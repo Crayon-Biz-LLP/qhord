@@ -5,12 +5,14 @@ const nextConfig = {
     unoptimized: true,
   },
   async rewrites() {
-    // In production Docker, NODE_ENV=production and backend is reachable via Docker service name.
-    // In local dev, proxy to localhost:4000.
+    // seenode.app (cloud): NEXT_PUBLIC_API_BASE_URL is set to the Render backend URL at build time
+    // Docker Compose (self-hosted): no NEXT_PUBLIC_API_BASE_URL, backend reachable via Docker service name
+    // Local dev: fall back to localhost:4000
     const apiTarget =
-      process.env.NODE_ENV === 'production'
-        ? 'http://backend:4000/api'
-        : (process.env.API_INTERNAL_BASE_URL || 'http://localhost:4000/api');
+      process.env.NEXT_PUBLIC_API_BASE_URL ||
+      (process.env.NODE_ENV === 'production' ? 'http://backend:4000/api' : null) ||
+      process.env.API_INTERNAL_BASE_URL ||
+      'http://localhost:4000/api';
     return [
       {
         source: '/api/:path*',
