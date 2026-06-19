@@ -14,6 +14,7 @@ ENV NODE_ENV=production
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./
 COPY tsconfig.json ./
+COPY next.config.js ./
 COPY tailwind.config.ts ./
 COPY postcss.config.mjs ./
 COPY next-env.d.ts ./
