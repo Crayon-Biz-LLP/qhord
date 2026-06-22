@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { X, Workflow, Sparkles } from "lucide-react";
+import { api } from "../../lib/api";
 
 interface CreateWorkflowModalProps {
   isOpen: boolean;
@@ -23,20 +24,12 @@ export function CreateWorkflowModal({ isOpen, onClose, onSuccess }: CreateWorkfl
     setError("");
 
     try {
-      const token = localStorage.getItem("auth_token");
-      const response = await fetch("http://localhost:4000/api/workflows", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          prompt: prompt.trim(),
-          name: name.trim() || undefined
-        })
+      const response = await api.post("/workflows", {
+        prompt: prompt.trim(),
+        name: name.trim() || undefined
       });
 
-      const data = await response.json();
+      const data = response.data;
       if (!data.success) {
         throw new Error(data.error || "Failed to create workflow");
       }

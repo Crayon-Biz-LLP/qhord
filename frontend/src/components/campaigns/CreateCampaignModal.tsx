@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { X, Bot, Target, Zap, CheckCircle } from "lucide-react";
+import { api } from "../../lib/api";
 
 interface CreateCampaignModalProps {
   isOpen: boolean;
@@ -25,16 +26,10 @@ export function CreateCampaignModal({ isOpen, onClose, onSuccess }: CreateCampai
     setIsSubmittedForApproval(false);
 
     try {
-      const response = await fetch("http://localhost:4000/api/campaigns/plan", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        "ngrok-skip-browser-warning": "true"
-        },
-        body: JSON.stringify({ prompt })
+      const response = await api.post("/campaigns/plan", { prompt }, {
+        headers: { "ngrok-skip-browser-warning": "true" }
       });
-
-      const data = await response.json();
+      const data = response.data;
 
       if (data.success) {
         setResult(data);
@@ -53,19 +48,12 @@ export function CreateCampaignModal({ isOpen, onClose, onSuccess }: CreateCampai
   const submitForApproval = async (campaignId: string) => {
     try {
       console.log('🔄 Submitting campaign for approval:', { campaignId });
-      const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
       
-      const response = await fetch("http://localhost:4000/api/approvals/submit", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "ngrok-skip-browser-warning": "true",
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({ campaignId })
+      const response = await api.post("/approvals/submit", { campaignId }, {
+        headers: { "ngrok-skip-browser-warning": "true" }
       });
 
-      const data = await response.json();
+      const data = response.data;
       console.log('📊 Approval submission response:', data);
 
       if (data.success) {

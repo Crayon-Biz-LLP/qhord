@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { DataSourceIcon } from "../../../components/ui/icons/DataSourceIcon";
+import { api } from "../../../lib/api";
 
 export default function CommandPage() {
   const router = useRouter();
@@ -24,26 +25,16 @@ export default function CommandPage() {
   React.useEffect(() => {
     const fetchCommandCenterData = async () => {
       try {
-        const token = localStorage.getItem("auth_token");
-        
         // Fetch all data in parallel
         const [metricsResponse, prioritiesResponse, healthTableResponse] = await Promise.all([
-          fetch("http://localhost:4000/api/command-center/metrics", {
-            headers: { "Authorization": `Bearer ${token}` }
-          }),
-          fetch("http://localhost:4000/api/command-center/priorities", {
-            headers: { "Authorization": `Bearer ${token}` }
-          }),
-          fetch("http://localhost:4000/api/command-center/health-table", {
-            headers: { "Authorization": `Bearer ${token}` }
-          })
+          api.get("/command-center/metrics"),
+          api.get("/command-center/priorities"),
+          api.get("/command-center/health-table")
         ]);
 
-        const [metrics, priorities, healthTable] = await Promise.all([
-          metricsResponse.json(),
-          prioritiesResponse.json(),
-          healthTableResponse.json()
-        ]);
+        const metrics = metricsResponse.data;
+        const priorities = prioritiesResponse.data;
+        const healthTable = healthTableResponse.data;
 
         if (metrics.success && priorities.success && healthTable.success) {
           setDashboardData({

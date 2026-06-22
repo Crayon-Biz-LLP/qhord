@@ -10,6 +10,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../hooks/useAuth";
 import { CreateCampaignModal } from "@/components/campaigns/CreateCampaignModal";
+import { api } from "../../lib/api";
 
 export default function DashboardHub() {
   const router = useRouter();
@@ -45,44 +46,31 @@ export default function DashboardHub() {
      return () => clearInterval(interval);
    }, []);
 
-   const fetchData = async () => {
-     try {
-       const token = localStorage.getItem("auth_token");
-       const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+    const fetchData = async () => {
+      try {
+        const [metricsRes, campaignsRes, executionsRes] = await Promise.all([
+          api.get("/dashboard/metrics"),
+          api.get("/campaigns"),
+          api.get("/executions"),
+        ]);
 
-       const [metricsRes, campaignsRes, executionsRes] = await Promise.all([
-         fetch("http://localhost:4000/api/dashboard/metrics", { headers }),
-         fetch("http://localhost:4000/api/campaigns", { headers }),
-         fetch("http://localhost:4000/api/executions", { headers }),
-       ]);
+        if (metricsRes.data.success) setDashboardMetrics(metricsRes.data.metrics);
+        if (campaignsRes.data.campaigns) setRecentCampaigns(campaignsRes.data.campaigns.slice(0, 2));
+        if (executionsRes.data.executions) setRecentExecutions(executionsRes.data.executions.slice(0, 3));
+      } catch (error) {
+        console.error('Failed to fetch dashboard data:', error);
+      }
+    };
 
-       const metrics = await metricsRes.json();
-       if (metrics.success) setDashboardMetrics(metrics.metrics);
+    useEffect(() => { fetchData(); }, []);
 
-       const campaigns = await campaignsRes.json();
-       if (campaigns.campaigns) setRecentCampaigns(campaigns.campaigns.slice(0, 2));
-
-       const executions = await executionsRes.json();
-       if (executions.executions) setRecentExecutions(executions.executions.slice(0, 3));
-     } catch (error) {
-       console.error('Failed to fetch dashboard data:', error);
-     }
-   };
-
-   useEffect(() => { fetchData(); }, []);
-
-   const createCampaign = async (prompt: string) => {
-     if (!prompt.trim()) return;
-     setIsCreating(true);
-     setLastResult(null);
-     try {
-       const token = localStorage.getItem("auth_token");
-       const response = await fetch("http://localhost:4000/api/campaigns/plan", {
-         method: "POST",
-         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-         body: JSON.stringify({ prompt })
-       });
-       const data = await response.json();
+    const createCampaign = async (prompt: string) => {
+      if (!prompt.trim()) return;
+      setIsCreating(true);
+      setLastResult(null);
+      try {
+        const response = await api.post("/campaigns/plan", { prompt });
+        const data = response.data;
        if (data.success) {
          setLastResult(data);
          setPromptInput("");

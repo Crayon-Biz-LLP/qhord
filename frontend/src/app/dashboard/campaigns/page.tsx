@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Loader } from "@/components/ui/Loader";
+import { api } from "../../../lib/api";
 
 export default function CampaignsPage() {
   const router = useRouter();
@@ -19,18 +20,8 @@ export default function CampaignsPage() {
 
   const fetchCampaigns = async () => {
     try {
-      const token = localStorage.getItem("auth_token");
-      const response = await fetch("http://localhost:4000/api/campaigns", {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setCampaigns(data.campaigns || []);
-      }
+      const response = await api.get("/campaigns");
+      setCampaigns(response.data.campaigns || []);
     } catch (error) {
       console.error('Error fetching campaigns:', error);
     } finally {

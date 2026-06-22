@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { X, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { api } from "../../lib/api";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -22,17 +23,10 @@ export function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps) {
     setError("");
 
     try {
-      const response = await fetch("http://localhost:4000/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      });
+      const response = await api.post("/auth/login", { email, password });
+      const data = response.data;
 
-      const data = await response.json();
-
-      if (response.ok && data.token) {
+      if (data.token) {
         // Store token and user info
         localStorage.setItem("auth_token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
@@ -41,8 +35,8 @@ export function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps) {
       } else {
         setError(data.message || "Login failed");
       }
-    } catch (error) {
-      setError("Network error. Please try again.");
+    } catch (error: any) {
+      setError(error.response?.data?.message || "Network error. Please try again.");
     } finally {
       setIsLoading(false);
     }

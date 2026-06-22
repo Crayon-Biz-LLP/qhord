@@ -8,6 +8,7 @@ import {
   Filter, Search, MoreHorizontal, TrendingUp, BarChart3, DollarSign
 } from "lucide-react";
 import { Loader } from "../ui/Loader";
+import { api } from "../../lib/api";
 
 interface Campaign {
   id: string;
@@ -36,28 +37,19 @@ export function ApprovalDashboard() {
 
   const fetchPendingCampaigns = async () => {
     try {
-      const token = localStorage.getItem("auth_token");
-      const response = await fetch("http://localhost:4000/api/approvals/pending", {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
-      });
+      const response = await api.get("/approvals/pending");
+      const data = response.data;
       
-      if (response.status === 401) {
-        // Token expired, clear and redirect to login
+      if (data.success) {
+        setCampaigns(data.campaigns);
+      }
+    } catch (error: any) {
+      if (error.response?.status === 401) {
         localStorage.removeItem("auth_token");
         localStorage.removeItem("user");
         window.location.reload();
         return;
       }
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setCampaigns(data.campaigns);
-      }
-    } catch (error) {
       console.error('Error fetching pending campaigns:', error);
     } finally {
       setLoading(false);
@@ -68,29 +60,13 @@ export function ApprovalDashboard() {
     try {
       console.log('🔄 Approving campaign:', { campaignId, comments });
       
-      const token = localStorage.getItem("auth_token");
-      const response = await fetch("http://localhost:4000/api/approvals/review", {
-        method: "POST",
-        headers: { 
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json" 
-        },
-        body: JSON.stringify({
-          campaignId,
-          action: "approve",
-          comments
-        })
+      const response = await api.post("/approvals/review", {
+        campaignId,
+        action: "approve",
+        comments
       });
 
-      if (response.status === 401) {
-        alert("Session expired. Please login again.");
-        localStorage.removeItem("auth_token");
-        localStorage.removeItem("user");
-        window.location.reload();
-        return;
-      }
-
-      const data = await response.json();
+      const data = response.data;
       console.log('📊 Approval response:', data);
       
       if (data.success) {
@@ -101,9 +77,16 @@ export function ApprovalDashboard() {
         console.log('❌ Approval failed:', data.error);
         alert(`Approval failed: ${data.error}`);
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        alert("Session expired. Please login again.");
+        localStorage.removeItem("auth_token");
+        localStorage.removeItem("user");
+        window.location.reload();
+        return;
+      }
       console.error('❌ Error approving campaign:', error);
-      alert(`Error approving campaign: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      alert(`Error approving campaign: ${error.response?.data?.error || error.message}`);
     }
   };
 
@@ -111,29 +94,13 @@ export function ApprovalDashboard() {
     try {
       console.log('🔄 Rejecting campaign:', { campaignId, comments });
       
-      const token = localStorage.getItem("auth_token");
-      const response = await fetch("http://localhost:4000/api/approvals/review", {
-        method: "POST",
-        headers: { 
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json" 
-        },
-        body: JSON.stringify({
-          campaignId,
-          action: "reject",
-          comments
-        })
+      const response = await api.post("/approvals/review", {
+        campaignId,
+        action: "reject",
+        comments
       });
 
-      if (response.status === 401) {
-        alert("Session expired. Please login again.");
-        localStorage.removeItem("auth_token");
-        localStorage.removeItem("user");
-        window.location.reload();
-        return;
-      }
-
-      const data = await response.json();
+      const data = response.data;
       console.log('📊 Rejection response:', data);
       
       if (data.success) {
@@ -144,9 +111,16 @@ export function ApprovalDashboard() {
         console.log('❌ Rejection failed:', data.error);
         alert(`Rejection failed: ${data.error}`);
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        alert("Session expired. Please login again.");
+        localStorage.removeItem("auth_token");
+        localStorage.removeItem("user");
+        window.location.reload();
+        return;
+      }
       console.error('❌ Error rejecting campaign:', error);
-      alert(`Error rejecting campaign: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      alert(`Error rejecting campaign: ${error.response?.data?.error || error.message}`);
     }
   };
 
