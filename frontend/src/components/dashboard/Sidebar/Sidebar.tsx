@@ -216,11 +216,11 @@ export const Sidebar = ({ onSignOut, activeView = 'dashboard', onViewChange }: S
 
         <div className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-white/[0.04] transition-colors">
           <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-gold to-[#a98b6c] flex items-center justify-center text-[#1a1510] font-bold text-[12px] shrink-0">
-            {user?.name?.substring(0, 2).toUpperCase() || "SM"}
+            {user?.name?.split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase() || "?"}
           </div>
           <div className="flex flex-col min-w-0">
-            <span className="text-[13px] font-semibold text-white truncate">{user?.name || "Sarah Mitchell"}</span>
-            <span className="text-[11px] font-medium text-white/35 truncate">Growth Team</span>
+            <span className="text-[13px] font-semibold text-white truncate">{user?.name || "—"}</span>
+            <span className="text-[11px] font-medium text-white/35 truncate">{user?.email || ""}</span>
           </div>
           <button
             onClick={onSignOut}

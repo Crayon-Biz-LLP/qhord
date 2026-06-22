@@ -13,6 +13,16 @@ function LoginContent() {
 
   React.useEffect(() => {
     if (token) {
+      if (window.opener && window.opener !== window) {
+        // Running inside the Google OAuth popup — send token back to the parent tab and close
+        window.opener.postMessage(
+          { type: "GOOGLE_AUTH_SUCCESS", token },
+          window.location.origin
+        );
+        window.close();
+        return;
+      }
+      // Normal (non-popup) flow — store token and navigate
       localStorage.setItem("auth_token", token);
       const expires = new Date(Date.now() + 7 * 864e5).toUTCString();
       document.cookie = `auth_token=${encodeURIComponent(token)}; expires=${expires}; path=/; SameSite=Lax`;

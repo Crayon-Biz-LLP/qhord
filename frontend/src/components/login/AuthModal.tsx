@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { X, Mail, Lock, User, ArrowRight, Zap, ChevronRight, Activity, Globe, Database, Filter, ChevronLeft, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 
@@ -15,12 +16,46 @@ interface AuthModalProps {
 
 export const AuthModal = ({ isOpen, onClose, initialState = "signin", onSuccess }: AuthModalProps) => {
   const { login, register, loading } = useAuth(false);
+  const router = useRouter();
   const [isLogin, setIsLogin] = useState(initialState === "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleGoogleLogin = useCallback(() => {
+    const w = 500, h = 620;
+    const left = Math.round(window.screenX + (window.outerWidth - w) / 2);
+    const top = Math.round(window.screenY + (window.outerHeight - h) / 2.5);
+    const popup = window.open(
+      "/api/auth/google",
+      "google-signin",
+      `width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=yes`
+    );
+
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === "GOOGLE_AUTH_SUCCESS") {
+        const token: string = event.data.token;
+        localStorage.setItem("auth_token", token);
+        const expires = new Date(Date.now() + 7 * 864e5).toUTCString();
+        document.cookie = `auth_token=${encodeURIComponent(token)}; expires=${expires}; path=/; SameSite=Lax`;
+        window.removeEventListener("message", onMessage);
+        if (onSuccess) onSuccess();
+        else router.replace("/dashboard");
+      }
+    };
+    window.addEventListener("message", onMessage);
+
+    // Clean up listener if popup is closed without completing auth
+    const poll = setInterval(() => {
+      if (popup?.closed) {
+        clearInterval(poll);
+        window.removeEventListener("message", onMessage);
+      }
+    }, 500);
+  }, [onSuccess, router]);
 
   useEffect(() => {
     setIsLogin(initialState === "signin");
@@ -276,10 +311,7 @@ export const AuthModal = ({ isOpen, onClose, initialState = "signin", onSuccess 
                       <div className="px-0 md:px-2">
                         <button
                           type="button"
-                          onClick={() => {
-                            const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000/api";
-                            window.location.href = `${apiBase}/auth/google`;
-                          }}
+                          onClick={handleGoogleLogin}
                           className="w-full py-3 md:py-3.5 rounded-xl bg-[#1a1510] text-white flex items-center justify-center gap-3 md:gap-4 hover:brightness-125 transition-all shadow-sm group"
                         >
                           <div className="w-5 h-5 flex items-center justify-center">

@@ -363,7 +363,8 @@ router.post('/2fa/login-verify', async (req: Request, res: Response) => {
 
 router.get('/google', (req: Request, res: Response) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
-  const redirectUri = `${req.protocol}://${req.get('host')}/api/auth/google/callback`;
+  const backendBase = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+  const redirectUri = `${backendBase}/api/auth/google/callback`;
   
   if (!clientId) {
     // Render the simulated developer OAuth consent page
@@ -455,16 +456,17 @@ router.get('/google', (req: Request, res: Response) => {
 router.get('/google/callback', async (req: Request, res: Response) => {
   const { code } = req.query;
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-  
+  const backendBase = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+
   if (!code) {
     res.redirect(`${frontendUrl}/login?error=oauth_no_code`);
     return;
   }
-  
+
   try {
     let email = '';
     let name = '';
-    
+
     if (code === 'mock_code_demo') {
       email = 'demo@example.com';
       name = 'Demo Operator';
@@ -476,7 +478,7 @@ router.get('/google/callback', async (req: Request, res: Response) => {
       // Real Google OAuth callback token exchange
       const clientId = process.env.GOOGLE_CLIENT_ID;
       const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-      const redirectUri = `${req.protocol}://${req.get('host')}/api/auth/google/callback`;
+      const redirectUri = `${backendBase}/api/auth/google/callback`;
       
       const tokenRes = await axios.post('https://oauth2.googleapis.com/token', {
         code,
