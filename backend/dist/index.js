@@ -68,11 +68,18 @@ const prisma_1 = require("./lib/prisma");
 const app = (0, express_1.default)();
 const allowedOrigins = [
     process.env.FRONTEND_URL,
+    'https://qhord.seenode.app',
     'http://localhost:3000'
 ].filter(Boolean);
 app.use((0, cors_1.default)({
     origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin)) {
+        if (!origin) {
+            callback(null, true);
+            return;
+        }
+        const cleanOrigin = origin.replace(/\/$/, '');
+        const cleanAllowedOrigins = allowedOrigins.map(o => o.replace(/\/$/, ''));
+        if (cleanAllowedOrigins.includes(cleanOrigin)) {
             callback(null, true);
         }
         else {

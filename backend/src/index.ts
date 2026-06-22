@@ -40,10 +40,16 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+    const cleanOrigin = origin.replace(/\/$/, '');
+    const cleanAllowedOrigins = allowedOrigins.map(o => o.replace(/\/$/, ''));
+    if (cleanAllowedOrigins.includes(cleanOrigin)) {
       callback(null, true);
     } else {
-      callback(new Error(`CORS blocked: ${origin}`), false);
+      callback(null, false);
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
