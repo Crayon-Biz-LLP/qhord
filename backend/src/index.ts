@@ -26,6 +26,7 @@ import inboxRoutes from './routes/inbox';
 import unifiedInboxRoutes from './routes/unified-inbox';
 import inboxWebhookRoutes from './routes/inbox-webhooks';
 import webhookRoutes from './routes/webhooks';
+import stripeWebhookRoutes from './routes/stripe-webhook';
 import { prisma } from './lib/prisma';
 import { campaignWorker } from './workers/campaign-worker';
 import { workflowWorker } from './workers/workflow-worker';
@@ -56,6 +57,9 @@ app.use(cors({
   credentials: true,
   optionsSuccessStatus: 200
 }));
+// Stripe webhooks must use raw body — register BEFORE express.json()
+app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }), stripeWebhookRoutes);
+
 app.use(express.json({ limit: '1mb' }));
 
 app.get('/api/health', async (_req, res) => {

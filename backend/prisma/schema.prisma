@@ -126,17 +126,18 @@ model ClientCredit {
 }
 
 model CreditTransaction {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  credit_id   String   @db.Uuid
-  credit      ClientCredit @relation(fields: [credit_id], references: [id], onDelete: Cascade)
-  amount      Int
-  type        String   @default("debit") // "credit" | "debit"
-  description String?
-  tool_name   String?
-  action      String?
-  campaign_id String?  @db.Uuid
-  execution_id String? @db.Uuid
-  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  credit_id         String   @db.Uuid
+  credit            ClientCredit @relation(fields: [credit_id], references: [id], onDelete: Cascade)
+  amount            Int
+  type              String   @default("debit") // "credit" | "debit"
+  description       String?
+  tool_name         String?
+  action            String?
+  campaign_id       String?  @db.Uuid
+  execution_id      String?  @db.Uuid
+  stripe_payment_id String?
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
 
   @@map("credit_transactions")
 }
