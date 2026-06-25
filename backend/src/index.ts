@@ -35,7 +35,7 @@ const app = express();
 
 const allowedOrigins = [
   process.env.FRONTEND_URL,
-  'https://qhord.seenode.app',
+  'https://qhord-frontend.vercel.app',
   'http://localhost:3000'
 ].filter(Boolean) as string[];
 
