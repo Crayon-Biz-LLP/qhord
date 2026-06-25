@@ -4,10 +4,7 @@ import axios from "axios";
 //   Docker: NEXT_PUBLIC_API_URL=http://backend:4000/api
 //   seenode.app: NEXT_PUBLIC_API_BASE_URL=https://api-qhord.onrender.com/api
 // Client-side: always use /api — Next.js rewrites proxy it to the backend (no CORS needed).
-const baseURL =
-  typeof window === "undefined"
-    ? (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000/api")
-    : "/api";
+const baseURL = process.env.NEXT_PUBLIC_API_URL || "/api";
 
 export const api = axios.create({
   baseURL,
