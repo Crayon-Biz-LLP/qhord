@@ -326,6 +326,45 @@ function resolveOneStep(step: ManifestStepLike): ResolvedExecutionStep[] {
     ];
   }
 
+  // ── Gojiberry ────────────────────────────────────────
+  if (tool === 'gojiberry') {
+    if (SOURCE_ACTIONS.has(action)) {
+      return [
+        {
+          manifestStepId: id,
+          tool: 'gojiberry',
+          action: 'search_leads',
+          payload: {
+            query: params.query,
+            limit: params.limit ?? 50,
+            filters: params.filters,
+          },
+          label: 'Gojiberry — search leads',
+        },
+      ];
+    }
+    if (action === 'enrich_lead' || action === 'check_reply') {
+      return [
+        {
+          manifestStepId: id,
+          tool: 'gojiberry',
+          action,
+          payload: params,
+          label: `Gojiberry — ${action}`,
+        },
+      ];
+    }
+    return [
+      {
+        manifestStepId: id,
+        tool: 'gojiberry',
+        action,
+        payload: params,
+        label: `Gojiberry — ${action}`,
+      },
+    ];
+  }
+
   // ── HeyReach (pass-through) ──────────────────────────
   if (tool === 'heyreach') {
     const mapped =

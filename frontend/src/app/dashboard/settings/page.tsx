@@ -5,7 +5,7 @@ import {
    User, Building2, Users, Plug, Send, Brain, Bell, SlidersHorizontal,
    Database, Workflow, BarChart3, Shield, Monitor, Smartphone, Lock, Fingerprint, Settings,
    RefreshCw, ChevronUp, ChevronRight, Plus, Palette, Upload, Ghost, Layers, Handshake, LayoutGrid, Calendar, Trash2,
-   Search, Mail, MessageSquare, AlertCircle, Linkedin, Sparkles, MoveRight, Check, Zap, AlertTriangle, Eye, EyeOff
+   Search, Mail, MessageSquare, AlertCircle, Linkedin, Sparkles, MoveRight, Check, Zap, AlertTriangle, Eye, EyeOff, Loader2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
@@ -52,6 +52,71 @@ const GoldToggle = ({ enabled, onToggle }: { enabled: boolean; onToggle: () => v
       />
    </button>
 );
+
+const BrandBrainPanel = () => {
+   const [brandText, setBrandText] = useState("");
+   const [saving, setSaving] = useState(false);
+   const [loading, setLoading] = useState(true);
+
+   useEffect(() => {
+      api.get("/brand-brain")
+         .then((res) => { setBrandText(res.data?.brandBrain?.brandText ?? ""); })
+         .catch(() => {})
+         .finally(() => setLoading(false));
+   }, []);
+
+   const save = async () => {
+      setSaving(true);
+      try {
+         const res = await api.post("/brand-brain", { brandText });
+         setBrandText(res.data?.brandBrain?.brandText ?? brandText);
+      } catch {
+         // ignore
+      }
+      setSaving(false);
+   };
+
+   return (
+      <div className="bg-white border border-[#1a1510]/5 rounded-2xl p-7 space-y-5 shadow-sm">
+         <div className="space-y-1">
+            <h3 className="text-[12px] font-bold text-[#1a1510] tracking-[0.2em] uppercase">Brand Brain</h3>
+            <p className="text-[10px] font-bold text-[#1a1510]/30 uppercase tracking-widest">
+               Describe your brand voice, values, products, and audience — Claude uses this to personalize outreach
+            </p>
+         </div>
+         {loading ? (
+            <div className="flex items-center justify-center py-8">
+               <Loader2 size={20} className="animate-spin text-[#1a1510]/30" />
+            </div>
+         ) : (
+            <>
+               <textarea
+                  value={brandText}
+                  onChange={(e) => setBrandText(e.target.value)}
+                  placeholder="e.g. We're a B2B SaaS company that helps sales teams automate outreach. Our tone is professional but friendly. We sell to VP Sales and CROs. Key differentiators: AI-powered personalization, 3x reply rates..."
+                  rows={6}
+                  className="w-full px-4 py-3 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] resize-none focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
+               />
+               <div className="flex items-center gap-3">
+                  <button
+                     onClick={save}
+                     disabled={saving}
+                     className="flex items-center gap-2 px-6 h-10 bg-[#1a1510] text-[#b99b7b] rounded-lg text-[10px] font-bold uppercase tracking-widest shadow-lg shadow-black/10 hover:-translate-y-0.5 transition-all disabled:opacity-50"
+                  >
+                     {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                     {saving ? "Saving..." : "Save Brand Profile"}
+                  </button>
+                  {brandText && (
+                     <p className="text-[10px] font-semibold text-green-600 flex items-center gap-1">
+                        <Check size={12} /> Saved
+                     </p>
+                  )}
+               </div>
+            </>
+         )}
+      </div>
+   );
+};
 
 export default function SettingsPage() {
    const { refreshUser } = useAuth();
@@ -913,11 +978,14 @@ export default function SettingsPage() {
                            </div>
 
                            <button className="flex items-center gap-2 px-6 h-10 bg-[#1a1510] text-[#b99b7b] rounded-lg text-[10px] font-bold uppercase tracking-widest shadow-lg shadow-black/10 hover:-translate-y-0.5 transition-all">
-                              <Sparkles size={16} /> Show AI Preview
-                           </button>
-                        </div>
-                     </motion.div>
-                  )}
+                               <Sparkles size={16} /> Show AI Preview
+                            </button>
+                         </div>
+
+                         {/* ── Brand Brain ── */}
+                         <BrandBrainPanel />
+                      </motion.div>
+                   )}
 
                   {activeTab === "notifications" && (
                      <motion.div

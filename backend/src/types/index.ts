@@ -18,7 +18,7 @@ export interface Client {
   created_at: string;
 }
 
-export type ToolName = 'apollo' | 'clay' | 'heyreach' | 'smartlead' | 'hunter' | 'brevo' | 'bettercontacts' | 'calendly' | 'instantly' | 'hubspot' | 'salesforce';
+export type ToolName = 'apollo' | 'clay' | 'heyreach' | 'smartlead' | 'hunter' | 'brevo' | 'bettercontacts' | 'calendly' | 'instantly' | 'hubspot' | 'salesforce' | 'gojiberry';
 
 export interface ClientToolAccount {
   id: string;

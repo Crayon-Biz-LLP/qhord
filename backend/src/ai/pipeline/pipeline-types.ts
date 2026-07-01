@@ -58,5 +58,6 @@ export function normalizeToolName(tool: string): ToolName | null {
   if (key === 'instantly') return 'instantly';
   if (key === 'hubspot') return 'hubspot';
   if (key === 'salesforce') return 'salesforce';
+  if (key === 'gojiberry') return 'gojiberry';
   return null;
 }

@@ -16,9 +16,10 @@ import { CalendlyService } from './calendly.service';
 import { InstantlyService } from './instantly.service';
 import { HubSpotService } from './hubspot.service';
 import { SalesforceService } from './salesforce.service';
+import { GojiberryService } from './gojiberry.service';
 import { generateMockLeads } from '../ai/pipeline/pipeline-leads';
 
-const SUPPORTED_TOOLS: ToolName[] = ['apollo', 'clay', 'heyreach', 'smartlead', 'hunter', 'brevo', 'bettercontacts', 'calendly', 'instantly', 'hubspot', 'salesforce'];
+const SUPPORTED_TOOLS: ToolName[] = ['apollo', 'clay', 'heyreach', 'smartlead', 'hunter', 'brevo', 'bettercontacts', 'calendly', 'instantly', 'hubspot', 'salesforce', 'gojiberry'];
 type ExecutionMode = 'mock' | 'live' | 'auto';
 
 export class ExecutionEngine {
@@ -132,8 +133,10 @@ export class ExecutionEngine {
                     ? 'INSTANTLY_API_KEY'
                     : tool === 'hubspot'
                       ? 'HUBSPOT_API_KEY'
-                      : tool === 'salesforce'
-                        ? 'SALESFORCE_ACCESS_TOKEN'
+                    : tool === 'salesforce'
+                      ? 'SALESFORCE_ACCESS_TOKEN'
+                    : tool === 'gojiberry'
+                      ? 'GOJIBERRY_API_KEY'
                   : null;
     const fromEnv = envVar ? process.env[envVar]?.trim() : '';
     if (!fromEnv) return '';
@@ -504,6 +507,33 @@ export class ExecutionEngine {
       return { ...base, name: payload?.object_name, fields: [] };
     }
 
+    // ---- Gojiberry mocks ----
+    if (tool === 'gojiberry' && action === 'search_leads') {
+      const limit = Math.min(Number(payload?.limit) || 25, 100);
+      const leads = generateMockLeads(limit, {
+        industry: String(payload?.query || payload?.industries || 'B2B').slice(0, 60),
+      });
+      return { ...base, leads, total: leads.length };
+    }
+    if (tool === 'gojiberry' && action === 'get_contacts') {
+      return { ...base, contacts: [] };
+    }
+    if (tool === 'gojiberry' && action === 'get_campaigns') {
+      return { ...base, campaigns: [] };
+    }
+    if (tool === 'gojiberry' && action === 'get_lists') {
+      return { ...base, lists: [] };
+    }
+    if (tool === 'gojiberry' && action === 'enrich_lead') {
+      return { ...base, enriched: { email: payload?.email, verified: true } };
+    }
+    if (tool === 'gojiberry' && action === 'check_reply') {
+      return { ...base, has_reply: false, replies: [] };
+    }
+    if (tool === 'gojiberry' && action === 'health') {
+      return { ...base, status: 'ok' };
+    }
+
     return base;
   }
 
@@ -662,6 +692,29 @@ export class ExecutionEngine {
         if (action === 'update_opportunity') return sfService.updateOpportunity(payload);
         if (action === 'create_account') return sfService.createAccount(payload);
         if (action === 'describe_object') return sfService.describeObject(payload);
+        break;
+      }
+      case 'gojiberry': {
+        const gojiService = new GojiberryService(apiKey);
+        if (action === 'get_contacts') return gojiService.getContacts(payload);
+        if (action === 'get_contact') return gojiService.getContact(payload);
+        if (action === 'create_contact') return gojiService.createContact(payload);
+        if (action === 'update_contact') return gojiService.updateContact(payload);
+        if (action === 'get_campaigns') return gojiService.getCampaigns(payload);
+        if (action === 'get_campaign') return gojiService.getCampaign(payload);
+        if (action === 'get_lists') return gojiService.getLists(payload);
+        if (action === 'get_lead_source_agents') return gojiService.getLeadSourceAgents(payload);
+        if (action === 'get_unibox_messages') return gojiService.getUniboxMessages(payload);
+        if (action === 'search_leads') return gojiService.searchLeads(payload);
+        if (action === 'health') return gojiService.health(payload);
+        if (action === 'fetch_campaigns') return gojiService.fetchCampaigns(payload);
+        if (action === 'enroll_lead') return gojiService.enrollLead(payload);
+        if (action === 'enrich_lead') return gojiService.enrichLead(payload);
+        if (action === 'check_reply') return gojiService.checkReply(payload);
+        if (action === 'send_linkedin_action') return gojiService.sendLinkedInAction(payload);
+        if (action === 'get_sender_health') return gojiService.getSenderHealth(payload);
+        if (action === 'handle_webhook_event') return gojiService.handleWebhookEvent(payload);
+        if (action === 'import_leads') return gojiService.importLeads(payload);
         break;
       }
       case 'calendly': {

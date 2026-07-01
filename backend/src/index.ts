@@ -27,6 +27,9 @@ import unifiedInboxRoutes from './routes/unified-inbox';
 import inboxWebhookRoutes from './routes/inbox-webhooks';
 import webhookRoutes from './routes/webhooks';
 import stripeWebhookRoutes from './routes/stripe-webhook';
+import brandBrainRoutes from './routes/brand-brain';
+import mcpRoutes from './routes/mcp';
+import aiProviderRoutes from './routes/ai-providers';
 import { prisma } from './lib/prisma';
 import { campaignWorker } from './workers/campaign-worker';
 import { workflowWorker } from './workers/workflow-worker';
@@ -97,6 +100,9 @@ app.use('/api/deals', dealsRoutes);
 app.use('/api/inbox', inboxRoutes);
 app.use('/api/webhooks/inbox', inboxWebhookRoutes);
 app.use('/api/webhooks', webhookRoutes);
+app.use('/api/brand-brain', brandBrainRoutes);
+app.use('/api/mcp', mcpRoutes);
+app.use('/api/ai-providers', aiProviderRoutes);
 
 // Optional: background inbox sync (BullMQ + Redis). Off by default so the app
 // runs without Redis; enable with INBOX_BACKGROUND_SYNC=true.

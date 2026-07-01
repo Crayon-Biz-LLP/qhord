@@ -1,7 +1,7 @@
 import { prisma } from '../../lib/prisma';
 import { encrypt, decrypt } from '../../config/encryption';
 
-const DEFAULT_TOOLS = ['Apollo', 'Clay', 'Smartlead', 'Hunter', 'Brevo', 'BetterContacts', 'Calendly', 'HeyReach', 'Instantly', 'HubSpot', 'Salesforce'];
+const DEFAULT_TOOLS = ['Apollo', 'Clay', 'Smartlead', 'Hunter', 'Brevo', 'BetterContacts', 'Calendly', 'HeyReach', 'Instantly', 'HubSpot', 'Salesforce', 'Gojiberry'];
 
 const ENV_TOOL_KEYS: { toolName: string; envVar: string }[] = [
   { toolName: 'Apollo', envVar: 'APOLLO_API_KEY' },
@@ -14,6 +14,7 @@ const ENV_TOOL_KEYS: { toolName: string; envVar: string }[] = [
   { toolName: 'Instantly', envVar: 'INSTANTLY_API_KEY' },
   { toolName: 'HubSpot', envVar: 'HUBSPOT_API_KEY' },
   { toolName: 'Salesforce', envVar: 'SALESFORCE_ACCESS_TOKEN' },
+  { toolName: 'Gojiberry', envVar: 'GOJIBERRY_API_KEY' },
 ];
 
 function displayToolName(tool: string): string {
@@ -29,6 +30,7 @@ function displayToolName(tool: string): string {
     instantly: 'Instantly',
     hubspot: 'HubSpot',
     salesforce: 'Salesforce',
+    gojiberry: 'Gojiberry',
   };
   return map[tool.trim().toLowerCase()] || tool;
 }

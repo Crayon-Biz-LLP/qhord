@@ -22,6 +22,9 @@ const SUPPORTED_TOOLS = [
   { tool_id: "hubspot", name: "HubSpot", category: "CRM", description: "CRM & marketing scale platform" },
   { tool_id: "salesforce", name: "Salesforce", category: "CRM", description: "Enterprise CRM and revenue cloud" },
   { tool_id: "pipedrive", name: "Pipedrive", category: "CRM", description: "Sales-first CRM for focused teams" },
+  { tool_id: "gojiberry", name: "Gojiberry", category: "AI Prospecting & Enrichment", description: "AI-powered lead generation, enrichment, and multi-channel outreach" },
+  { tool_id: "bettercontacts", name: "BetterContacts", category: "Enrichment", description: "Contact enrichment and data enhancement" },
+  { tool_id: "calendly", name: "Calendly", category: "Scheduling", description: "Meeting scheduling and appointment automation" },
 ];
 
 const PLAYBOOKS = [
@@ -222,6 +225,19 @@ async function main() {
     for (const plan of mockPlans) {
       await prisma.plan.create({ data: plan });
     }
+  }
+
+  console.log('Seeding AI providers...');
+  const AI_PROVIDERS = [
+    { name: 'anthropic', display_name: 'Anthropic Claude', default_model: 'claude-sonnet-4-20260506', priority: 0 },
+    { name: 'openai', display_name: 'OpenAI GPT', default_model: 'gpt-4o', priority: 1 },
+  ];
+  for (const p of AI_PROVIDERS) {
+    await prisma.aiProvider.upsert({
+      where: { name: p.name },
+      update: p,
+      create: p,
+    });
   }
 
   console.log('Seed complete.');

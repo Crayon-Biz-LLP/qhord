@@ -8,6 +8,7 @@ import { BetterContactService } from './bettercontact.service';
 import { findToolAccount } from '../ai/pipeline/ensure-tool-accounts';
 import { workflowQueue } from '../queue/workflow-queue';
 import { useFreeDemoStack } from '../config/demo-stack';
+import { ClaudeEnrichmentNode } from '../ai/workflow/nodes/claude-enrichment.node';
 
 export class CampaignWorkflowEngine {
   // Starts a new run for a lead in a campaign workflow
@@ -118,7 +119,7 @@ export class CampaignWorkflowEngine {
           break;
 
         case 'ai':
-          output = await this.executeAiNode(node, run.lead!);
+          output = await this.executeAiNode(node, run.lead!, run.workflow.campaign.client_id);
           break;
 
         case 'action':
@@ -292,10 +293,28 @@ export class CampaignWorkflowEngine {
   }
 
   // AI nodes logic
-  private async executeAiNode(node: any, lead: any) {
+  private async executeAiNode(node: any, lead: any, clientId?: string) {
     const config = node.configuration_json || {};
-    if (node.tool === 'openai' || node.tool === 'anthropic' || node.tool === 'internal') {
-      // Simple prompt templates mapping variables
+
+    if (node.tool === 'anthropic' || node.tool === 'claude') {
+      if (!clientId) throw new Error('clientId required for Claude enrichment node');
+
+      const enrichmentNode = new ClaudeEnrichmentNode();
+      const aiOutput = await enrichmentNode.invoke(
+        lead,
+        {
+          promptTemplate: config.promptTemplate || config.template || 'Write a personalized icebreaker for {{first_name}} at {{company_name}}.',
+          targetOutputVariable: config.targetOutputVariable || 'claude_icebreaker',
+          model: config.model,
+          maxTokens: config.maxTokens,
+        },
+        clientId
+      );
+
+      return { generated_text: aiOutput, custom_variable: config.targetOutputVariable || 'claude_icebreaker' };
+    }
+
+    if (node.tool === 'openai' || node.tool === 'internal') {
       const template = config.template || 'Hi {{first_name}}, love your company {{company_name}}';
       const outputText = template
         .replace(/\{\{first_name\}\}/g, lead.first_name || 'there')

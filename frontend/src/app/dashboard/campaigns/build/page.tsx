@@ -87,7 +87,7 @@ const GUARDRAILS = [
   { id: "ooo", label: "Out-of-office detected", desc: "Pause 7 days", required: false },
 ] as const;
 
-type WfAction = { id: string; label: string };
+type WfAction = { id: string; label: string; config?: Record<string, unknown> };
 type WorkflowTab = { id: string; name: string; trigger: WfAction | null; actions: WfAction[] };
 
 // Block-detail config (Trigger panel) options
@@ -161,6 +161,7 @@ const BLOCK_LIBRARY = [
       { name: "Qualify records", desc: "Qualify entries using AI", icon: CheckCircle },
       { name: "Score lead", desc: "Assign a fit & intent score", icon: Star },
       { name: "Detect intent", desc: "Detect buying intent signals", icon: Activity },
+      { name: "AI Enrichment", desc: "Generate personalized copy for each lead using AI (Claude)", icon: Sparkles, badge: "New" },
     ],
   },
   {
@@ -313,6 +314,7 @@ export default function BuildCampaignPage() {
   const [blockSearch, setBlockSearch] = useState("");
   const [detailBlock, setDetailBlock] = useState<string | null>(null);
   const [pickerTarget, setPickerTarget] = useState<"trigger" | "action">("action");
+  const [aiConfig, setAiConfig] = useState({ promptTemplate: "Write a personalized icebreaker for {{first_name}} at {{company_name}}.", targetOutputVariable: "ai_icebreaker" });
   const [trigCfg, setTrigCfg] = useState({
     mode: "event" as string,
     run: "every" as string,
@@ -631,8 +633,8 @@ export default function BuildCampaignPage() {
   };
   const renameActiveWorkflow = (name: string) =>
     setWorkflows((prev) => prev.map((w) => (w.id === activeWf ? { ...w, name } : w)));
-  const addAction = (label = "Send Email") => {
-    setWorkflows((prev) => prev.map((w) => (w.id === activeWf ? { ...w, actions: [...w.actions, { id: `a${actionCounter}`, label }] } : w)));
+  const addAction = (label = "Send Email", config?: Record<string, unknown>) => {
+    setWorkflows((prev) => prev.map((w) => (w.id === activeWf ? { ...w, actions: [...w.actions, { id: `a${actionCounter}`, label, config }] } : w)));
     setActionCounter((c) => c + 1);
   };
   const removeAction = (aid: string) =>
@@ -654,6 +656,7 @@ export default function BuildCampaignPage() {
   const confirmBlock = () => {
     if (detailBlock) {
       if (pickerTarget === "trigger") setWorkflowTrigger(detailBlock);
+      else if (detailBlock === "AI Enrichment") addAction(detailBlock, { promptTemplate: aiConfig.promptTemplate, targetOutputVariable: aiConfig.targetOutputVariable });
       else addAction(detailBlock);
     }
     closeBlockPanel();
@@ -2125,145 +2128,185 @@ export default function BuildCampaignPage() {
 
                   {/* Detail body */}
                   <div className="flex-1 overflow-y-auto scrollbar-hide px-5 py-4 space-y-6">
-                    {/* Run this workflow */}
-                    <div>
-                      <p className="text-[12px] font-bold text-[#1a1510] mb-2.5">Run this workflow</p>
-                      <div className="space-y-2">
-                        {TRIGGER_MODES.map((m) => {
-                          const active = trigCfg.mode === m.id;
-                          return (
-                            <button
-                              key={m.id}
-                              onClick={() => setTrig({ mode: m.id })}
-                              className={`w-full flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all ${
-                                active ? "border-brand-gold ring-2 ring-brand-gold/15 bg-brand-gold/[0.04]" : "border-[#1a1510]/[0.07] bg-white hover:border-[#1a1510]/15"
-                              }`}
-                            >
-                              <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${active ? "border-brand-gold" : "border-[#1a1510]/25"}`}>
-                                {active && <span className="w-2 h-2 rounded-full bg-brand-gold" />}
-                              </span>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-[13px] font-bold text-[#1a1510]">{m.title}</p>
-                                <p className="text-[11px] text-[#1a1510]/45">{m.desc}</p>
-                              </div>
-                              <m.icon size={16} className="text-[#1a1510]/35 shrink-0" />
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Frequency (schedule only) */}
-                    <AnimatePresence initial={false}>
-                      {trigCfg.mode === "schedule" && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.2 }} className="overflow-hidden"
-                        >
-                          <p className="text-[12px] font-bold text-[#1a1510] mb-2.5">Frequency</p>
-                          <div className="space-y-3">
-                            <button onClick={() => setTrig({ run: "once" })} className="flex items-center gap-2.5">
-                              <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${trigCfg.run === "once" ? "border-brand-gold" : "border-[#1a1510]/25"}`}>
-                                {trigCfg.run === "once" && <span className="w-2 h-2 rounded-full bg-brand-gold" />}
-                              </span>
-                              <span className="text-[13px] font-semibold text-[#1a1510]">Run once</span>
-                            </button>
-                            <div className="flex items-center gap-2.5">
-                              <button onClick={() => setTrig({ run: "every" })} className="flex items-center gap-2.5 shrink-0">
-                                <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${trigCfg.run === "every" ? "border-brand-gold" : "border-[#1a1510]/25"}`}>
-                                  {trigCfg.run === "every" && <span className="w-2 h-2 rounded-full bg-brand-gold" />}
-                                </span>
-                                <span className="text-[13px] font-semibold text-[#1a1510]">Every</span>
-                              </button>
-                              <input
-                                type="number" min={1}
-                                value={trigCfg.everyCount}
-                                onChange={(e) => setTrig({ everyCount: Number(e.target.value) })}
-                                className="w-16 h-9 px-3 rounded-lg bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] font-semibold text-center focus:bg-white focus:outline-none focus:border-brand-gold/40 transition-all"
-                              />
-                              <select
-                                value={trigCfg.everyUnit}
-                                onChange={(e) => setTrig({ everyUnit: e.target.value })}
-                                className="h-9 px-3 rounded-lg bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] font-semibold focus:bg-white focus:outline-none focus:border-brand-gold/40 transition-all cursor-pointer"
+                    {detailBlock === "AI Enrichment" ? (
+                      <>
+                        <div>
+                          <p className="text-[12px] font-bold text-[#1a1510] mb-2.5">Prompt Template</p>
+                          <p className="text-[11px] text-[#1a1510]/45 mb-3">Use {'{{variable}}'} placeholders for lead data: first_name, last_name, company_name, title, industry, linkedin_url, domain</p>
+                          <textarea
+                            value={aiConfig.promptTemplate}
+                            onChange={(e) => setAiConfig((prev) => ({ ...prev, promptTemplate: e.target.value }))}
+                            placeholder="Write a personalized icebreaker for {{first_name}} at {{company_name}}..."
+                            rows={5}
+                            className="w-full px-4 py-3 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] resize-none focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
+                          />
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {["first_name", "last_name", "company_name", "title", "industry", "linkedin_url", "domain", "email"].map((v) => (
+                              <button
+                                key={v}
+                                onClick={() => setAiConfig((prev) => ({ ...prev, promptTemplate: prev.promptTemplate + `{{${v}}}` }))}
+                                className="text-[10px] font-semibold text-brand-gold px-2 py-0.5 rounded-md bg-brand-gold/10 hover:bg-brand-gold/20 transition-colors"
                               >
-                                {EVERY_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-                              </select>
-                            </div>
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-[12px] font-semibold text-[#1a1510]/50 mr-1">On</span>
-                              {WEEK_DAYS.map((d, i) => {
-                                const on = trigCfg.days.includes(i);
-                                return (
-                                  <button
-                                    key={i}
-                                    onClick={() => toggleDay(i)}
-                                    className={`w-8 h-8 rounded-lg text-[12px] font-bold transition-all ${on ? "bg-[#1a1510] text-white" : "bg-[#f7f8f9] text-[#1a1510]/50 hover:bg-[#1a1510]/5"}`}
-                                  >
-                                    {d}
-                                  </button>
-                                );
-                              })}
-                            </div>
+                                {'{{'}{v}{'}}'}
+                              </button>
+                            ))}
                           </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                        </div>
 
-                    {/* Choose an app */}
-                    <div>
-                      <p className="text-[12px] font-bold text-[#1a1510] mb-2.5">Choose an app</p>
-                      <div className="grid grid-cols-2 gap-3">
-                        {TRIGGER_APPS.map((a) => {
-                          const active = trigCfg.app === a.id;
-                          return (
-                            <button
-                              key={a.id}
-                              onClick={() => setTrig({ app: a.id })}
-                              className={`flex flex-col items-center justify-center gap-2 py-5 rounded-xl border transition-all ${
-                                active ? "border-brand-gold ring-2 ring-brand-gold/15 bg-brand-gold/[0.04]" : "border-[#1a1510]/[0.07] bg-white hover:border-[#1a1510]/15"
-                              }`}
-                            >
-                              <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${active ? "bg-brand-gold/15 text-brand-gold" : "bg-[#f7f8f9] text-[#1a1510]/45"}`}>
-                                <a.icon size={18} />
+                        <div>
+                          <p className="text-[12px] font-bold text-[#1a1510] mb-2.5">Output Variable Name</p>
+                          <p className="text-[11px] text-[#1a1510]/45 mb-3">This variable stores Claude's response on the lead record. Use it in email templates as {'{{custom.output_variable}}'}</p>
+                          <input
+                            value={aiConfig.targetOutputVariable}
+                            onChange={(e) => setAiConfig((prev) => ({ ...prev, targetOutputVariable: e.target.value }))}
+                            placeholder="ai_icebreaker"
+                            className="w-full h-11 px-4 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] font-mono focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {/* Trigger-only config sections (shown for trigger or non-AI blocks) */}
+                        {pickerTarget === "trigger" && (
+                          <>
+                            <div>
+                              <p className="text-[12px] font-bold text-[#1a1510] mb-2.5">Run this workflow</p>
+                              <div className="space-y-2">
+                                {TRIGGER_MODES.map((m) => {
+                                  const active = trigCfg.mode === m.id;
+                                  return (
+                                    <button
+                                      key={m.id}
+                                      onClick={() => setTrig({ mode: m.id })}
+                                      className={`w-full flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all ${
+                                        active ? "border-brand-gold ring-2 ring-brand-gold/15 bg-brand-gold/[0.04]" : "border-[#1a1510]/[0.07] bg-white hover:border-[#1a1510]/15"
+                                      }`}
+                                    >
+                                      <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${active ? "border-brand-gold" : "border-[#1a1510]/25"}`}>
+                                        {active && <span className="w-2 h-2 rounded-full bg-brand-gold" />}
+                                      </span>
+                                      <div className="min-w-0 flex-1">
+                                        <p className="text-[13px] font-bold text-[#1a1510]">{m.title}</p>
+                                        <p className="text-[11px] text-[#1a1510]/45">{m.desc}</p>
+                                      </div>
+                                      <m.icon size={16} className="text-[#1a1510]/35 shrink-0" />
+                                    </button>
+                                  );
+                                })}
                               </div>
-                              <span className="text-[12px] font-bold text-[#1a1510]">{a.id}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
+                            </div>
 
-                    {/* Targets */}
-                    <div>
-                      <p className="text-[12px] font-bold text-[#1a1510] mb-2.5">Targets</p>
-                      <div className="flex p-1 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07]">
-                        {TARGET_TABS.map((t) => (
-                          <button
-                            key={t}
-                            onClick={() => setTrig({ target: t })}
-                            className={`flex-1 py-2 rounded-lg text-[12px] font-semibold transition-all ${
-                              trigCfg.target === t ? "bg-white text-[#1a1510] shadow-sm" : "text-[#1a1510]/45 hover:text-[#1a1510]/70"
-                            }`}
-                          >
-                            {t}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                            <AnimatePresence initial={false}>
+                              {trigCfg.mode === "schedule" && (
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                                  transition={{ duration: 0.2 }} className="overflow-hidden"
+                                >
+                                  <p className="text-[12px] font-bold text-[#1a1510] mb-2.5">Frequency</p>
+                                  <div className="space-y-3">
+                                    <button onClick={() => setTrig({ run: "once" })} className="flex items-center gap-2.5">
+                                      <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${trigCfg.run === "once" ? "border-brand-gold" : "border-[#1a1510]/25"}`}>
+                                        {trigCfg.run === "once" && <span className="w-2 h-2 rounded-full bg-brand-gold" />}
+                                      </span>
+                                      <span className="text-[13px] font-semibold text-[#1a1510]">Run once</span>
+                                    </button>
+                                    <div className="flex items-center gap-2.5">
+                                      <button onClick={() => setTrig({ run: "every" })} className="flex items-center gap-2.5 shrink-0">
+                                        <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${trigCfg.run === "every" ? "border-brand-gold" : "border-[#1a1510]/25"}`}>
+                                          {trigCfg.run === "every" && <span className="w-2 h-2 rounded-full bg-brand-gold" />}
+                                        </span>
+                                        <span className="text-[13px] font-semibold text-[#1a1510]">Every</span>
+                                      </button>
+                                      <input
+                                        type="number" min={1}
+                                        value={trigCfg.everyCount}
+                                        onChange={(e) => setTrig({ everyCount: Number(e.target.value) })}
+                                        className="w-16 h-9 px-3 rounded-lg bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] font-semibold text-center focus:bg-white focus:outline-none focus:border-brand-gold/40 transition-all"
+                                      />
+                                      <select
+                                        value={trigCfg.everyUnit}
+                                        onChange={(e) => setTrig({ everyUnit: e.target.value })}
+                                        className="h-9 px-3 rounded-lg bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] font-semibold focus:bg-white focus:outline-none focus:border-brand-gold/40 transition-all cursor-pointer"
+                                      >
+                                        {EVERY_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                                      </select>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="text-[12px] font-semibold text-[#1a1510]/50 mr-1">On</span>
+                                      {WEEK_DAYS.map((d, i) => {
+                                        const on = trigCfg.days.includes(i);
+                                        return (
+                                          <button
+                                            key={i}
+                                            onClick={() => toggleDay(i)}
+                                            className={`w-8 h-8 rounded-lg text-[12px] font-bold transition-all ${on ? "bg-[#1a1510] text-white" : "bg-[#f7f8f9] text-[#1a1510]/50 hover:bg-[#1a1510]/5"}`}
+                                          >
+                                            {d}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
 
-                    {/* Enrollment criteria */}
-                    <div>
-                      <div className="flex items-center gap-1.5 mb-2.5">
-                        <p className="text-[12px] font-bold text-[#1a1510]">Enrollment criteria</p>
-                        <Info size={13} className="text-[#1a1510]/30" />
-                      </div>
-                      <input
-                        value={trigCfg.enrollment}
-                        onChange={(e) => setTrig({ enrollment: e.target.value })}
-                        placeholder="e.g. Any saved contacts"
-                        className="w-full h-11 px-4 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
-                      />
-                    </div>
+                            <div>
+                              <p className="text-[12px] font-bold text-[#1a1510] mb-2.5">Choose an app</p>
+                              <div className="grid grid-cols-2 gap-3">
+                                {TRIGGER_APPS.map((a) => {
+                                  const active = trigCfg.app === a.id;
+                                  return (
+                                    <button
+                                      key={a.id}
+                                      onClick={() => setTrig({ app: a.id })}
+                                      className={`flex flex-col items-center justify-center gap-2 py-5 rounded-xl border transition-all ${
+                                        active ? "border-brand-gold ring-2 ring-brand-gold/15 bg-brand-gold/[0.04]" : "border-[#1a1510]/[0.07] bg-white hover:border-[#1a1510]/15"
+                                      }`}
+                                    >
+                                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${active ? "bg-brand-gold/15 text-brand-gold" : "bg-[#f7f8f9] text-[#1a1510]/45"}`}>
+                                        <a.icon size={18} />
+                                      </div>
+                                      <span className="text-[12px] font-bold text-[#1a1510]">{a.id}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            <div>
+                              <p className="text-[12px] font-bold text-[#1a1510] mb-2.5">Targets</p>
+                              <div className="flex p-1 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07]">
+                                {TARGET_TABS.map((t) => (
+                                  <button
+                                    key={t}
+                                    onClick={() => setTrig({ target: t })}
+                                    className={`flex-1 py-2 rounded-lg text-[12px] font-semibold transition-all ${
+                                      trigCfg.target === t ? "bg-white text-[#1a1510] shadow-sm" : "text-[#1a1510]/45 hover:text-[#1a1510]/70"
+                                    }`}
+                                  >
+                                    {t}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="flex items-center gap-1.5 mb-2.5">
+                                <p className="text-[12px] font-bold text-[#1a1510]">Enrollment criteria</p>
+                                <Info size={13} className="text-[#1a1510]/30" />
+                              </div>
+                              <input
+                                value={trigCfg.enrollment}
+                                onChange={(e) => setTrig({ enrollment: e.target.value })}
+                                placeholder="e.g. Any saved contacts"
+                                className="w-full h-11 px-4 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
+                              />
+                            </div>
+                          </>
+                        )}
+                      </>
+                    )}
                   </div>
 
                   {/* Detail footer */}

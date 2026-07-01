@@ -107,6 +107,7 @@ model Client {
   inbox_messages     InboxMessage[]
   inbox_conversations InboxConversation[]
   workflows          Workflow[]
+  brand_brain        BrandBrain?
 
   @@map("clients")
 }
@@ -319,15 +320,28 @@ model Lead {
   industry      String?
   source        String   @default("hunter")
   status        String   @default("new")
-  enriched      Boolean  @default(false)
-  enrichment_data Json?
-  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  enriched          Boolean  @default(false)
+  enrichment_data   Json?
+  custom_variables  Json?
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
 
   client    Client   @relation(fields: [client_id], references: [id], onDelete: Cascade)
   campaign  Campaign? @relation(fields: [campaign_id], references: [id], onDelete: SetNull)
   workflow_runs CampaignWorkflowRun[]
 
   @@map("leads")
+}
+
+model BrandBrain {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  client_id  String   @unique @db.Uuid
+  client     Client   @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  name       String   @default("Default Brand Profile")
+  data_text  String   @default("")
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@map("brand_brain")
 }
 
 model Notification {
@@ -551,6 +565,121 @@ model CampaignWorkflowRun {
   steps                WorkflowRunStep[]
 
   @@map("campaign_workflow_runs")
+}
+
+// ── AI ENGINE — Phase 1+ (Provider, Memory, Learning) ──
+
+/// AI provider config (Claude, GPT, Gemini, etc.)
+model AiProvider {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                String   @unique // "anthropic" | "openai" | "google"
+  display_name        String   // "Anthropic Claude" | "OpenAI GPT" | "Google Gemini"
+  api_key_encrypted   String?  // encrypted API key
+  base_url            String?  // custom endpoint (e.g. for proxies)
+  default_model       String   @default("claude-sonnet-4-20260506")
+  is_active           Boolean  @default(true)
+  priority            Int      @default(0) // lower = higher priority
+  created_at          DateTime @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  execution_logs AiExecutionLog[]
+
+  @@map("ai_providers")
+}
+
+/// Every AI API call logged for audit & cost tracking
+model AiExecutionLog {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  provider_id     String   @db.Uuid
+  provider        AiProvider @relation(fields: [provider_id], references: [id])
+  model           String
+  prompt          String   // the compiled prompt sent
+  response        String?  // the raw response
+  input_tokens    Int?
+  output_tokens   Int?
+  latency_ms      Int?
+  cost_credits    Int?     // cost in platform credits
+  status          String   @default("success") // success / failed / timeout
+  error_message   String?
+  workspace_id    String?  @db.Uuid
+  client_id       String?  @db.Uuid
+  campaign_id     String?  @db.Uuid
+  lead_id         String?  @db.Uuid
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  feedback FeedbackLog?
+
+  @@index([provider_id])
+  @@index([workspace_id])
+  @@index([client_id])
+  @@index([created_at])
+  @@map("ai_execution_logs")
+}
+
+/// Reusable prompt templates
+model PromptTemplate {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  category    String   @default("general") // enrichment / email / scoring / classification
+  content     String   // the template with {{variable}} placeholders
+  variables   Json     @default("[]")     // list of variable names
+  description String?
+  workspace_id String? @db.Uuid
+  is_global   Boolean  @default(false)    // global templates visible to all workspaces
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@index([category])
+  @@index([workspace_id])
+  @@map("prompt_templates")
+}
+
+/// Persistent conversation memory — copilot-like session memory
+model ConversationMemory {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspace_id String   @db.Uuid
+  session_id   String?  // optional grouping
+  role         String   // "user" | "assistant" | "system"
+  content      String
+  metadata     Json?    // extra context (entity IDs, campaign IDs, etc.)
+  token_count  Int?
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([workspace_id, created_at])
+  @@map("conversation_memory")
+}
+
+/// Learned preferences per workspace — AI gets smarter over time
+model AgentMemory {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspace_id String   @db.Uuid
+  key          String   // e.g. "preferred_tone", "disliked_tools", "favorite_icp"
+  value        Json
+  category     String   @default("preference") // preference / pattern / rule
+  confidence   Float    @default(1.0)
+  source       String?  // "feedback" | "auto" | "manual"
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@unique([workspace_id, key])
+  @@index([workspace_id, category])
+  @@map("agent_memory")
+}
+
+/// Operator feedback on AI outputs — drives the learning loop
+model FeedbackLog {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ai_execution_log_id String @unique @db.Uuid
+  execution_log     AiExecutionLog @relation(fields: [ai_execution_log_id], references: [id], onDelete: Cascade)
+  operator_id       String   @db.Uuid
+  rating            Int      // 1-5
+  comment           String?
+  approved          Boolean  @default(true) // true = accepted, false = rejected
+  corrected_output  String?  // what the operator changed it to
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([operator_id])
+  @@map("feedback_logs")
 }
 
 model WorkflowRunStep {

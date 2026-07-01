@@ -145,6 +145,11 @@ export class SmartToolMatcher {
       tools.add('HeyReach');
     }
     
+    // Gojiberry as alternative lead gen / enrichment tool
+    if (goal.includes('enrich') || goal.includes('lead')) {
+      tools.add('Gojiberry');
+    }
+    
     return Array.from(tools);
   }
 
