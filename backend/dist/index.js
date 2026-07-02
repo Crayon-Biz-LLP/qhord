@@ -1,22 +1,22 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function (o, m, k, k2) {
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
     if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-        desc = { enumerable: true, get: function () { return m[k]; } };
+      desc = { enumerable: true, get: function() { return m[k]; } };
     }
     Object.defineProperty(o, k2, desc);
-}) : (function (o, m, k, k2) {
+}) : (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     o[k2] = m[k];
 }));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function (o, v) {
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
     Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function (o, v) {
+}) : function(o, v) {
     o["default"] = v;
 });
 var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function (o) {
+    var ownKeys = function(o) {
         ownKeys = Object.getOwnPropertyNames || function (o) {
             var ar = [];
             for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
@@ -64,6 +64,7 @@ const inbox_1 = __importDefault(require("./routes/inbox"));
 const unified_inbox_1 = __importDefault(require("./routes/unified-inbox"));
 const inbox_webhooks_1 = __importDefault(require("./routes/inbox-webhooks"));
 const webhooks_1 = __importDefault(require("./routes/webhooks"));
+const stripe_webhook_1 = __importDefault(require("./routes/stripe-webhook"));
 const prisma_1 = require("./lib/prisma");
 const app = (0, express_1.default)();
 const allowedOrigins = [
@@ -90,10 +91,12 @@ app.use((0, cors_1.default)({
     credentials: true,
     optionsSuccessStatus: 200
 }));
+// Stripe webhooks must use raw body — register BEFORE express.json()
+app.use('/api/webhooks/stripe', express_1.default.raw({ type: 'application/json' }), stripe_webhook_1.default);
 app.use(express_1.default.json({ limit: '1mb' }));
 app.get('/api/health', async (_req, res) => {
     try {
-        await prisma_1.prisma.$queryRaw`SELECT 1`;
+        await prisma_1.prisma.$queryRaw `SELECT 1`;
         res.json({ status: 'ok' });
     }
     catch (err) {

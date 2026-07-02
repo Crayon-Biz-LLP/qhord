@@ -700,7 +700,7 @@ export default function BuildCampaignPage() {
   const handleBuild = async () => {
     setBuilding(true);
     try {
-      await api.post("/campaigns/plan", {
+      const response = await api.post("/campaigns/plan", {
         prompt: buildPrompt(),
         workflows: workflows.map((w) => ({
           name: w.name,
@@ -713,11 +713,21 @@ export default function BuildCampaignPage() {
           "ngrok-skip-browser-warning": "true",
         }
       });
-    } catch (e) {
+
+      const data = response.data;
+      if (data && data.success) {
+        toast.success("Campaign created successfully!");
+        router.push("/dashboard/campaigns");
+      } else {
+        const errorMsg = data?.error || "Failed to create campaign";
+        toast.error(errorMsg);
+      }
+    } catch (e: any) {
       console.error("Build campaign failed:", e);
+      const errorMsg = e.response?.data?.error || e.message || "Failed to create campaign";
+      toast.error(errorMsg);
     } finally {
       setBuilding(false);
-      router.push("/dashboard/campaigns");
     }
   };
 

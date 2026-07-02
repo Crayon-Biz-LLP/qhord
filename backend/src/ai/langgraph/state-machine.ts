@@ -49,14 +49,17 @@ const graph = new StateGraph(CampaignState)
     return { ...state, ...result };
   })
   .addNode("architect", async (state) => {
+    if (state.error) return state;
     const result = await architectNode.invoke(state);
     return { ...state, ...result };
   })
   .addNode("validator", async (state) => {
+    if (state.error) return state;
     const result = await validatorNode.invoke(state);
     return { ...state, ...result };
   })
   .addNode("executor", async (state) => {
+    if (state.error) return state;
     const result = await executorNode.invoke(state);
     return { ...state, ...result };
   })

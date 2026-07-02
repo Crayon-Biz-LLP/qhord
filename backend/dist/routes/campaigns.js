@@ -32,18 +32,34 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const state_machine_1 = require("../ai/langgraph/state-machine");
 const auth_1 = require("../middleware/auth");
 const prisma_1 = require("../lib/prisma");
 const planner_memory_service_1 = require("../services/planner-memory.service");
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const JWT_SECRET = process.env.JWT_SECRET || 'development-secret';
 const router = (0, express_1.Router)();
 const plannerMemoryService = new planner_memory_service_1.PlannerMemoryService();
 // Apply authentication to all routes except /plan and GET /campaigns for testing
 router.use((req, res, next) => {
     if (req.path === '/plan' || (req.method === 'GET' && req.path === '/')) {
-        // Skip authentication for /plan endpoint and GET campaigns for testing
+        // Attempt optional token parsing to set req.user if a token is provided
+        const header = req.headers.authorization;
+        if (header && header.startsWith('Bearer ')) {
+            const token = header.substring('Bearer '.length);
+            try {
+                const decoded = jsonwebtoken_1.default.verify(token, JWT_SECRET);
+                req.user = decoded;
+            }
+            catch {
+                // Ignore invalid token on optional auth paths
+            }
+        }
         return next();
     }
     return (0, auth_1.requireAuth)(req, res, next);

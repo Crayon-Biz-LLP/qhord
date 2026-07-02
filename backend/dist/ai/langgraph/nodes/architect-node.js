@@ -21,6 +21,9 @@ class ArchitectNode {
                 };
             }
             // Fallback to LLM if logical build fails
+            if (!process.env.GROQ_API_KEY) {
+                throw new Error('GROQ_API_KEY not configured and logical manifest builder failed');
+            }
             const llmManifest = await this.buildLLMManifest(intent, state.activeTools);
             return {
                 ...state,

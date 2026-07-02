@@ -11,21 +11,29 @@ export interface ParserState {
 export class ParserNode {
   async invoke(state: ParserState): Promise<Partial<ParserState>> {
     try {
-      const llm = getLLMClient();
+      let intent: CampaignIntent | null = null;
 
-      const prompt = `${PARSER_PROMPT}\n\nUser request: "${state.userInput}"\n\nReturn only valid JSON:`;
+      if (!process.env.GROQ_API_KEY) {
+        console.log('[Parser] GROQ_API_KEY not configured. Using rule-based fallback parser.');
+        intent = this.parseRuleBased(state.userInput);
+        if (!intent) {
+          throw new Error('Rule-based parser fallback failed to extract intent');
+        }
+      } else {
+        const llm = getLLMClient();
+        const prompt = `${PARSER_PROMPT}\n\nUser request: "${state.userInput}"\n\nReturn only valid JSON:`;
+        const response = await llm.invoke(prompt);
 
-      const response = await llm.invoke(prompt);
+        // Extract JSON from the response
+        const content = response.content as string;
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
 
-      // Extract JSON from the response
-      const content = response.content as string;
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+          throw new Error('No valid JSON found in LLM response');
+        }
 
-      if (!jsonMatch) {
-        throw new Error('No valid JSON found in LLM response');
+        intent = this.normalizeIntent(JSON.parse(jsonMatch[0]));
       }
-
-      const intent: CampaignIntent = this.normalizeIntent(JSON.parse(jsonMatch[0]));
 
       // Validate the intent structure
       this.validateIntent(intent);
@@ -109,5 +117,91 @@ export class ParserNode {
     };
 
     return normalized;
+  }
+
+  private parseRuleBased(prompt: string): CampaignIntent | null {
+    try {
+      // Determine tools
+      const toolsMatch = prompt.match(/Use these tools:\s*([^\.]+)/i);
+      let tools: string[] = [];
+      if (toolsMatch) {
+        tools = toolsMatch[1].split(',').map(t => t.trim()).filter(Boolean);
+      } else {
+        // Fallback detection by keywords
+        if (prompt.toLowerCase().includes('apollo')) tools.push('Apollo');
+        if (prompt.toLowerCase().includes('clay')) tools.push('Clay');
+        if (prompt.toLowerCase().includes('smartlead')) tools.push('Smartlead');
+        if (prompt.toLowerCase().includes('brevo')) tools.push('Brevo');
+        if (prompt.toLowerCase().includes('hunter')) tools.push('Hunter');
+        if (prompt.toLowerCase().includes('bettercontacts')) tools.push('BetterContacts');
+        if (prompt.toLowerCase().includes('calendly')) tools.push('Calendly');
+      }
+
+      // Default tools if none found
+      if (tools.length === 0) {
+        tools = ['Apollo', 'Clay', 'Smartlead'];
+      }
+
+      // Determine sequence
+      const sequence: string[] = [];
+      if (tools.some(t => ['Apollo', 'Hunter'].includes(t)) || prompt.toLowerCase().includes('source') || prompt.toLowerCase().includes('targeting')) {
+        sequence.push('source');
+      }
+      if (tools.some(t => ['Clay', 'BetterContacts'].includes(t)) || prompt.toLowerCase().includes('enrich')) {
+        sequence.push('enrich');
+      }
+      if (tools.some(t => ['Smartlead', 'Brevo', 'Instantly', 'Lemlist'].includes(t)) || prompt.toLowerCase().includes('email') || prompt.toLowerCase().includes('send') || prompt.toLowerCase().includes('outreach')) {
+        sequence.push('send');
+      }
+      if (tools.includes('Calendly') || prompt.toLowerCase().includes('schedule')) {
+        sequence.push('schedule');
+      }
+
+      // Determine goal
+      let goal = 'send_emails';
+      if (sequence.includes('send')) {
+        goal = 'send_emails';
+      } else if (sequence.includes('source') && !sequence.includes('enrich')) {
+        goal = 'source_leads';
+      } else if (sequence.includes('enrich')) {
+        goal = 'enrich_data';
+      } else if (sequence.includes('schedule')) {
+        goal = 'schedule_meetings';
+      }
+
+      // Target details
+      const titlesMatch = prompt.match(/targeting\s*"([^"]+)"/i);
+      const job_titles = titlesMatch ? [titlesMatch[1]] : [];
+
+      const industryMatch = prompt.match(/in\s+([a-zA-Z0-9\s]+?)(?:\s*\(|\.|$)/i);
+      const industry = industryMatch ? industryMatch[1].trim() : undefined;
+
+      // Warmup
+      const warmupMatch = prompt.match(/Warm\s+up\s+over\s+(\d+)\s+days/i);
+      const warmup_days = warmupMatch ? parseInt(warmupMatch[1], 10) : 2;
+
+      // Campaign Name
+      const campaign_name = `${industry || job_titles[0] || 'Outreach'} Campaign`;
+
+      return {
+        goal,
+        campaign_name,
+        target: {
+          type: 'B2B',
+          industry,
+          job_titles,
+        },
+        volume: 100,
+        tools,
+        sequence,
+        timing: {
+          warmup_days,
+          send_schedule: 'business_hours'
+        }
+      };
+    } catch (e) {
+      console.error('[Parser] Rule-based parsing failed:', e);
+      return null;
+    }
   }
 }

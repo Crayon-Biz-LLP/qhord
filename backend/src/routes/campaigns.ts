@@ -3,6 +3,10 @@ import { runCampaignCompiler } from '../ai/langgraph/state-machine';
 import { requireAuth } from '../middleware/auth';
 import { prisma } from '../lib/prisma';
 import { PlannerMemoryService } from '../services/planner-memory.service';
+import jwt from 'jsonwebtoken';
+import { AuthTokenPayload } from '../types';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'development-secret';
 
 const router = Router();
 const plannerMemoryService = new PlannerMemoryService();
@@ -10,7 +14,17 @@ const plannerMemoryService = new PlannerMemoryService();
 // Apply authentication to all routes except /plan and GET /campaigns for testing
 router.use((req, res, next) => {
   if (req.path === '/plan' || (req.method === 'GET' && req.path === '/')) {
-    // Skip authentication for /plan endpoint and GET campaigns for testing
+    // Attempt optional token parsing to set req.user if a token is provided
+    const header = req.headers.authorization;
+    if (header && header.startsWith('Bearer ')) {
+      const token = header.substring('Bearer '.length);
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET) as AuthTokenPayload;
+        req.user = decoded;
+      } catch {
+        // Ignore invalid token on optional auth paths
+      }
+    }
     return next();
   }
   return requireAuth(req, res, next);

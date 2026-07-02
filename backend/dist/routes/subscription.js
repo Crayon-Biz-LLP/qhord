@@ -1,11 +1,26 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
+const stripe_1 = __importDefault(require("stripe"));
 const prisma_1 = require("../lib/prisma");
 const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
 router.use(auth_1.requireAuth);
+const stripe = new stripe_1.default(process.env.STRIPE_SECRET_KEY);
 const DEFAULT_CREDITS = 2000;
+// Credit top-up packages: credits → { price in cents, display label }
+const CREDIT_PACKAGES = {
+    5000: { amount_cents: 4900, label: '5,000 Credits Pack' },
+    10000: { amount_cents: 8900, label: '10,000 Credits Pack' },
+};
+// Plan prices for Stripe Checkout (inline price_data, no pre-created Price ID needed)
+const PLAN_CHECKOUT = {
+    starter: { name: 'Starter Plan', amount_cents: 9900 },
+    pro: { name: 'Pro Plan', amount_cents: 29900 },
+};
 async function getOrCreateCredit(clientId) {
     let credit = await prisma_1.prisma.clientCredit.findUnique({ where: { client_id: clientId } });
     if (!credit) {
@@ -173,6 +188,126 @@ router.post('/upgrade', async (req, res) => {
     catch (error) {
         console.error('Upgrade error:', error);
         res.status(500).json({ error: 'Failed to upgrade' });
+    }
+});
+// ── Stripe: create PaymentIntent for credit top-up ──────────────────────────
+router.post('/create-payment-intent', async (req, res) => {
+    try {
+        const credits = parseInt(String(req.body?.credits || 0), 10);
+        const pkg = CREDIT_PACKAGES[credits];
+        if (!pkg) {
+            res.status(400).json({ error: 'Invalid credits package. Valid options: 5000, 10000' });
+            return;
+        }
+        const paymentIntent = await stripe.paymentIntents.create({
+            amount: pkg.amount_cents,
+            currency: 'usd',
+            description: pkg.label,
+            metadata: {
+                operator_id: req.user.id,
+                credits: String(credits),
+                type: 'top_up',
+            },
+        });
+        res.json({ clientSecret: paymentIntent.client_secret });
+    }
+    catch (error) {
+        console.error('Create payment intent error:', error);
+        res.status(500).json({ error: error.message || 'Failed to create payment intent' });
+    }
+});
+// ── Stripe: confirm top-up after client-side payment confirmation ─────────────
+router.post('/confirm-top-up', async (req, res) => {
+    try {
+        const { paymentIntentId, credits } = req.body;
+        if (!paymentIntentId) {
+            res.status(400).json({ error: 'paymentIntentId is required' });
+            return;
+        }
+        // Verify the payment actually succeeded with Stripe
+        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+        if (paymentIntent.status !== 'succeeded') {
+            res.status(400).json({ error: `Payment not completed (status: ${paymentIntent.status})` });
+            return;
+        }
+        // Idempotency guard — raw SQL to avoid dependency on regenerated Prisma client
+        const existing = await prisma_1.prisma.$queryRaw `
+      SELECT id FROM credit_transactions WHERE stripe_payment_id = ${paymentIntentId} LIMIT 1
+    `;
+        if (existing.length > 0) {
+            res.json({ success: true, message: 'Payment already processed', alreadyProcessed: true });
+            return;
+        }
+        const client = await prisma_1.prisma.client.findFirst({
+            where: { created_by_operator_id: req.user.id },
+            select: { id: true },
+        });
+        if (!client) {
+            res.status(400).json({ error: 'No client found' });
+            return;
+        }
+        const credit = await getOrCreateCredit(client.id);
+        const creditsToAdd = parseInt(String(paymentIntent.metadata?.credits || credits || 0), 10);
+        if (!creditsToAdd) {
+            res.status(400).json({ error: 'Could not determine credits amount' });
+            return;
+        }
+        const updated = await prisma_1.prisma.clientCredit.update({
+            where: { id: credit.id },
+            data: { balance: { increment: creditsToAdd } },
+        });
+        // Insert with stripe_payment_id via raw SQL (Prisma client may not have the new column yet)
+        await prisma_1.prisma.$executeRaw `
+      INSERT INTO credit_transactions (id, credit_id, amount, type, description, stripe_payment_id, created_at)
+      VALUES (gen_random_uuid(), ${credit.id}::uuid, ${creditsToAdd}, 'credit',
+              ${'Credit top-up via Stripe'}, ${paymentIntentId}, NOW())
+    `;
+        res.json({
+            success: true,
+            addedCredits: creditsToAdd,
+            newBalance: updated.balance,
+        });
+    }
+    catch (error) {
+        console.error('Confirm top-up error:', error);
+        res.status(500).json({ error: error.message || 'Failed to confirm payment' });
+    }
+});
+// ── Stripe: create Checkout Session for plan upgrades ─────────────────────────
+router.post('/create-checkout-session', async (req, res) => {
+    try {
+        const { plan } = req.body;
+        const planConfig = PLAN_CHECKOUT[plan];
+        if (!planConfig) {
+            res.status(400).json({ error: `Invalid plan. Valid options: ${Object.keys(PLAN_CHECKOUT).join(', ')}` });
+            return;
+        }
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        const session = await stripe.checkout.sessions.create({
+            payment_method_types: ['card'],
+            mode: 'subscription',
+            line_items: [{
+                    price_data: {
+                        currency: 'usd',
+                        product_data: { name: planConfig.name },
+                        unit_amount: planConfig.amount_cents,
+                        recurring: { interval: 'month' },
+                    },
+                    quantity: 1,
+                }],
+            success_url: `${frontendUrl}/dashboard/billing?status=success&session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${frontendUrl}/dashboard/billing?status=cancelled`,
+            metadata: {
+                operator_id: req.user.id,
+                plan,
+                type: 'plan_upgrade',
+            },
+        });
+        res.json({ url: session.url });
+    }
+    catch (error) {
+        console.error('Create checkout session error:', error);
+        res.status(500).json({ error: error.message || 'Failed to create checkout session' });
     }
 });
 router.post('/consume-credits', async (req, res) => {
