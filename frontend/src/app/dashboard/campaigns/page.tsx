@@ -1,5 +1,5 @@
 "use client";
-
+ 
 import React, { useState, useEffect } from "react";
 import {
   Bot, Database, Plus, CheckCircle, Clock, RefreshCw, MoreHorizontal, Target,
@@ -8,16 +8,18 @@ import {
 import { useRouter } from "next/navigation";
 import { Loader } from "@/components/ui/Loader";
 import { api } from "../../../lib/api";
-
+import { toast } from "sonner";
+ 
 export default function CampaignsPage() {
   const router = useRouter();
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
+ 
   useEffect(() => {
     fetchCampaigns();
   }, []);
-
+ 
   const fetchCampaigns = async () => {
     try {
       const response = await api.get("/campaigns");
@@ -29,6 +31,24 @@ export default function CampaignsPage() {
     }
   };
 
+  const handleSubmitApproval = async (campaignId: string) => {
+    setSubmittingId(campaignId);
+    try {
+      const response = await api.post("/approvals/submit", { campaignId });
+      if (response.data.success) {
+        toast.success("Campaign submitted for approval successfully!");
+        fetchCampaigns();
+      } else {
+        toast.error(response.data.error || "Failed to submit for approval");
+      }
+    } catch (error: any) {
+      console.error("Submit for approval error:", error);
+      toast.error(error.response?.data?.error || error.message || "Failed to submit for approval");
+    } finally {
+      setSubmittingId(null);
+    }
+  };
+ 
   const goBuild = () => router.push("/dashboard/campaigns/build");
 
   const stats = [
@@ -156,8 +176,17 @@ export default function CampaignsPage() {
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           {campaign.status === "draft" && (
-                            <button className="btn-shine h-9 px-4 rounded-none bg-[#1a1510] text-white text-[11px] font-semibold hover:bg-[#2a2118] transition-colors flex items-center gap-1.5">
-                              <ArrowUpRight size={13} className="text-brand-gold" /> Submit
+                            <button
+                              onClick={() => handleSubmitApproval(campaign.id)}
+                              disabled={submittingId === campaign.id}
+                              className="btn-shine h-9 px-4 rounded-none bg-[#1a1510] text-white text-[11px] font-semibold hover:bg-[#2a2118] transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {submittingId === campaign.id ? (
+                                <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                              ) : (
+                                <ArrowUpRight size={13} className="text-brand-gold" />
+                              )}
+                              Submit
                             </button>
                           )}
                           <button className="w-9 h-9 flex items-center justify-center bg-white border border-[#1a1510]/[0.07] rounded-lg hover:bg-[#f7f8f9] transition-colors">
