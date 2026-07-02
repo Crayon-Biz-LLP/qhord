@@ -41,34 +41,36 @@ router.post('/submit', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Campaign can only be submitted from draft status' });
     }
 
-    // Update campaign status
+    // Update campaign status to approved (auto-approved on submission)
     const updatedCampaign = await prisma.campaign.update({
       where: { id: campaignId },
       data: {
-        status: 'pending_approval'
+        status: 'approved'
       }
     } as any);
 
-    // Create approval record
+    // Create approval record as approved
     const approval = await prisma.campaignApproval.create({
       data: {
         campaign_id: campaignId,
         requested_by_operator_id: campaign.created_by_operator_id,
-        status: 'pending'
+        status: 'approved',
+        comments: 'Auto-approved on submission'
       }
     } as any);
 
-    // Create notification for managers (in a real app, you'd get all managers)
-    // await prisma.notification.create({
-    //   data: {
-    //     operator_id: operatorId, // In real app, this would be manager IDs
-    //     type: 'campaign_pending',
-    //     title: 'Campaign Pending Approval',
-    //     message: `Campaign "${campaign.name}" is pending your approval`,
-    //     entity_id: campaignId,
-    //     entity_type: 'campaign'
-    //   }
-    // } as any);
+    // Trigger execution queue immediately
+    console.log(`🚀 Campaign auto-approved on submission, triggering execution: ${campaignId}`);
+    const { ExecutionQueue } = await import('../services/execution.queue');
+    const executionQueue = new ExecutionQueue();
+    setTimeout(async () => {
+      try {
+        console.log('🎯 Triggering execution queue (auto-approve on submit)');
+        await executionQueue.triggerApprovedCampaigns();
+      } catch (error) {
+        console.error('❌ Failed to trigger campaign execution:', error);
+      }
+    }, 1000);
 
     res.json({
       success: true,

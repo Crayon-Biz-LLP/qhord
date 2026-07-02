@@ -155,12 +155,12 @@ export default function CampaignsPage() {
                             <div className="flex items-center gap-2.5">
                               <h4 className="text-[14px] font-semibold text-[#1a1510] truncate">{campaign.name}</h4>
                               <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md capitalize ${
-                                campaign.status === "approved" ? "bg-emerald-50 text-emerald-600" :
+                                campaign.status === "approved" || campaign.status === "executing" || campaign.status === "active" ? "bg-emerald-50 text-emerald-600" :
                                 campaign.status === "pending_approval" ? "bg-amber-50 text-amber-600" :
                                 campaign.status === "draft" ? "bg-[#1a1510]/5 text-[#1a1510]/50" :
                                 "bg-blue-50 text-blue-600"
                               }`}>
-                                {String(campaign.status || "").replace("_", " ")}
+                                {campaign.status === "executing" || campaign.status === "approved" ? "active" : String(campaign.status || "").replace("_", " ")}
                               </span>
                             </div>
                             {campaign.description && (
