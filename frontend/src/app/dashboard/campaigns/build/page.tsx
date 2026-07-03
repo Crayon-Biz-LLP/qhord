@@ -388,101 +388,128 @@ export default function BuildCampaignPage() {
     }
   };
 
-  const handleCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const loadSheetJS = (): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      if ((window as any).XLSX) {
+        resolve((window as any).XLSX);
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+      script.onload = () => resolve((window as any).XLSX);
+      script.onerror = () => reject(new Error("Failed to load SheetJS library."));
+      document.head.appendChild(script);
+    });
+  };
+
+  const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      if (!text) return;
+    const isCSV = file.name.endsWith(".csv");
+    const isExcel = file.name.endsWith(".xlsx") || file.name.endsWith(".xls");
 
-      const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-      if (lines.length <= 1) {
-        toast.error("CSV file is empty or missing data rows.");
-        return;
-      }
+    if (!isCSV && !isExcel) {
+      toast.error("Please upload a CSV or Excel (.xlsx/.xls) file.");
+      return;
+    }
 
-      const parseCSVLine = (line: string) => {
-        const result: string[] = [];
-        let current = "";
-        let inQuotes = false;
-        for (let i = 0; i < line.length; i++) {
-          const char = line[i];
-          if (char === '"') {
-            inQuotes = !inQuotes;
-          } else if (char === ',' && !inQuotes) {
-            result.push(current.trim());
-            current = "";
+    const toastId = toast.loading(`Parsing ${file.name}…`);
+
+    try {
+      const XLSX = await loadSheetJS();
+      const reader = new FileReader();
+
+      reader.onload = (event) => {
+        try {
+          const data = event.target?.result;
+          let workbook;
+          if (isCSV) {
+            workbook = XLSX.read(data, { type: "string" });
           } else {
-            current += char;
+            workbook = XLSX.read(data, { type: "array" });
           }
+
+          const sheetName = workbook.SheetNames[0];
+          const sheet = workbook.Sheets[sheetName];
+          const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
+
+          if (rows.length <= 1) {
+            toast.error("File is empty or missing data rows.", { id: toastId });
+            return;
+          }
+
+          const headers = (rows[0] || []).map(h => String(h || "").trim().toLowerCase());
+          
+          const nameIdx = headers.findIndex(h => h === "name" || h === "full name" || h.includes("contact name"));
+          const firstNameIdx = headers.findIndex(h => h.includes("first") || h.includes("fname"));
+          const lastNameIdx = headers.findIndex(h => h.includes("last") || h.includes("lname"));
+          const emailIdx = headers.findIndex(h => h === "email" || h.includes("email") || h.includes("mail"));
+          const companyIdx = headers.findIndex(h => h === "company" || h === "company name" || h.includes("org") || h.includes("firm"));
+          const titleIdx = headers.findIndex(h => h === "title" || h === "job title" || h.includes("role") || h.includes("position"));
+
+          if (emailIdx === -1) {
+            toast.error("File must contain an 'email' column.", { id: toastId });
+            return;
+          }
+
+          const parsedLeads: Lead[] = [];
+          for (let i = 1; i < rows.length; i++) {
+            const values = rows[i];
+            if (!values || values.length <= emailIdx) continue;
+
+            const email = String(values[emailIdx] || "").trim();
+            if (!email || !email.includes("@")) continue;
+
+            let name = "";
+            if (nameIdx !== -1 && values[nameIdx]) {
+              name = String(values[nameIdx]).trim();
+            } else if (firstNameIdx !== -1 && values[firstNameIdx]) {
+              name = `${values[firstNameIdx]} ${lastNameIdx !== -1 && values[lastNameIdx] ? values[lastNameIdx] : ""}`.trim();
+            } else {
+              name = email.split("@")[0];
+            }
+
+            const newLead: Lead = {
+              id: `file_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 6)}`,
+              name: name || "Unknown Lead",
+              email: email,
+              company: (companyIdx !== -1 && values[companyIdx]) ? String(values[companyIdx]).trim() : "SaaS Company",
+              title: (titleIdx !== -1 && values[titleIdx]) ? String(values[titleIdx]).trim() : "Prospect",
+              status: "verified",
+              source: isCSV ? "csv" : "excel"
+            };
+            parsedLeads.push(newLead);
+          }
+
+          if (parsedLeads.length === 0) {
+            toast.error("No valid leads found in file.", { id: toastId });
+            return;
+          }
+
+          setLeads(prev => {
+            const existingEmails = new Set(prev.map(l => l.email.toLowerCase()));
+            const uniqueNew = parsedLeads.filter(l => !existingEmails.has(l.email.toLowerCase()));
+            return [...prev, ...uniqueNew];
+          });
+          toast.success(`Successfully imported ${parsedLeads.length} leads from ${file.name}!`, { id: toastId });
+        } catch (err: any) {
+          toast.error("Failed to parse file content: " + err.message, { id: toastId });
         }
-        result.push(current.trim());
-        return result;
       };
 
-      const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase());
-      
-      const nameIdx = headers.findIndex(h => h.includes("name") || h.includes("contact"));
-      const firstNameIdx = headers.findIndex(h => h.includes("first") || h.includes("fname"));
-      const lastNameIdx = headers.findIndex(h => h.includes("last") || h.includes("lname"));
-      const emailIdx = headers.findIndex(h => h.includes("email") || h.includes("mail"));
-      const companyIdx = headers.findIndex(h => h.includes("company") || h.includes("org") || h.includes("firm"));
-      const titleIdx = headers.findIndex(h => h.includes("title") || h.includes("role") || h.includes("position"));
+      reader.onerror = () => {
+        toast.error("Failed to read file.", { id: toastId });
+      };
 
-      if (emailIdx === -1) {
-        toast.error("CSV file must contain an 'email' column.");
-        return;
+      if (isCSV) {
+        reader.readAsText(file);
+      } else {
+        reader.readAsArrayBuffer(file);
       }
-
-      const parsedLeads: Lead[] = [];
-      for (let i = 1; i < lines.length; i++) {
-        const values = parseCSVLine(lines[i]);
-        if (values.length < headers.length) continue;
-
-        let email = values[emailIdx];
-        if (!email || !email.includes("@")) continue;
-
-        let name = "";
-        if (nameIdx !== -1) {
-          name = values[nameIdx];
-        } else if (firstNameIdx !== -1) {
-          name = `${values[firstNameIdx]} ${lastNameIdx !== -1 ? values[lastNameIdx] : ""}`.trim();
-        } else {
-          name = email.split("@")[0];
-        }
-
-        const newLead: Lead = {
-          id: `csv_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 6)}`,
-          name: name || "Unknown Lead",
-          email: email,
-          company: companyIdx !== -1 ? values[companyIdx] || "SaaS Company" : "SaaS Company",
-          title: titleIdx !== -1 ? values[titleIdx] || "Prospect" : "Prospect",
-          status: "verified",
-          source: "csv"
-        };
-        parsedLeads.push(newLead);
-      }
-
-      if (parsedLeads.length === 0) {
-        toast.error("No valid leads found in CSV.");
-        return;
-      }
-
-      setLeads(prev => {
-        const existingEmails = new Set(prev.map(l => l.email.toLowerCase()));
-        const uniqueNew = parsedLeads.filter(l => !existingEmails.has(l.email.toLowerCase()));
-        return [...prev, ...uniqueNew];
-      });
-      toast.success(`Successfully imported ${parsedLeads.length} leads from CSV!`);
-    };
-
-    reader.onerror = () => {
-      toast.error("Failed to read CSV file.");
-    };
-
-    reader.readAsText(file);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to load Excel parsing engine.", { id: toastId });
+    }
     e.target.value = "";
   };
 
@@ -1402,10 +1429,10 @@ export default function BuildCampaignPage() {
                         <Upload size={22} />
                       </div>
                       <div>
-                        <p className="text-[14px] font-semibold text-[#1a1510]">Drop your CSV here or click to browse</p>
-                        <p className="text-[12px] text-[#1a1510]/40 mt-1">Supports .csv up to 10MB · columns auto-mapped</p>
+                        <p className="text-[14px] font-semibold text-[#1a1510]">Drop your CSV/Excel here or click to browse</p>
+                        <p className="text-[12px] text-[#1a1510]/40 mt-1">Supports .csv, .xlsx, .xls up to 10MB · columns auto-mapped</p>
                       </div>
-                      <input type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
+                      <input type="file" accept=".csv, .xlsx, .xls" onChange={handleCSVUpload} className="hidden" />
                     </label>
                   )}
 
