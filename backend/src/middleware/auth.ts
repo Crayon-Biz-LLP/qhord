@@ -53,6 +53,10 @@ const ipCache = new Map<string, { count: number; resetTime: number }>();
 
 export function rateLimiter(windowMs: number, maxRequests: number) {
   return (req: Request, res: Response, next: NextFunction): void => {
+    if (process.env.NODE_ENV === 'development') {
+      next();
+      return;
+    }
     const ip = req.ip || (req.headers['x-forwarded-for'] as string) || 'unknown';
     const now = Date.now();
 
