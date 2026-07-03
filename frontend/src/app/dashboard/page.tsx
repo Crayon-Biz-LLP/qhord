@@ -148,7 +148,7 @@ export default function DashboardHub() {
               <Terminal size={15} /> Operating Room
             </button>
             <button
-              onClick={() => setIsCreateModalOpen(true)}
+              onClick={() => router.push('/dashboard/campaigns/build')}
               className="btn-shine h-11 px-5 rounded-none bg-[#1a1510] text-white text-xs font-semibold flex items-center gap-2 hover:bg-[#2a2118] transition-colors"
             >
               <Plus size={15} strokeWidth={2.5} /> New Campaign
