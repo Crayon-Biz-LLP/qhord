@@ -317,6 +317,7 @@ export default function BuildCampaignPage() {
   const [generatedWorkflow, setGeneratedWorkflow] = useState<any>(null);
   const [aiActivityOpen, setAiActivityOpen] = useState(false);
   const [aiActivity, setAiActivity] = useState<{ text: string; type: 'prompt' | 'workflow' | 'error'; workflow?: any; ts: number }[]>([]);
+  const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
   const [detailBlock, setDetailBlock] = useState<string | null>(null);
   const [pickerTarget, setPickerTarget] = useState<"trigger" | "action">("action");
   const [aiConfig, setAiConfig] = useState({ promptTemplate: "Write a personalized icebreaker for {{first_name}} at {{company_name}}.", targetOutputVariable: "ai_icebreaker" });
@@ -705,6 +706,110 @@ export default function BuildCampaignPage() {
     );
   };
 
+  // ── Apply generated workflow to all wizard steps ────────────────
+  const applyGeneratedWorkflow = (wf: any, approvalsCount = 0) => {
+    const nodes = wf.nodes || [];
+    const tools: string[] = Array.from(new Set(nodes.map((n: any) => n.tool).filter((t: string) => t !== 'manual' && t !== 'delay')));
+
+    const hasSmartlead = tools.some((t: string) => ['smartlead', 'instantly'].includes(t.toLowerCase()));
+    const hasHeyreach = tools.some((t: string) => t.toLowerCase() === 'heyreach');
+    const hasApollo = tools.some((t: string) => t.toLowerCase() === 'apollo');
+    const hasClay = tools.some((t: string) => t.toLowerCase() === 'clay');
+
+    // Determine intent
+    let intent = 'custom';
+    if (hasSmartlead && hasHeyreach) intent = 'multichannel';
+    else if (hasSmartlead) intent = 'email';
+    else if (hasHeyreach) intent = 'linkedin';
+    else if (hasApollo) intent = 'email';
+
+    // Map tools to channel names
+    const toolToChannel: Record<string, string> = {
+      apollo: 'Apollo', smartlead: 'Smartlead', instantly: 'Smartlead',
+      heyreach: 'HeyReach', clay: 'Clay', anthropic: 'Smartlead', claude: 'Smartlead',
+    };
+    const channels: string[] = Array.from(new Set(tools.map((t: string) => toolToChannel[t.toLowerCase()] || t.charAt(0).toUpperCase() + t.slice(1))));
+
+    // Strategies
+    const strategies: string[] = [];
+    if (hasSmartlead) strategies.push('Email');
+    if (hasHeyreach) strategies.push('LinkedIn');
+    if (strategies.length === 0) strategies.push('Email');
+
+    // Lead source
+    const leadSource = hasApollo ? 'Apollo' : hasClay ? 'Clay' : 'Apollo';
+
+    // Build email steps from action/AI nodes
+    const newEmailSteps: typeof emailSteps = [];
+    const newLinkedinSteps: typeof linkedinSteps = [];
+
+    nodes.forEach((n: any) => {
+      if (n.node_type === 'action' && ['smartlead', 'instantly'].includes(n.tool.toLowerCase())) {
+        const cfg = n.configuration || {};
+        newEmailSteps.push({
+          id: `e${Date.now()}-${newEmailSteps.length}`,
+          timing: 'Send in 30 minutes',
+          subject: (cfg.subject as string) || `Quick question about {{company}}`,
+          body: (cfg.body as string) || `Hi {{first_name}},\n\nI noticed {{company}} is doing interesting work. Would love to connect!\n\nBest,\n{{sender_name}}`,
+        });
+      }
+      if (n.node_type === 'action' && n.tool.toLowerCase() === 'heyreach') {
+        newLinkedinSteps.push({
+          id: `li${Date.now()}-${newLinkedinSteps.length}`,
+          timing: newLinkedinSteps.length === 0 ? 'Send in 1 hour' : 'Wait 3 days',
+          subject: '',
+          body: `Hi {{first_name}},\n\nI came across {{company}} and was impressed by your work. Would you be open to a brief chat?\n\nBest,\n{{sender_name}}`,
+        });
+      }
+      if (n.node_type === 'ai') {
+        const cfg = n.configuration || {};
+        newEmailSteps.push({
+          id: `e${Date.now()}-${newEmailSteps.length}`,
+          timing: 'Wait 3 days',
+          subject: 'Following up',
+          body: `Hi {{first_name}},\n\n${cfg.promptTemplate || 'Just following up on my previous message. Would be great to chat!'}\n\nBest,\n{{sender_name}}`,
+        });
+      }
+    });
+
+    if (newEmailSteps.length === 0) {
+      newEmailSteps.push({
+        id: `e${Date.now()}-0`,
+        timing: 'Send in 30 minutes',
+        subject: `Quick question about {{company}}`,
+        body: `Hi {{first_name}},\n\nI noticed {{company}} is doing interesting work. Would love to connect!\n\nBest,\n{{sender_name}}`,
+      });
+    }
+
+    // Build workflow actions
+    const workflowActions = nodes.filter((n: any) => n.node_type !== 'source').map((n: any) => ({
+      id: `a${Math.random().toString(36).substring(2, 9)}`,
+      label: n.label,
+      config: n.configuration,
+    }));
+
+    // Apply to form
+    set({
+      name: wf.name || '',
+      intent,
+      channels,
+      strategies,
+      leadMethod: 'tool',
+      leadSource,
+      leadCount: 100,
+    });
+
+    setEmailSteps(newEmailSteps);
+    setLinkedinSteps(newLinkedinSteps);
+    setGuardrails({ reply: true, meeting: true, bounce: true, positive: hasSmartlead, ooo: true });
+    setWorkflows([{ id: 'w1', name: wf.name || 'Generated Workflow', trigger: null, actions: workflowActions }]);
+
+    // Show approval badge if pending approvals exist
+    if (approvalsCount > 0) {
+      toast.info(`${approvalsCount} approval(s) pending — check Approvals tab`);
+    }
+  };
+
   const handleBuild = async () => {
     setBuilding(true);
     try {
@@ -813,10 +918,14 @@ export default function BuildCampaignPage() {
                         save: true,
                       });
                       const wf = res.data.workflow;
+                      const approvals = res.data.pendingApprovals || [];
                       setGeneratedWorkflow(wf);
+                      setPendingApprovalCount(approvals.length);
                       setAiPrompt('');
+                      // Pre-fill all wizard steps
+                      applyGeneratedWorkflow(wf, approvals.length);
                       setAiActivity((prev) => [{ text: wf.name, type: 'workflow', workflow: wf, ts: Date.now() }, ...prev]);
-                      toast.success(`"${wf.name}" generated with ${wf.nodes.length} steps`);
+                      toast.success(`"${wf.name}" generated — ${wf.nodes.length} steps, ${approvals.length} approval(s)`);
                     } catch (err: any) {
                       const msg = err?.response?.data?.error || err.message || 'Generation failed';
                       toast.error(msg);
@@ -2620,9 +2729,14 @@ export default function BuildCampaignPage() {
                   </div>
                   <div>
                     <h3 className="text-[15px] font-bold text-[#1a1510]">{generatedWorkflow.name}</h3>
-                    <p className="text-[11px] font-medium text-[#1a1510]/45">
-                      {generatedWorkflow.nodes.length} steps · AI-generated workflow
-                    </p>
+                      <p className="text-[11px] font-medium text-[#1a1510]/45">
+                        {generatedWorkflow.nodes.length} steps · AI-generated workflow
+                        {pendingApprovalCount > 0 && (
+                          <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[10px] font-bold border border-amber-200">
+                            <Clock size={10} /> {pendingApprovalCount} pending approval
+                          </span>
+                        )}
+                      </p>
                   </div>
                 </div>
                 <button
@@ -2730,6 +2844,7 @@ export default function BuildCampaignPage() {
               <div className="border-t border-[#1a1510]/[0.07] px-6 py-4 flex items-center gap-3 shrink-0 bg-[#fafafa]">
                 <button
                   onClick={() => {
+                    applyGeneratedWorkflow(generatedWorkflow, pendingApprovalCount);
                     setGeneratedWorkflow(null);
                     setStep(STEPS.length - 1); // Jump to review
                   }}

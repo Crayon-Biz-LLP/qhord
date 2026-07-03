@@ -714,15 +714,74 @@ router.post('/generate-from-prompt', async (req: Request, res: Response) => {
 
     const workflow = await workflowGenerator.generateFromPrompt(prompt, targetClientId);
 
+    // Get client approval mode
+    const client = await prisma.client.findUnique({
+      where: { id: targetClientId },
+      select: { approval_mode: true, name: true },
+    });
+
     let savedWorkflow = null;
+    let pendingApprovals: any[] = [];
+
     if (save) {
       savedWorkflow = await workflowGenerator.saveWorkflow(workflow, targetClientId, operatorId, campaignId);
+
+      // Create PendingAction entries based on approval mode
+      const approvalMode = client?.approval_mode || 'Approval required';
+
+      if (approvalMode === 'Approval required' || approvalMode === 'Hybrid') {
+        // Create pending approval for each action node that sends communications
+        for (const node of workflow.nodes) {
+          if (node.node_type === 'action' && ['smartlead', 'instantly', 'heyreach', 'apollo'].includes(node.tool.toLowerCase())) {
+            const pending = await prisma.pendingAction.create({
+              data: {
+                workflow_id: savedWorkflow.id,
+                campaign_id: campaignId || undefined,
+                client_id: targetClientId,
+                action_type: node.tool === 'heyreach' ? 'send_linkedin' : 'send_email',
+                action_label: node.label,
+                action_config: node.configuration as any,
+                status: 'pending',
+                requested_by: 'AI Generator',
+              },
+            });
+            pendingApprovals.push(pending);
+          }
+        }
+
+        // Always create a "launch campaign" approval if there are any email/LinkedIn actions
+        const hasCommNodes = workflow.nodes.some(n =>
+          n.node_type === 'action' && ['smartlead', 'instantly', 'heyreach'].includes(n.tool.toLowerCase())
+        );
+        if (pendingApprovals.length === 0 && hasCommNodes) {
+          const pending = await prisma.pendingAction.create({
+            data: {
+              workflow_id: savedWorkflow.id,
+              campaign_id: campaignId || undefined,
+              client_id: targetClientId,
+              action_type: 'launch_campaign',
+              action_label: `Launch "${workflow.name}" campaign`,
+              action_config: {} as any,
+              status: 'pending',
+              requested_by: 'AI Generator',
+            },
+          });
+          pendingApprovals.push(pending);
+        }
+      }
     }
 
     res.json({
       success: true,
       workflow,
       savedWorkflow: savedWorkflow ? { id: savedWorkflow.id, name: savedWorkflow.workflow_name } : null,
+      pendingApprovals: pendingApprovals.map(a => ({
+        id: a.id,
+        action_type: a.action_type,
+        action_label: a.action_label,
+        status: a.status,
+      })),
+      approvalMode: client?.approval_mode || 'Approval required',
     });
   } catch (error: any) {
     console.error('Workflow generation error:', error);
