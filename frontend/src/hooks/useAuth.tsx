@@ -10,7 +10,7 @@ interface UseAuthResult {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   loginWithMfa: (userId: string, token: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string) => Promise<any>;
   logout: () => void;
   refreshUser: () => Promise<void>;
   mfaRequired: boolean;
@@ -107,10 +107,7 @@ export function useAuth(redirectUnauthenticated = false): UseAuthResult {
 
   const register = async (name: string, email: string, password: string) => {
     const res = await api.post("/auth/register", { name, email, password });
-    localStorage.setItem("auth_token", res.data.token);
-    setCookie("auth_token", res.data.token, 7);
-    setUser(res.data.operator);
-    router.replace("/dashboard");
+    return res.data;
   };
 
   const logout = () => {

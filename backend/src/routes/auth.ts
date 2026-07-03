@@ -5,6 +5,42 @@ import { AuthTokenPayload, OperatorRole } from '../types';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 import axios from 'axios';
+import crypto from 'crypto';
+import { BrevoService } from '../services/brevo.service';
+
+async function sendVerificationEmail(email: string, name: string, token: string) {
+  const apiKey = process.env.BREVO_API_KEY;
+  if (!apiKey) {
+    console.warn("[Brevo] BREVO_API_KEY is not defined, skipping verification email send.");
+    return;
+  }
+  const brevo = new BrevoService(apiKey);
+  const verifyLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${token}`;
+  
+  const htmlContent = `
+    <html>
+      <body style="font-family: sans-serif; padding: 20px; max-width: 600px; color: #1a1510;">
+        <h2 style="color: #D4AF37;">Welcome to Qhord, ${name}!</h2>
+        <p>Thank you for registering. Please verify your email address to activate your account and start building campaigns.</p>
+        <div style="margin: 24px 0;">
+          <a href="${verifyLink}" style="background-color: #1a1510; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">Verify Email Address</a>
+        </div>
+        <p style="font-size: 12px; color: #1a1510/50;">If you did not request this verification, please ignore this email.</p>
+      </body>
+    </html>
+  `;
+
+  try {
+    await brevo.sendTransactional({
+      to: [{ email, name }],
+      subject: 'Verify your email address - Qhord',
+      htmlContent
+    });
+    console.log(`[Brevo] Verification email successfully sent to ${email}`);
+  } catch (err: any) {
+    console.error(`[Brevo] Failed to send verification email to ${email}:`, err?.response?.data || err.message);
+  }
+}
 
 const router = Router();
 
@@ -38,6 +74,7 @@ router.post('/register', rateLimiter(15 * 60 * 1000, 30), async (req: Request, r
     }
 
     const passwordHash = await hashPassword(password);
+    const verificationToken = crypto.randomBytes(32).toString('hex');
     const userRole = role === 'admin' ? 'admin' : 'operator';
 
     const operator = await prisma.operator.create({
@@ -46,6 +83,8 @@ router.post('/register', rateLimiter(15 * 60 * 1000, 30), async (req: Request, r
         password_hash: passwordHash,
         name,
         role: userRole,
+        email_verified: false,
+        verification_token: verificationToken,
         settings: {
           create: {
             notifications: defaultNotifications,
@@ -60,14 +99,19 @@ router.post('/register', rateLimiter(15 * 60 * 1000, 30), async (req: Request, r
       },
     });
 
-    const payload: AuthTokenPayload = {
-      id: operator.id,
-      email: operator.email,
-      role: operator.role as OperatorRole,
-    };
-    const token = generateToken(payload);
+    const verifyLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`;
+    console.log(`\n--------------------------------------------`);
+    console.log(`NEW REGISTERED OPERATOR: ${email}`);
+    console.log(`MOCK VERIFICATION LINK: ${verifyLink}`);
+    console.log(`--------------------------------------------\n`);
 
-    res.status(201).json({ token, operator: payload });
+    await sendVerificationEmail(email, name, verificationToken);
+
+    res.status(201).json({ 
+      message: 'Registration successful. Please verify your email before logging in.',
+      emailUnverified: true,
+      email: operator.email 
+    });
   } catch (err) {
     console.error('Register error', err);
     res.status(500).json({ message: 'Failed to register operator' });
@@ -96,6 +140,15 @@ router.post('/login', rateLimiter(15 * 60 * 1000, 30), async (req: Request, res:
     const valid = await verifyPassword(password, operator.password_hash);
     if (!valid) {
       res.status(401).json({ message: 'Invalid credentials' });
+      return;
+    }
+
+    if (!operator.email_verified) {
+      res.status(403).json({ 
+        message: 'Your email address is not verified. Please verify your email before logging in.',
+        emailUnverified: true,
+        email: operator.email
+      });
       return;
     }
 
@@ -534,6 +587,81 @@ router.get('/google/callback', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Google OAuth callback error:', error);
     res.redirect(`${frontendUrl}/login?error=oauth_callback_failed`);
+  }
+});
+
+router.get('/verify-email', async (req: Request, res: Response) => {
+  const { token } = req.query as { token?: string };
+  if (!token) {
+    res.status(400).json({ success: false, message: 'Verification token is required.' });
+    return;
+  }
+
+  try {
+    const operator = await prisma.operator.findFirst({
+      where: { verification_token: token }
+    });
+
+    if (!operator) {
+      res.status(404).json({ success: false, message: 'Invalid or expired verification token.' });
+      return;
+    }
+
+    await prisma.operator.update({
+      where: { id: operator.id },
+      data: {
+        email_verified: true,
+        verification_token: null
+      }
+    });
+
+    res.json({ success: true, message: 'Email verified successfully! You can now log in.' });
+  } catch (err) {
+    console.error('Verify email error', err);
+    res.status(500).json({ success: false, message: 'Failed to verify email.' });
+  }
+});
+
+router.post('/resend-verification', rateLimiter(5 * 60 * 1000, 3), async (req: Request, res: Response) => {
+  const { email } = req.body as { email?: string };
+  if (!email) {
+    res.status(400).json({ message: 'Email is required' });
+    return;
+  }
+
+  try {
+    const operator = await prisma.operator.findUnique({
+      where: { email }
+    });
+
+    if (!operator) {
+      res.json({ message: 'If this email is registered, a verification link has been sent.' });
+      return;
+    }
+
+    if (operator.email_verified) {
+      res.status(400).json({ message: 'This email is already verified.' });
+      return;
+    }
+
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    await prisma.operator.update({
+      where: { id: operator.id },
+      data: { verification_token: verificationToken }
+    });
+
+    const verifyLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`;
+    console.log(`\n--------------------------------------------`);
+    console.log(`RESENT VERIFICATION TOKEN FOR: ${email}`);
+    console.log(`MOCK VERIFICATION LINK: ${verifyLink}`);
+    console.log(`--------------------------------------------\n`);
+
+    await sendVerificationEmail(email, operator.name, verificationToken);
+
+    res.json({ message: 'Verification email sent. Please check your inbox.' });
+  } catch (err) {
+    console.error('Resend verification error', err);
+    res.status(500).json({ message: 'Failed to resend verification email' });
   }
 });
 

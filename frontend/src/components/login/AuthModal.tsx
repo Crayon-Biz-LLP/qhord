@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { X, Mail, Lock, User, ArrowRight, Zap, ChevronRight, Activity, Globe, Database, Filter, ChevronLeft, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
+import { api } from "../../lib/api";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -23,6 +24,8 @@ export const AuthModal = ({ isOpen, onClose, initialState = "signin", onSuccess 
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
 
   const handleGoogleLogin = useCallback(() => {
     const w = 500, h = 620;
@@ -60,11 +63,26 @@ export const AuthModal = ({ isOpen, onClose, initialState = "signin", onSuccess 
   useEffect(() => {
     setIsLogin(initialState === "signin");
     setError(null);
+    setSuccessMessage(null);
   }, [initialState, isOpen]);
+
+  const handleResendVerification = async (targetEmail: string) => {
+    setResending(true);
+    try {
+      const res = await api.post("/auth/resend-verification", { email: targetEmail });
+      setSuccessMessage(res.data.message || "Verification email sent. Please check your inbox.");
+      setError(null);
+    } catch (err: any) {
+      setError(err?.response?.data?.message || "Failed to resend verification email.");
+    } finally {
+      setResending(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccessMessage(null);
     setSubmitting(true);
     try {
       if (isLogin) {
@@ -76,10 +94,21 @@ export const AuthModal = ({ isOpen, onClose, initialState = "signin", onSuccess 
           return;
         }
         await register(name, email, password);
+        setSuccessMessage("Registration successful! A verification link has been sent to your email. Please verify before logging in.");
+        setIsLogin(true); // Switch to sign in view
       }
-      if (onSuccess) onSuccess();
+      if (isLogin && onSuccess) onSuccess();
     } catch (err: any) {
-      setError(err?.response?.data?.message || "Authentication failed. Protocol rejected.");
+      if (err?.response?.data?.emailUnverified) {
+        setError(
+          JSON.stringify({
+            message: err?.response?.data?.message || "Email not verified.",
+            email: err?.response?.data?.email
+          })
+        );
+      } else {
+        setError(err?.response?.data?.message || "Authentication failed. Protocol rejected.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -283,8 +312,33 @@ export const AuthModal = ({ isOpen, onClose, initialState = "signin", onSuccess 
                       )}
 
                       {error && (
-                        <div className="bg-red-50 border border-red-200 text-red-600 text-[10px] px-3 py-1.5 rounded-lg font-semibold">
-                          {error}
+                        <div className="bg-red-50 border border-red-200 text-red-600 text-[10px] px-3 py-1.5 rounded-lg font-semibold flex flex-col gap-1">
+                          {(() => {
+                            try {
+                              const parsed = JSON.parse(error);
+                              return (
+                                <>
+                                  <span>{parsed.message}</span>
+                                  <button
+                                    type="button"
+                                    disabled={resending}
+                                    onClick={() => handleResendVerification(parsed.email)}
+                                    className="text-[9px] font-bold text-brand-gold hover:underline focus:outline-none text-left mt-0.5 cursor-pointer"
+                                  >
+                                    {resending ? "Resending..." : "Resend Verification Email"}
+                                  </button>
+                                </>
+                              );
+                            } catch {
+                              return <span>{error}</span>;
+                            }
+                          })()}
+                        </div>
+                      )}
+
+                      {successMessage && (
+                        <div className="bg-green-50 border border-green-200 text-green-700 text-[10px] px-3 py-1.5 rounded-lg font-semibold">
+                          {successMessage}
                         </div>
                       )}
                     </div>
