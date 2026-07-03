@@ -219,6 +219,7 @@ const LEAD_METHODS = [
 type Lead = {
   id: string; name: string; email: string; company: string; title: string;
   status: "verified" | "catch-all" | "unknown"; source: string;
+  raw?: Record<string, string>;
 };
 
 // Sample pool — in production, replace with the response from the selected source's API.
@@ -285,6 +286,7 @@ export default function BuildCampaignPage() {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [methodOpen, setMethodOpen] = useState(false);
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [leadSearch, setLeadSearch] = useState("");
   const [msgTab, setMsgTab] = useState<"email" | "linkedin">("email");
@@ -423,33 +425,91 @@ export default function BuildCampaignPage() {
       reader.onload = (event) => {
         try {
           const data = event.target?.result;
-          let workbook;
-          if (isCSV) {
-            workbook = XLSX.read(data, { type: "string" });
-          } else {
-            workbook = XLSX.read(data, { type: "array" });
-          }
+          const workbook = XLSX.read(data, { type: "array" });
 
           const sheetName = workbook.SheetNames[0];
           const sheet = workbook.Sheets[sheetName];
-          const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
+          let rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
+
+          console.log("[CSV/Excel Upload] Initially parsed rows from SheetJS:", rows);
 
           if (rows.length <= 1) {
             toast.error("File is empty or missing data rows.", { id: toastId });
             return;
           }
 
-          const headers = (rows[0] || []).map(h => String(h || "").trim().toLowerCase());
+          // If SheetJS parsed it as a single column (e.g. delimiter detection failed), split manually
+          if (rows[0] && rows[0].length === 1 && typeof rows[0][0] === "string") {
+            const firstHeader = rows[0][0];
+            let delimiter = "";
+            if (firstHeader.includes(",")) delimiter = ",";
+            else if (firstHeader.includes(";")) delimiter = ";";
+            else if (firstHeader.includes("\t")) delimiter = "\t";
+
+            if (delimiter) {
+              console.log(`[CSV/Excel Upload] Single column detected. Auto-splitting by delimiter: "${delimiter}"`);
+              const parseCSVLine = (line: string) => {
+                const result: string[] = [];
+                let current = "";
+                let inQuotes = false;
+                for (let i = 0; i < line.length; i++) {
+                  const char = line[i];
+                  if (char === '"') {
+                    inQuotes = !inQuotes;
+                  } else if (char === delimiter && !inQuotes) {
+                    result.push(current.trim());
+                    current = "";
+                  } else {
+                    current += char;
+                  }
+                }
+                result.push(current.trim());
+                return result;
+              };
+
+              rows = rows.map(r => {
+                if (r && r.length === 1 && typeof r[0] === "string") {
+                  return parseCSVLine(r[0]);
+                }
+                return r;
+              });
+              console.log("[CSV/Excel Upload] Rows after delimiter auto-split:", rows);
+            }
+          }
+
+          const rawHeaders = (rows[0] || []).map(h => String(h || "").trim());
+          const headers = rawHeaders.map(h => h.toLowerCase());
+          console.log("[CSV/Excel Upload] Lowercased headers list:", headers);
           
-          const nameIdx = headers.findIndex(h => h === "name" || h === "full name" || h.includes("contact name"));
-          const firstNameIdx = headers.findIndex(h => h.includes("first") || h.includes("fname"));
-          const lastNameIdx = headers.findIndex(h => h.includes("last") || h.includes("lname"));
-          const emailIdx = headers.findIndex(h => h === "email" || h.includes("email") || h.includes("mail"));
-          const companyIdx = headers.findIndex(h => h === "company" || h === "company name" || h.includes("org") || h.includes("firm"));
-          const titleIdx = headers.findIndex(h => h === "title" || h === "job title" || h.includes("role") || h.includes("position"));
+          setCsvHeaders(rawHeaders);
+          
+          const findHeaderIndex = (exactTerms: string[], fuzzyTerms: string[] = []) => {
+            for (const term of exactTerms) {
+              const idx = headers.findIndex(h => h === term);
+              if (idx !== -1) return idx;
+            }
+            for (const term of exactTerms) {
+              const idx = headers.findIndex(h => h.startsWith(term) || h.endsWith(term));
+              if (idx !== -1) return idx;
+            }
+            for (const term of fuzzyTerms) {
+              const idx = headers.findIndex(h => h.includes(term));
+              if (idx !== -1) return idx;
+            }
+            return -1;
+          };
+
+          const emailIdx = findHeaderIndex(["email", "primary email", "work email", "email address"], ["email", "mail"]);
+          const nameIdx = findHeaderIndex(["name", "full name", "contact name", "contact"], ["name"]);
+          const firstNameIdx = findHeaderIndex(["first name", "firstname", "first"], ["first", "fname"]);
+          const lastNameIdx = findHeaderIndex(["last name", "lastname", "last"], ["last", "lname"]);
+          const companyIdx = findHeaderIndex(["company", "company name", "organization", "account name"], ["company", "org", "firm"]);
+          const titleIdx = findHeaderIndex(["title", "job title", "role", "position"], ["title", "role", "position"]);
+
+          console.log("[CSV/Excel Upload] Resolved indices:", { emailIdx, nameIdx, firstNameIdx, lastNameIdx, companyIdx, titleIdx });
 
           if (emailIdx === -1) {
-            toast.error("File must contain an 'email' column.", { id: toastId });
+            toast.error("File must contain an 'email' column (found headers: " + headers.slice(0, 5).join(", ") + ").", { id: toastId });
             return;
           }
 
@@ -470,6 +530,11 @@ export default function BuildCampaignPage() {
               name = email.split("@")[0];
             }
 
+            const raw: Record<string, string> = {};
+            rawHeaders.forEach((header, idx) => {
+              raw[header] = String(values[idx] || "").trim();
+            });
+
             const newLead: Lead = {
               id: `file_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 6)}`,
               name: name || "Unknown Lead",
@@ -477,13 +542,16 @@ export default function BuildCampaignPage() {
               company: (companyIdx !== -1 && values[companyIdx]) ? String(values[companyIdx]).trim() : "SaaS Company",
               title: (titleIdx !== -1 && values[titleIdx]) ? String(values[titleIdx]).trim() : "Prospect",
               status: "verified",
-              source: isCSV ? "csv" : "excel"
+              source: isCSV ? "csv" : "excel",
+              raw: raw
             };
             parsedLeads.push(newLead);
           }
 
+          console.log("[CSV/Excel Upload] Successfully parsed leads count:", parsedLeads.length);
+
           if (parsedLeads.length === 0) {
-            toast.error("No valid leads found in file.", { id: toastId });
+            toast.error("No valid leads found in file (emails checked: " + rows.slice(1, 4).map(r => r[emailIdx] || "empty").join(", ") + ").", { id: toastId });
             return;
           }
 
@@ -494,6 +562,7 @@ export default function BuildCampaignPage() {
           });
           toast.success(`Successfully imported ${parsedLeads.length} leads from ${file.name}!`, { id: toastId });
         } catch (err: any) {
+          console.error("[CSV/Excel Upload] Error during row processing:", err);
           toast.error("Failed to parse file content: " + err.message, { id: toastId });
         }
       };
@@ -502,11 +571,7 @@ export default function BuildCampaignPage() {
         toast.error("Failed to read file.", { id: toastId });
       };
 
-      if (isCSV) {
-        reader.readAsText(file);
-      } else {
-        reader.readAsArrayBuffer(file);
-      }
+      reader.readAsArrayBuffer(file);
     } catch (err: any) {
       toast.error(err.message || "Failed to load Excel parsing engine.", { id: toastId });
     }
@@ -1366,24 +1431,60 @@ export default function BuildCampaignPage() {
                         <div className="overflow-x-auto">
                           <table className="w-full text-left border-collapse whitespace-nowrap">
                             <thead className="bg-[#fafafa] border-b border-[#1a1510]/[0.07]">
-                              <tr className="text-[10px] font-semibold text-[#1a1510]/35 uppercase tracking-wider">
-                                <th className="py-3.5 px-4 w-10">
-                                  <input type="checkbox" checked={allSelected} onChange={toggleAll} className="accent-[#D4AF37] w-4 h-4 cursor-pointer" />
-                                </th>
-                                <th className="py-3.5 px-4">Name</th>
-                                <th className="py-3.5 px-4">Email</th>
-                                <th className="py-3.5 px-4">Company</th>
-                                <th className="py-3.5 px-4">Title</th>
-                                <th className="py-3.5 px-4 text-center">Status</th>
-                                <th className="py-3.5 px-4 text-center">Source</th>
-                                <th className="py-3.5 px-4 w-10" />
-                              </tr>
+                              {form.leadMethod === "csv" && csvHeaders.length > 0 ? (
+                                <tr className="text-[10px] font-semibold text-[#1a1510]/35 uppercase tracking-wider">
+                                  <th className="py-3.5 px-4 w-10">
+                                    <input type="checkbox" checked={allSelected} onChange={toggleAll} className="accent-[#D4AF37] w-4 h-4 cursor-pointer" />
+                                  </th>
+                                  {csvHeaders.map(header => (
+                                    <th key={header} className="py-3.5 px-4">{header}</th>
+                                  ))}
+                                  <th className="py-3.5 px-4 w-10" />
+                                </tr>
+                              ) : (
+                                <tr className="text-[10px] font-semibold text-[#1a1510]/35 uppercase tracking-wider">
+                                  <th className="py-3.5 px-4 w-10">
+                                    <input type="checkbox" checked={allSelected} onChange={toggleAll} className="accent-[#D4AF37] w-4 h-4 cursor-pointer" />
+                                  </th>
+                                  <th className="py-3.5 px-4">Name</th>
+                                  <th className="py-3.5 px-4">Email</th>
+                                  <th className="py-3.5 px-4">Company</th>
+                                  <th className="py-3.5 px-4">Title</th>
+                                  <th className="py-3.5 px-4 text-center">Status</th>
+                                  <th className="py-3.5 px-4 text-center">Source</th>
+                                  <th className="py-3.5 px-4 w-10" />
+                                </tr>
+                              )}
                             </thead>
                             <tbody className="divide-y divide-[#1a1510]/[0.06]">
                               {filteredLeads.length === 0 ? (
                                 <tr>
-                                  <td colSpan={8} className="py-10 text-center text-[13px] text-[#1a1510]/40">No leads match your search.</td>
+                                  <td colSpan={form.leadMethod === "csv" && csvHeaders.length > 0 ? csvHeaders.length + 2 : 8} className="py-10 text-center text-[13px] text-[#1a1510]/40">No leads match your search.</td>
                                 </tr>
+                              ) : form.leadMethod === "csv" && csvHeaders.length > 0 ? (
+                                filteredLeads.map((l) => {
+                                  const checked = selectedLeads.includes(l.id);
+                                  return (
+                                    <tr key={l.id} className={`group transition-colors ${checked ? "bg-brand-gold/[0.04]" : "hover:bg-[#fafafa]"}`}>
+                                      <td className="py-3.5 px-4">
+                                        <input type="checkbox" checked={checked} onChange={() => toggleLead(l.id)} className="accent-[#D4AF37] w-4 h-4 cursor-pointer" />
+                                      </td>
+                                      {csvHeaders.map(header => (
+                                        <td key={header} className="py-3.5 px-4 text-[13px] text-[#1a1510]/70">
+                                          {l.raw?.[header] || ""}
+                                        </td>
+                                      ))}
+                                      <td className="py-3.5 px-4 text-center">
+                                        <button
+                                          onClick={() => removeLead(l.id)}
+                                          className="text-[#1a1510]/25 hover:text-[#1a1510] transition-colors opacity-0 group-hover:opacity-100"
+                                        >
+                                          <X size={15} />
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  );
+                                })
                               ) : (
                                 filteredLeads.map((l) => {
                                   const checked = selectedLeads.includes(l.id);
