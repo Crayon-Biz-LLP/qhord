@@ -189,8 +189,7 @@ const BLOCK_LIBRARY = [
   },
 ] as const;
 
-const renderTemplate = (text: string) =>
-  Object.entries(PREVIEW_SAMPLE).reduce((acc, [k, v]) => acc.split(k).join(v), text);
+// Preview template replacements map fallback
 
 const CAMPAIGN_GOALS = [
   { id: "Book Meetings", icon: Calendar },
@@ -382,6 +381,43 @@ export default function BuildCampaignPage() {
     setManualEmail("");
     setManualCompany("");
     setManualTitle("");
+  };
+
+  const renderTemplate = (text: string) => {
+    if (!text) return "";
+    let result = text;
+    
+    let firstName = "Sarah";
+    let company = "Acme Corp";
+    let title = "VP Sales";
+    
+    if (leads.length > 0) {
+      const firstLead = leads[0];
+      firstName = (firstLead.name || "").split(" ")[0] || "Prospect";
+      company = firstLead.company || "Company";
+      title = firstLead.title || "Prospect";
+      
+      if (firstLead.raw) {
+        Object.entries(firstLead.raw).forEach(([k, v]) => {
+          result = result.split(`{{${k}}}`).join(v);
+          result = result.split(`{{${k.toLowerCase()}}}`).join(v);
+          const underscoreKey = k.toLowerCase().replace(/\s+/g, "_");
+          result = result.split(`{{${underscoreKey}}}`).join(v);
+        });
+      }
+    }
+    
+    result = result.split("{{first_name}}").join(firstName);
+    result = result.split("{{first name}}").join(firstName);
+    result = result.split("{{First Name}}").join(firstName);
+    
+    result = result.split("{{company}}").join(company);
+    result = result.split("{{Company}}").join(company);
+    
+    result = result.split("{{title}}").join(title);
+    result = result.split("{{Title}}").join(title);
+    
+    return result;
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
