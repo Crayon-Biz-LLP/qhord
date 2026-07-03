@@ -693,11 +693,12 @@ async function compileWorkflowPlan(prompt: string, activeTools: string[]) {
 // Phase 3: NL → Workflow generation
 router.post('/generate-from-prompt', async (req: Request, res: Response) => {
   try {
-    const { prompt, clientId, campaignId, save } = req.body as {
+    const { prompt, clientId, campaignId, save, async: asyncMode } = req.body as {
       prompt: string;
       clientId?: string;
       campaignId?: string;
       save?: boolean;
+      async?: boolean;
     };
     const operatorId = req.user!.id;
 
@@ -712,6 +713,29 @@ router.post('/generate-from-prompt', async (req: Request, res: Response) => {
       return;
     }
 
+    // ── ASYNC MODE: enqueue and return immediately ───────────────
+    if (asyncMode) {
+      const { workflowGenerationQueue } = await import('../queue/workflow-generation-queue');
+      const job = await workflowGenerationQueue.add('generate', {
+        prompt,
+        clientId: targetClientId,
+        operatorId,
+        campaignId: campaignId || undefined,
+      }, {
+        jobId: `gen_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+      });
+
+      res.json({
+        success: true,
+        async: true,
+        jobId: job.id!,
+        status: 'queued',
+        message: 'Workflow generation started. Poll /api/workflows/generation-status/:jobId for result.',
+      });
+      return;
+    }
+
+    // ── SYNC MODE: generate immediately ─────────────────────────
     const workflow = await workflowGenerator.generateFromPrompt(prompt, targetClientId);
 
     // Get client approval mode
@@ -730,7 +754,6 @@ router.post('/generate-from-prompt', async (req: Request, res: Response) => {
       const approvalMode = client?.approval_mode || 'Approval required';
 
       if (approvalMode === 'Approval required' || approvalMode === 'Hybrid') {
-        // Create pending approval for each action node that sends communications
         for (const node of workflow.nodes) {
           if (node.node_type === 'action' && ['smartlead', 'instantly', 'heyreach', 'apollo'].includes(node.tool.toLowerCase())) {
             const pending = await prisma.pendingAction.create({
@@ -749,7 +772,6 @@ router.post('/generate-from-prompt', async (req: Request, res: Response) => {
           }
         }
 
-        // Always create a "launch campaign" approval if there are any email/LinkedIn actions
         const hasCommNodes = workflow.nodes.some(n =>
           n.node_type === 'action' && ['smartlead', 'instantly', 'heyreach'].includes(n.tool.toLowerCase())
         );
@@ -773,6 +795,7 @@ router.post('/generate-from-prompt', async (req: Request, res: Response) => {
 
     res.json({
       success: true,
+      async: false,
       workflow,
       savedWorkflow: savedWorkflow ? { id: savedWorkflow.id, name: savedWorkflow.workflow_name } : null,
       pendingApprovals: pendingApprovals.map(a => ({
@@ -786,6 +809,36 @@ router.post('/generate-from-prompt', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Workflow generation error:', error);
     res.status(500).json({ success: false, error: error.message || 'Failed to generate workflow' });
+  }
+});
+
+// GET /api/workflows/generation-status/:jobId — poll async generation job
+router.get('/generation-status/:jobId', async (req: Request, res: Response) => {
+  try {
+    const { workflowGenerationQueue } = await import('../queue/workflow-generation-queue');
+    const job = await workflowGenerationQueue.getJob(req.params.jobId);
+
+    if (!job) {
+      res.status(404).json({ success: false, error: 'Job not found' });
+      return;
+    }
+
+    const state = await job.getState();
+    const progress = job.progress;
+    const result = job.returnvalue;
+
+    res.json({
+      success: true,
+      jobId: job.id,
+      state,
+      progress: typeof progress === 'number' ? progress : 0,
+      result: state === 'completed' ? result : null,
+      failedReason: job.failedReason || null,
+      createdAt: job.timestamp,
+    });
+  } catch (error: any) {
+    console.error('Generation status error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to get generation status' });
   }
 });
 

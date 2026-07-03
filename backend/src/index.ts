@@ -35,6 +35,7 @@ import pendingApprovalRoutes from './routes/pending-approvals';
 import { prisma } from './lib/prisma';
 import { campaignWorker } from './workers/campaign-worker';
 import { workflowWorker } from './workers/workflow-worker';
+import { workflowGenerationWorker } from './workers/workflow-generation.worker';
 
 const app = express();
 
