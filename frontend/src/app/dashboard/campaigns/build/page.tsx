@@ -393,7 +393,19 @@ export default function BuildCampaignPage() {
     
     if (leads.length > 0) {
       const firstLead = leads[0];
-      firstName = (firstLead.name || "").split(" ")[0] || "Prospect";
+      
+      let rawFirstName = "";
+      if (firstLead.raw) {
+        const firstNameKey = Object.keys(firstLead.raw).find(k => {
+          const lk = k.toLowerCase();
+          return lk === "first name" || lk === "firstname" || lk === "first";
+        });
+        if (firstNameKey && firstLead.raw[firstNameKey]) {
+          rawFirstName = firstLead.raw[firstNameKey];
+        }
+      }
+      
+      firstName = rawFirstName || (firstLead.name || "").split(" ")[0] || "Prospect";
       company = firstLead.company || "Company";
       title = firstLead.title || "Prospect";
       
