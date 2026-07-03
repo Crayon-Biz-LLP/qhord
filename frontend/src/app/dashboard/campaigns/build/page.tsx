@@ -388,6 +388,104 @@ export default function BuildCampaignPage() {
     }
   };
 
+  const handleCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      if (!text) return;
+
+      const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+      if (lines.length <= 1) {
+        toast.error("CSV file is empty or missing data rows.");
+        return;
+      }
+
+      const parseCSVLine = (line: string) => {
+        const result: string[] = [];
+        let current = "";
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === ',' && !inQuotes) {
+            result.push(current.trim());
+            current = "";
+          } else {
+            current += char;
+          }
+        }
+        result.push(current.trim());
+        return result;
+      };
+
+      const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase());
+      
+      const nameIdx = headers.findIndex(h => h.includes("name") || h.includes("contact"));
+      const firstNameIdx = headers.findIndex(h => h.includes("first") || h.includes("fname"));
+      const lastNameIdx = headers.findIndex(h => h.includes("last") || h.includes("lname"));
+      const emailIdx = headers.findIndex(h => h.includes("email") || h.includes("mail"));
+      const companyIdx = headers.findIndex(h => h.includes("company") || h.includes("org") || h.includes("firm"));
+      const titleIdx = headers.findIndex(h => h.includes("title") || h.includes("role") || h.includes("position"));
+
+      if (emailIdx === -1) {
+        toast.error("CSV file must contain an 'email' column.");
+        return;
+      }
+
+      const parsedLeads: Lead[] = [];
+      for (let i = 1; i < lines.length; i++) {
+        const values = parseCSVLine(lines[i]);
+        if (values.length < headers.length) continue;
+
+        let email = values[emailIdx];
+        if (!email || !email.includes("@")) continue;
+
+        let name = "";
+        if (nameIdx !== -1) {
+          name = values[nameIdx];
+        } else if (firstNameIdx !== -1) {
+          name = `${values[firstNameIdx]} ${lastNameIdx !== -1 ? values[lastNameIdx] : ""}`.trim();
+        } else {
+          name = email.split("@")[0];
+        }
+
+        const newLead: Lead = {
+          id: `csv_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 6)}`,
+          name: name || "Unknown Lead",
+          email: email,
+          company: companyIdx !== -1 ? values[companyIdx] || "SaaS Company" : "SaaS Company",
+          title: titleIdx !== -1 ? values[titleIdx] || "Prospect" : "Prospect",
+          status: "verified",
+          source: "csv"
+        };
+        parsedLeads.push(newLead);
+      }
+
+      if (parsedLeads.length === 0) {
+        toast.error("No valid leads found in CSV.");
+        return;
+      }
+
+      setLeads(prev => {
+        const existingEmails = new Set(prev.map(l => l.email.toLowerCase()));
+        const uniqueNew = parsedLeads.filter(l => !existingEmails.has(l.email.toLowerCase()));
+        return [...prev, ...uniqueNew];
+      });
+      toast.success(`Successfully imported ${parsedLeads.length} leads from CSV!`);
+    };
+
+    reader.onerror = () => {
+      toast.error("Failed to read CSV file.");
+    };
+
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
   const handleApolloCardClick = async () => {
     if (!selectedClient) {
       toast.error("Please select an active client account from the sidebar first.");
@@ -1141,7 +1239,7 @@ export default function BuildCampaignPage() {
                   )}
 
                   {/* Leads table — opens after a source is selected */}
-                  {(form.leadMethod === "tool" || form.leadMethod === "manual") && leads.length > 0 && (
+                  {(form.leadMethod === "tool" || form.leadMethod === "manual" || form.leadMethod === "csv") && leads.length > 0 && (
                     <div className="space-y-4">
                       {/* Auto-fix banner */}
                       {unverifiedCount > 0 && (
@@ -1307,7 +1405,7 @@ export default function BuildCampaignPage() {
                         <p className="text-[14px] font-semibold text-[#1a1510]">Drop your CSV here or click to browse</p>
                         <p className="text-[12px] text-[#1a1510]/40 mt-1">Supports .csv up to 10MB · columns auto-mapped</p>
                       </div>
-                      <input type="file" accept=".csv" className="hidden" />
+                      <input type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
                     </label>
                   )}
 
