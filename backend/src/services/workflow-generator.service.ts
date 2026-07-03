@@ -92,7 +92,7 @@ export class WorkflowGeneratorService {
       system: SYSTEM_PROMPT,
       maxTokens: 2000,
       temperature: 0.3,
-    });
+    }, undefined, { client_id: clientId });
 
     let workflow: GeneratedWorkflow;
     try {

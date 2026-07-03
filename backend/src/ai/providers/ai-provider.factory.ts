@@ -4,6 +4,13 @@ import { OpenAIProvider } from './openai.provider';
 import { MockProvider } from './mock.provider';
 import { prisma } from '../../lib/prisma';
 
+interface AiLogContext {
+  client_id?: string;
+  campaign_id?: string;
+  workspace_id?: string;
+  lead_id?: string;
+}
+
 export type ProviderName = 'anthropic' | 'openai' | 'google';
 
 const PROVIDER_MAP: Record<string, new () => AiProvider> = {
@@ -80,10 +87,67 @@ export class AiProviderFactory {
     providerName: string,
     request: AiChatRequest,
     configOverride?: Partial<AiProviderConfig>,
+    logContext?: AiLogContext,
   ): Promise<AiChatResponse> {
     const resolvedName = providerName === 'auto' ? this.getEffectiveProvider() : providerName;
     const provider = this.getProvider(resolvedName);
     const config = { ...(await this.getConfig(resolvedName)), ...configOverride };
-    return provider.chat(request, config);
+    const start = Date.now();
+    try {
+      const response = await provider.chat(request, config);
+      const latency = Date.now() - start;
+
+      // Log AI execution
+      if (prisma) {
+        prisma.aiExecutionLog.create({
+          data: {
+            provider_id: resolvedName === 'mock' ? 'mock' : (await this.getProviderId(resolvedName)),
+            model: config.model,
+            prompt: request.system ? `${request.system}\n\n${request.messages.map(m => `${m.role}: ${m.content}`).join('\n')}` : request.messages.map(m => `${m.role}: ${m.content}`).join('\n'),
+            response: response.content.substring(0, 2000),
+            input_tokens: response.usage?.inputTokens ?? null,
+            output_tokens: response.usage?.outputTokens ?? null,
+            latency_ms: latency,
+            cost_credits: Math.ceil(latency / 100),
+            status: 'success',
+            client_id: logContext?.client_id ?? null,
+            campaign_id: logContext?.campaign_id ?? null,
+            workspace_id: logContext?.workspace_id ?? null,
+            lead_id: logContext?.lead_id ?? null,
+          },
+        }).catch((e: Error) => console.error('Failed to log AI execution:', e.message));
+      }
+
+      return response;
+    } catch (error) {
+      const latency = Date.now() - start;
+
+      // Log failed execution
+      if (prisma) {
+        prisma.aiExecutionLog.create({
+          data: {
+            provider_id: resolvedName === 'mock' ? 'mock' : (await this.getProviderId(resolvedName)),
+            model: config.model,
+            prompt: request.system ? `${request.system}\n\n${request.messages.map(m => `${m.role}: ${m.content}`).join('\n')}` : request.messages.map(m => `${m.role}: ${m.content}`).join('\n'),
+            response: null,
+            latency_ms: latency,
+            status: 'failed',
+            error_message: (error as Error).message,
+            client_id: logContext?.client_id ?? null,
+            campaign_id: logContext?.campaign_id ?? null,
+            workspace_id: logContext?.workspace_id ?? null,
+            lead_id: logContext?.lead_id ?? null,
+          },
+        }).catch((e: Error) => console.error('Failed to log AI execution:', e.message));
+      }
+
+      throw error;
+    }
+  }
+
+  private static async getProviderId(name: string): Promise<string> {
+    if (name === 'mock') return 'mock';
+    const entry = await prisma.aiProvider.findUnique({ where: { name } });
+    return entry?.id ?? 'unknown';
   }
 }

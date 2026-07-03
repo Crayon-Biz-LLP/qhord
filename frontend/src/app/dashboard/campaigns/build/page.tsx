@@ -315,6 +315,8 @@ export default function BuildCampaignPage() {
   const [aiPrompt, setAiPrompt] = useState("");
   const [generatingWorkflow, setGeneratingWorkflow] = useState(false);
   const [generatedWorkflow, setGeneratedWorkflow] = useState<any>(null);
+  const [aiActivityOpen, setAiActivityOpen] = useState(false);
+  const [aiActivity, setAiActivity] = useState<{ text: string; type: 'prompt' | 'workflow' | 'error'; workflow?: any; ts: number }[]>([]);
   const [detailBlock, setDetailBlock] = useState<string | null>(null);
   const [pickerTarget, setPickerTarget] = useState<"trigger" | "action">("action");
   const [aiConfig, setAiConfig] = useState({ promptTemplate: "Write a personalized icebreaker for {{first_name}} at {{company_name}}.", targetOutputVariable: "ai_icebreaker" });
@@ -789,69 +791,84 @@ export default function BuildCampaignPage() {
         </div>
       </div>
 
-      {/* AI Workflow Generator */}
-      <div className="bg-[#1a1510]/[0.02] border-b border-[#1a1510]/[0.07] px-4 sm:px-8 py-3 shrink-0">
+      {/* AI Workflow Generator — prompt bar */}
+      <div className="bg-gradient-to-r from-brand-gold/[0.04] to-transparent border-b border-[#1a1510]/[0.07] px-4 sm:px-8 py-2.5 shrink-0">
         <div className="max-w-5xl mx-auto">
-          <div className="flex items-center gap-3">
-            <Sparkles size={16} className="text-brand-gold shrink-0" />
-            <input
-              value={aiPrompt}
-              onChange={(e) => setAiPrompt(e.target.value)}
-              onKeyDown={async (e) => {
-                if (e.key === 'Enter' && aiPrompt.trim() && !generatingWorkflow) {
-                  e.preventDefault();
-                  setGeneratingWorkflow(true);
-                  try {
-                    const res = await api.post('/workflows/generate-from-prompt', {
-                      prompt: aiPrompt,
-                      save: true,
-                    });
-                    const wf = res.data.workflow;
-                    setGeneratedWorkflow(wf);
-                    setAiPrompt('');
-                    // Auto-fill first step info
-                    set({ intent: 'custom' });
-                    setWorkflows([{ id: "w1", name: wf.name, trigger: null, actions: wf.nodes.filter((n: any) => n.node_type !== 'source').map((n: any) => ({ id: `a${Math.random()}`, label: n.label })) }]);
-                  } catch (err: any) {
-                    console.error('Workflow generation failed:', err);
-                  } finally {
-                    setGeneratingWorkflow(false);
-                  }
-                }
-              }}
-              placeholder="Describe your campaign in plain English... e.g. &quot;Find 500 SaaS founders in California, enrich their profiles, and send personalized outreach&quot;"
-              className="flex-1 h-10 px-4 rounded-xl bg-white border border-[#1a1510]/[0.07] text-[13px] focus:outline-none focus:border-brand-gold/40 transition-all placeholder:text-[#1a1510]/30"
-            />
-            {generatingWorkflow && (
-              <div className="flex items-center gap-2 text-[12px] text-brand-gold font-semibold shrink-0">
-                <div className="w-4 h-4 border-2 border-brand-gold/30 border-t-brand-gold rounded-full animate-spin" />
-                Generating...
-              </div>
-            )}
-            {generatedWorkflow && (
-              <button
-                onClick={() => setGeneratedWorkflow(null)}
-                className="text-[11px] font-semibold text-brand-gold hover:text-brand-gold/70 shrink-0"
-              >
-                Clear
-              </button>
-            )}
-          </div>
-          {generatedWorkflow && (
-            <div className="mt-3 flex items-center gap-2 text-[11px] text-[#1a1510]/50">
-              <Check size={12} className="text-green-600" />
-              Workflow generated: <span className="font-semibold text-[#1a1510]">{generatedWorkflow.name}</span>
-              <span className="mx-1">·</span>
-              {generatedWorkflow.nodes.length} steps
-              <span className="mx-1">·</span>
-              <button
-                onClick={() => { setStep(STEPS.length - 1); }} // Jump to review step
-                className="text-brand-gold font-semibold hover:underline"
-              >
-                Review & Launch
-              </button>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-brand-gold/10 flex items-center justify-center shrink-0">
+              <Wand2 size={15} className="text-brand-gold" />
             </div>
-          )}
+            <div className="flex-1 relative">
+              <input
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                onKeyDown={async (e) => {
+                  if (e.key === 'Enter' && aiPrompt.trim() && !generatingWorkflow) {
+                    e.preventDefault();
+                    setGeneratingWorkflow(true);
+                    setAiActivity((prev) => [{ text: aiPrompt, type: 'prompt', ts: Date.now() }, ...prev]);
+                    try {
+                      const res = await api.post('/workflows/generate-from-prompt', {
+                        prompt: aiPrompt,
+                        save: true,
+                      });
+                      const wf = res.data.workflow;
+                      setGeneratedWorkflow(wf);
+                      setAiPrompt('');
+                      setAiActivity((prev) => [{ text: wf.name, type: 'workflow', workflow: wf, ts: Date.now() }, ...prev]);
+                      toast.success(`"${wf.name}" generated with ${wf.nodes.length} steps`);
+                    } catch (err: any) {
+                      const msg = err?.response?.data?.error || err.message || 'Generation failed';
+                      toast.error(msg);
+                      setAiActivity((prev) => [{ text: msg, type: 'error', ts: Date.now() }, ...prev]);
+                    } finally {
+                      setGeneratingWorkflow(false);
+                    }
+                  }
+                }}
+                placeholder="Describe your campaign in plain English... e.g. &quot;Send personalized cold emails to CTOs of YC startups&quot;"
+                className="w-full h-9 pl-4 pr-12 rounded-xl bg-white border border-[#1a1510]/[0.07] text-[13px] focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/25"
+              />
+              {generatingWorkflow && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-[11px] font-semibold text-brand-gold">
+                  <div className="w-3.5 h-3.5 border-2 border-brand-gold/30 border-t-brand-gold rounded-full animate-spin" />
+                  Generating
+                </div>
+              )}
+              {!generatingWorkflow && aiPrompt.trim() && (
+                <button
+                  onClick={() => {
+                    setAiPrompt('');
+                    setGeneratedWorkflow(null);
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#1a1510]/30 hover:text-[#1a1510]/60"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+          {/* Quick suggestions */}
+          <div className="flex items-center gap-1.5 mt-2 overflow-x-auto scrollbar-hide">
+            <span className="text-[10px] font-semibold text-[#1a1510]/30 shrink-0">Try:</span>
+            {[
+              "Find VPs of Sales at SaaS companies and send cold emails",
+              "Enrich 500 leads with Clay then start a Smartlead campaign",
+              "Personalized LinkedIn outreach for CTOs at funded startups",
+            ].map((s) => (
+              <button
+                key={s}
+                disabled={generatingWorkflow}
+                onClick={() => {
+                  setAiPrompt(s);
+                  document.querySelector<HTMLInputElement>('[placeholder*="Describe your campaign"]')?.focus();
+                }}
+                className="text-[10px] font-medium text-[#1a1510]/40 hover:text-brand-gold bg-white/50 hover:bg-brand-gold/5 border border-[#1a1510]/[0.07] px-2.5 py-1 rounded-full whitespace-nowrap transition-all disabled:opacity-50"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -2577,6 +2594,232 @@ export default function BuildCampaignPage() {
                 </div>
               </motion.div>
             </div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* AI Activity — floating preview panel */}
+      <AnimatePresence>
+        {generatedWorkflow && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setGeneratedWorkflow(null)}
+              className="fixed inset-0 bg-[#1a1510]/20 z-[130]"
+            />
+            <motion.aside
+              initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
+              transition={{ type: "spring", stiffness: 320, damping: 34 }}
+              className="fixed top-0 right-0 bottom-0 w-full max-w-lg bg-white border-l border-[#1a1510]/10 shadow-[-12px_0_40px_-12px_rgba(26,21,16,0.18)] z-[140] flex flex-col"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-5 border-b border-[#1a1510]/[0.07] shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-brand-gold/10 flex items-center justify-center shrink-0">
+                    <Wand2 size={18} className="text-brand-gold" />
+                  </div>
+                  <div>
+                    <h3 className="text-[15px] font-bold text-[#1a1510]">{generatedWorkflow.name}</h3>
+                    <p className="text-[11px] font-medium text-[#1a1510]/45">
+                      {generatedWorkflow.nodes.length} steps · AI-generated workflow
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setGeneratedWorkflow(null)}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg text-[#1a1510]/40 hover:text-[#1a1510] hover:bg-[#f7f8f9] transition-colors"
+                >
+                  <X size={17} />
+                </button>
+              </div>
+
+              {/* Pipeline visualization */}
+              <div className="flex-1 overflow-y-auto scrollbar-hide p-6">
+                {generatedWorkflow.description && (
+                  <p className="text-[13px] text-[#1a1510]/50 mb-6 bg-[#f7f8f9] rounded-xl p-4">
+                    {generatedWorkflow.description}
+                  </p>
+                )}
+
+                <div className="space-y-2">
+                  {generatedWorkflow.nodes.map((node: any, i: number) => {
+                    const nodeIcon = node.node_type === 'source' ? Target :
+                      node.node_type === 'enrichment' ? Database :
+                      node.node_type === 'ai' ? Bot :
+                      node.node_type === 'action' ? Send :
+                      node.node_type === 'condition' ? GitBranch :
+                      node.node_type === 'delay' ? Clock : Activity;
+                    const nodeColor = node.node_type === 'source' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' :
+                      node.node_type === 'enrichment' ? 'bg-blue-50 border-blue-200 text-blue-700' :
+                      node.node_type === 'ai' ? 'bg-purple-50 border-purple-200 text-purple-700' :
+                      node.node_type === 'action' ? 'bg-amber-50 border-amber-200 text-amber-700' :
+                      node.node_type === 'condition' ? 'bg-rose-50 border-rose-200 text-rose-700' :
+                      'bg-gray-50 border-gray-200 text-gray-700';
+                    return (
+                      <motion.div
+                        key={node.node_type + i}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.06 }}
+                        className="relative"
+                      >
+                        {/* Connector line */}
+                        {i < generatedWorkflow.nodes.length - 1 && (
+                          <div className="absolute left-5 top-12 bottom-0 w-0.5 bg-[#1a1510]/[0.07]" />
+                        )}
+                        <div className={`flex items-start gap-4 p-4 rounded-xl border ${nodeColor} ${i === 0 ? 'ring-2 ring-brand-gold/20' : ''}`}>
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${nodeColor.split(' ').slice(0, 2).join(' ')}`}>
+                            {React.createElement(nodeIcon, { size: 18 })}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-bold uppercase tracking-wider opacity-60">{node.node_type}</span>
+                              {i === 0 && <span className="text-[10px] font-bold bg-brand-gold/15 text-brand-gold px-2 py-0.5 rounded-full">START</span>}
+                              {i === generatedWorkflow.nodes.length - 1 && <span className="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">END</span>}
+                            </div>
+                            <p className="text-[14px] font-bold text-[#1a1510] mt-0.5 truncate">{node.label}</p>
+                            <p className="text-[11px] font-medium text-[#1a1510]/45 mt-0.5 flex items-center gap-2">
+                              <span className="px-2 py-0.5 rounded-md bg-[#1a1510]/5 text-[10px] font-semibold">{node.tool}</span>
+                              {node.configuration && (
+                                <span className="truncate">{Object.keys(node.configuration).length} config properties</span>
+                              )}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className="text-[10px] font-bold text-[#1a1510]/30 w-5 h-5 flex items-center justify-center rounded-full bg-[#1a1510]/5">{i + 1}</span>
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+
+                {/* Configuration detail for selected step */}
+                {generatedWorkflow.nodes.filter((n: any) =>
+                  n.configuration && Object.keys(n.configuration).length > 0
+                ).length > 0 && (
+                  <div className="mt-8">
+                    <h4 className="text-[12px] font-bold text-[#1a1510] uppercase tracking-wider mb-3">Step Configuration</h4>
+                    <div className="space-y-3">
+                      {generatedWorkflow.nodes.map((node: any, i: number) =>
+                        node.configuration && Object.keys(node.configuration).length > 0 ? (
+                          <div key={i} className="bg-[#f7f8f9] rounded-xl p-4">
+                            <p className="text-[12px] font-bold text-[#1a1510] mb-2 flex items-center gap-2">
+                              <span className="w-5 h-5 rounded-full bg-[#1a1510]/10 text-[10px] font-bold flex items-center justify-center">{i + 1}</span>
+                              {node.label}
+                            </p>
+                            <div className="space-y-1.5">
+                              {Object.entries(node.configuration as Record<string, any>).map(([key, val]) => (
+                                <div key={key} className="flex items-start gap-2 text-[12px]">
+                                  <span className="font-semibold text-[#1a1510]/50 shrink-0 w-28 truncate">{key}</span>
+                                  <span className="text-[#1a1510]/70 font-mono text-[11px] break-all">
+                                    {typeof val === 'string' ? val : JSON.stringify(val)}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer actions */}
+              <div className="border-t border-[#1a1510]/[0.07] px-6 py-4 flex items-center gap-3 shrink-0 bg-[#fafafa]">
+                <button
+                  onClick={() => {
+                    setGeneratedWorkflow(null);
+                    setStep(STEPS.length - 1); // Jump to review
+                  }}
+                  className="flex-1 h-11 rounded-xl bg-[#1a1510] text-white text-[12px] font-bold flex items-center justify-center gap-2 hover:bg-[#2a2118] transition-colors"
+                >
+                  <Send size={15} className="text-brand-gold" /> Use This Workflow
+                </button>
+                <button
+                  onClick={() => {
+                    setGeneratedWorkflow(null);
+                    setAiPrompt('');
+                  }}
+                  className="h-11 px-5 rounded-xl border border-[#1a1510]/15 text-[12px] font-semibold text-[#1a1510] hover:bg-[#f7f8f9] transition-colors"
+                >
+                  Discard
+                </button>
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* AI Activity history button */}
+      {aiActivity.length > 0 && !generatedWorkflow && (
+        <button
+          onClick={() => setAiActivityOpen(!aiActivityOpen)}
+          className="fixed bottom-6 right-6 z-[100] w-12 h-12 rounded-full bg-[#1a1510] text-white shadow-[0_4px_20px_-4px_rgba(26,21,16,0.3)] flex items-center justify-center hover:bg-[#2a2118] transition-all hover:scale-105"
+        >
+          <Wand2 size={18} className="text-brand-gold" />
+          <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-brand-gold text-[10px] font-bold text-[#1a1510] flex items-center justify-center">{aiActivity.length}</span>
+        </button>
+      )}
+
+      {/* AI Activity history drawer */}
+      <AnimatePresence>
+        {aiActivityOpen && !generatedWorkflow && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setAiActivityOpen(false)}
+              className="fixed inset-0 bg-[#1a1510]/20 z-[100]"
+            />
+            <motion.div
+              initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+              transition={{ type: "spring", stiffness: 320, damping: 34 }}
+              className="fixed bottom-0 left-0 right-0 max-h-[60vh] bg-white rounded-t-3xl border-t border-[#1a1510]/10 shadow-[0_-12px_40px_-12px_rgba(26,21,16,0.18)] z-[110] flex flex-col"
+            >
+              <div className="flex items-center justify-between px-6 py-4 border-b border-[#1a1510]/[0.07] shrink-0">
+                <div className="flex items-center gap-2">
+                  <Activity size={16} className="text-brand-gold" />
+                  <h3 className="text-[14px] font-bold text-[#1a1510]">AI Activity</h3>
+                  <span className="text-[11px] font-medium text-[#1a1510]/40">{aiActivity.length} generations</span>
+                </div>
+                <button
+                  onClick={() => setAiActivityOpen(false)}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg text-[#1a1510]/40 hover:text-[#1a1510] hover:bg-[#f7f8f9] transition-colors"
+                >
+                  <X size={17} />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto scrollbar-hide p-4 space-y-2">
+                {aiActivity.map((item, i) => (
+                  <div key={i} className={`p-4 rounded-xl text-[13px] ${item.type === 'error' ? 'bg-red-50 border border-red-100' : 'bg-[#f7f8f9]'}`}>
+                    <div className="flex items-start gap-3">
+                      {item.type === 'prompt' && <Send size={14} className="text-blue-500 mt-0.5 shrink-0" />}
+                      {item.type === 'workflow' && <Check size={14} className="text-green-600 mt-0.5 shrink-0" />}
+                      {item.type === 'error' && <AlertTriangle size={14} className="text-red-500 mt-0.5 shrink-0" />}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-[#1a1510]">{item.text}</p>
+                        <p className="text-[11px] text-[#1a1510]/40 mt-0.5">
+                          {new Date(item.ts).toLocaleTimeString()}
+                          {item.type === 'workflow' && item.workflow && ` · ${item.workflow.nodes.length} steps`}
+                        </p>
+                        {item.type === 'workflow' && item.workflow && (
+                          <button
+                            onClick={() => {
+                              setGeneratedWorkflow(item.workflow);
+                              setAiActivityOpen(false);
+                            }}
+                            className="mt-2 text-[11px] font-semibold text-brand-gold hover:underline"
+                          >
+                            View Preview →
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
           </>
         )}
       </AnimatePresence>
