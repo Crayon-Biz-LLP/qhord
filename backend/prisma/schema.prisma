@@ -666,6 +666,33 @@ model AgentMemory {
   @@map("agent_memory")
 }
 
+/// Pending action awaiting operator approval (HITL)
+model PendingAction {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workflow_id       String   @db.Uuid
+  run_id            String?  @db.Uuid
+  campaign_id       String?  @db.Uuid
+  client_id         String   @db.Uuid
+  lead_id           String?  @db.Uuid
+  node_id           String?  @db.Uuid
+  action_type       String   // "ai_enrich" | "send_email" | "execute_tool" | "launch_campaign"
+  action_label      String   // human-readable description
+  action_config     Json     // the config that will be executed
+  status            String   @default("pending") // pending / approved / rejected
+  requested_by      String?  // AI or system that requested
+  approved_by       String?  @db.Uuid
+  rejected_by       String?  @db.Uuid
+  rejection_reason  String?
+  expires_at        DateTime?
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@index([client_id, status])
+  @@index([workflow_id])
+  @@index([campaign_id])
+  @@map("pending_actions")
+}
+
 /// Operator feedback on AI outputs — drives the learning loop
 model FeedbackLog {
   id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid

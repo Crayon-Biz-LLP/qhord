@@ -312,6 +312,9 @@ export default function BuildCampaignPage() {
   });
   const [blockPanelOpen, setBlockPanelOpen] = useState(false);
   const [blockSearch, setBlockSearch] = useState("");
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [generatingWorkflow, setGeneratingWorkflow] = useState(false);
+  const [generatedWorkflow, setGeneratedWorkflow] = useState<any>(null);
   const [detailBlock, setDetailBlock] = useState<string | null>(null);
   const [pickerTarget, setPickerTarget] = useState<"trigger" | "action">("action");
   const [aiConfig, setAiConfig] = useState({ promptTemplate: "Write a personalized icebreaker for {{first_name}} at {{company_name}}.", targetOutputVariable: "ai_icebreaker" });
@@ -783,6 +786,72 @@ export default function BuildCampaignPage() {
               </button>
             );
           })}
+        </div>
+      </div>
+
+      {/* AI Workflow Generator */}
+      <div className="bg-[#1a1510]/[0.02] border-b border-[#1a1510]/[0.07] px-4 sm:px-8 py-3 shrink-0">
+        <div className="max-w-5xl mx-auto">
+          <div className="flex items-center gap-3">
+            <Sparkles size={16} className="text-brand-gold shrink-0" />
+            <input
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              onKeyDown={async (e) => {
+                if (e.key === 'Enter' && aiPrompt.trim() && !generatingWorkflow) {
+                  e.preventDefault();
+                  setGeneratingWorkflow(true);
+                  try {
+                    const res = await api.post('/workflows/generate-from-prompt', {
+                      prompt: aiPrompt,
+                      save: true,
+                    });
+                    const wf = res.data.workflow;
+                    setGeneratedWorkflow(wf);
+                    setAiPrompt('');
+                    // Auto-fill first step info
+                    set({ intent: 'custom' });
+                    setWorkflows([{ id: "w1", name: wf.name, trigger: null, actions: wf.nodes.filter((n: any) => n.node_type !== 'source').map((n: any) => ({ id: `a${Math.random()}`, label: n.label })) }]);
+                  } catch (err: any) {
+                    console.error('Workflow generation failed:', err);
+                  } finally {
+                    setGeneratingWorkflow(false);
+                  }
+                }
+              }}
+              placeholder="Describe your campaign in plain English... e.g. &quot;Find 500 SaaS founders in California, enrich their profiles, and send personalized outreach&quot;"
+              className="flex-1 h-10 px-4 rounded-xl bg-white border border-[#1a1510]/[0.07] text-[13px] focus:outline-none focus:border-brand-gold/40 transition-all placeholder:text-[#1a1510]/30"
+            />
+            {generatingWorkflow && (
+              <div className="flex items-center gap-2 text-[12px] text-brand-gold font-semibold shrink-0">
+                <div className="w-4 h-4 border-2 border-brand-gold/30 border-t-brand-gold rounded-full animate-spin" />
+                Generating...
+              </div>
+            )}
+            {generatedWorkflow && (
+              <button
+                onClick={() => setGeneratedWorkflow(null)}
+                className="text-[11px] font-semibold text-brand-gold hover:text-brand-gold/70 shrink-0"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          {generatedWorkflow && (
+            <div className="mt-3 flex items-center gap-2 text-[11px] text-[#1a1510]/50">
+              <Check size={12} className="text-green-600" />
+              Workflow generated: <span className="font-semibold text-[#1a1510]">{generatedWorkflow.name}</span>
+              <span className="mx-1">·</span>
+              {generatedWorkflow.nodes.length} steps
+              <span className="mx-1">·</span>
+              <button
+                onClick={() => { setStep(STEPS.length - 1); }} // Jump to review step
+                className="text-brand-gold font-semibold hover:underline"
+              >
+                Review & Launch
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

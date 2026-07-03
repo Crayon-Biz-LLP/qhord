@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware/auth';
 import { prisma } from '../lib/prisma';
 import { ParserNode } from '../ai/langgraph/nodes/parser-node';
 import { ArchitectNode } from '../ai/langgraph/nodes/architect-node';
+import { workflowGenerator } from '../services/workflow-generator.service';
 import { ValidatorNode } from '../ai/langgraph/nodes/validator-node';
 import { resolveManifestSteps } from '../ai/pipeline/action-resolver';
 import { ExecutionQueue } from '../services/execution.queue';
@@ -688,6 +689,46 @@ async function compileWorkflowPlan(prompt: string, activeTools: string[]) {
     error: undefined as string | undefined
   };
 }
+
+// Phase 3: NL → Workflow generation
+router.post('/generate-from-prompt', async (req: Request, res: Response) => {
+  try {
+    const { prompt, clientId, campaignId, save } = req.body as {
+      prompt: string;
+      clientId?: string;
+      campaignId?: string;
+      save?: boolean;
+    };
+    const operatorId = req.user!.id;
+
+    if (!prompt?.trim()) {
+      res.status(400).json({ success: false, error: 'Prompt is required' });
+      return;
+    }
+
+    const targetClientId = clientId || await getClientIdForOperator(operatorId);
+    if (!targetClientId) {
+      res.status(400).json({ success: false, error: 'No client found. Create a client first.' });
+      return;
+    }
+
+    const workflow = await workflowGenerator.generateFromPrompt(prompt, targetClientId);
+
+    let savedWorkflow = null;
+    if (save) {
+      savedWorkflow = await workflowGenerator.saveWorkflow(workflow, targetClientId, operatorId, campaignId);
+    }
+
+    res.json({
+      success: true,
+      workflow,
+      savedWorkflow: savedWorkflow ? { id: savedWorkflow.id, name: savedWorkflow.workflow_name } : null,
+    });
+  } catch (error: any) {
+    console.error('Workflow generation error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to generate workflow' });
+  }
+});
 
 async function getClientIdForOperator(operatorId: string): Promise<string | null> {
   let client = await prisma.client.findFirst({
