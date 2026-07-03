@@ -110,7 +110,6 @@ export class CampaignWorkflowEngine {
 
       switch (node.node_type) {
         case 'source':
-          // Source nodes mark the start. If we are running per-lead, they just complete.
           output = { message: 'Workflow initiated' };
           break;
 
@@ -118,12 +117,20 @@ export class CampaignWorkflowEngine {
           output = await this.executeEnrichmentNode(node, run.lead!, run.workflow.campaign.client_id);
           break;
 
-        case 'ai':
-          output = await this.executeAiNode(node, run.lead!, run.workflow.campaign.client_id);
-          break;
+        case 'approval':
+          await this.holdForApproval(run, node, runStep, run.workflow.campaign.client_id, 'approval_node');
+          return;
 
+        case 'ai':
         case 'action':
-          output = await this.executeActionNode(node, run.lead!, run.workflow.campaign.client_id);
+          const needsApproval = await this.checkNeedsApproval(run.workflow.campaign.client_id, node);
+          if (needsApproval) {
+            await this.holdForApproval(run, node, runStep, run.workflow.campaign.client_id, 'auto_gate');
+            return;
+          }
+          output = node.node_type === 'ai'
+            ? await this.executeAiNode(node, run.lead!, run.workflow.campaign.client_id)
+            : await this.executeActionNode(node, run.lead!, run.workflow.campaign.client_id);
           break;
 
         case 'condition':
@@ -382,6 +389,78 @@ export class CampaignWorkflowEngine {
     }
 
     throw new Error(`Unsupported action tool: ${node.tool}`);
+  }
+
+  // HITL: check if this action needs operator approval
+  private async checkNeedsApproval(clientId: string, node: any): Promise<boolean> {
+    const client = await prisma.client.findUnique({ where: { id: clientId } });
+    if (!client) return false;
+
+    // approval_mode can be "Approval required", "Auto", or "Hybrid"
+    if (client.approval_mode === 'Auto') return false;
+    if (client.approval_mode === 'Hybrid') {
+      // In hybrid mode, only AI nodes need approval, tool actions run auto
+      return node.node_type === 'ai';
+    }
+    // "Approval required" — everything needs approval
+    return true;
+  }
+
+  // HITL: pause execution and create a pending action for operator review
+  private async holdForApproval(run: any, node: any, runStep: any, clientId: string, gateType: string = 'auto_gate') {
+    const isExplicit = gateType === 'approval_node';
+    const actionType = isExplicit ? 'approval_gate' : (node.node_type === 'ai' ? 'ai_enrich' : 'execute_tool');
+    const actionLabel = isExplicit
+      ? `Approval gate: ${node.label || 'Manual approval required'}`
+      : (node.node_type === 'ai'
+        ? `AI Enrichment using ${node.tool}`
+        : `Execute ${node.tool} — ${(node.configuration_json as any)?.action || 'default action'}`);
+
+    await prisma.pendingAction.create({
+      data: {
+        workflow_id: run.campaign_workflow_id,
+        run_id: run.id,
+        client_id: clientId,
+        lead_id: run.lead_id,
+        node_id: node.id,
+        action_type: actionType,
+        action_label: actionLabel,
+        action_config: node.configuration_json || {},
+        status: 'pending',
+      },
+    });
+
+    await prisma.workflowRunStep.update({
+      where: { id: runStep.id },
+      data: {
+        status: 'waiting_event',
+        output_json: { waiting_for_approval: true, action_type: actionType, action_label: actionLabel },
+        completed_at: new Date(),
+      },
+    });
+
+    await prisma.campaignWorkflowRun.update({
+      where: { id: run.id },
+      data: { status: 'held' },
+    });
+
+    console.log(`[CampaignWorkflowEngine] Run ${run.id} held for approval: ${actionLabel}`);
+  }
+
+  // Resume a held run after operator approves
+  async resumeRunAfterApproval(runId: string, nodeId: string) {
+    const run = await prisma.campaignWorkflowRun.findUnique({ where: { id: runId } });
+    if (!run || run.status !== 'held') {
+      console.log(`[CampaignWorkflowEngine] Run ${runId} cannot be resumed (status: ${run?.status})`);
+      return;
+    }
+
+    await prisma.campaignWorkflowRun.update({
+      where: { id: runId },
+      data: { status: 'running' },
+    });
+
+    await this.executeNode(runId, nodeId);
   }
 
   // Evaluates branching condition node

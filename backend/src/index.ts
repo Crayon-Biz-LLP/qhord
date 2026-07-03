@@ -32,6 +32,7 @@ import mcpRoutes from './routes/mcp';
 import aiProviderRoutes from './routes/ai-providers';
 import aiExecutionLogRoutes from './routes/ai-execution-logs';
 import pendingApprovalRoutes from './routes/pending-approvals';
+import creditRoutes from './routes/credits';
 import { prisma } from './lib/prisma';
 import { campaignWorker } from './workers/campaign-worker';
 import { workflowWorker } from './workers/workflow-worker';
@@ -108,6 +109,7 @@ app.use('/api/mcp', mcpRoutes);
 app.use('/api/ai-providers', aiProviderRoutes);
 app.use('/api/ai-execution-logs', aiExecutionLogRoutes);
 app.use('/api/pending-approvals', pendingApprovalRoutes);
+app.use('/api/credits', creditRoutes);
 
 // Optional: background inbox sync (BullMQ + Redis). Off by default so the app
 // runs without Redis; enable with INBOX_BACKGROUND_SYNC=true.

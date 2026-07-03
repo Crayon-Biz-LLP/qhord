@@ -3,12 +3,14 @@ import { ClaudeProvider } from './claude.provider';
 import { OpenAIProvider } from './openai.provider';
 import { MockProvider } from './mock.provider';
 import { prisma } from '../../lib/prisma';
+import { creditWallet } from '../../services/credit-wallet.service';
 
 interface AiLogContext {
   client_id?: string;
   campaign_id?: string;
   workspace_id?: string;
   lead_id?: string;
+  execution_id?: string;
 }
 
 export type ProviderName = 'anthropic' | 'openai' | 'google';
@@ -93,6 +95,11 @@ export class AiProviderFactory {
     const provider = this.getProvider(resolvedName);
     const config = { ...(await this.getConfig(resolvedName)), ...configOverride };
     const start = Date.now();
+
+    // Check & deduct credits before calling provider
+    if (logContext?.client_id) {
+      await creditWallet.ensureSufficient(logContext.client_id, config.model);
+    }
     try {
       const response = await provider.chat(request, config);
       const latency = Date.now() - start;
@@ -116,6 +123,17 @@ export class AiProviderFactory {
             lead_id: logContext?.lead_id ?? null,
           },
         }).catch((e: Error) => console.error('Failed to log AI execution:', e.message));
+      }
+
+      // Deduct credits after successful call
+      if (logContext?.client_id) {
+        creditWallet.deduct(logContext.client_id, config.model, {
+          description: `AI ${resolvedName} chat (${config.model})`,
+          tool_name: resolvedName,
+          action: 'ai_chat',
+          campaign_id: logContext.campaign_id,
+          execution_id: logContext.execution_id,
+        }).catch((e: Error) => console.error('Failed to deduct credits:', e.message));
       }
 
       return response;

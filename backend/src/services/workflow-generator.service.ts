@@ -118,8 +118,9 @@ export class WorkflowGeneratorService {
   ) {
     // Ensure a campaign exists for the workflow
     let targetCampaignId = campaignId;
+    let campaign;
     if (!targetCampaignId) {
-      const campaign = await prisma.campaign.create({
+      campaign = await prisma.campaign.create({
         data: {
           client_id: clientId,
           name: workflow.name,
@@ -127,9 +128,12 @@ export class WorkflowGeneratorService {
           created_by_operator_id: operatorId,
           status: 'draft',
           approval_status: 'draft',
+          manifest: { nodes: workflow.nodes, edges: workflow.edges, source_prompt: 'AI-generated' } as any,
         },
       });
       targetCampaignId = campaign.id;
+    } else {
+      campaign = await prisma.campaign.findUnique({ where: { id: targetCampaignId } });
     }
 
     const dbWorkflow = await prisma.campaignWorkflow.create({
@@ -172,7 +176,28 @@ export class WorkflowGeneratorService {
       }
     }
 
-    return dbWorkflow;
+    // Also create CampaignSteps for compatibility with the old execution system
+    const actionNodes = workflow.nodes.filter(n => n.node_type !== 'source');
+    if (actionNodes.length > 0) {
+      await prisma.campaignStep.createMany({
+        data: actionNodes.map((n, i) => ({
+          campaign_id: targetCampaignId,
+          step_order: i + 1,
+          tool_name: n.tool,
+          action: n.node_type,
+          params: n.configuration as any,
+          status: 'pending',
+          dependencies: i > 0 ? [{ step_order: i }] : [],
+        })),
+      });
+    }
+
+    return {
+      ...dbWorkflow,
+      campaign_id: targetCampaignId,
+      campaign_name: campaign?.name || workflow.name,
+      steps_created: actionNodes.length,
+    };
   }
 
   private generateMockWorkflow(prompt: string, connectedTools: string[]): GeneratedWorkflow {

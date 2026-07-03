@@ -797,7 +797,13 @@ router.post('/generate-from-prompt', async (req: Request, res: Response) => {
       success: true,
       async: false,
       workflow,
-      savedWorkflow: savedWorkflow ? { id: savedWorkflow.id, name: savedWorkflow.workflow_name } : null,
+      savedWorkflow: savedWorkflow ? {
+        id: savedWorkflow.id,
+        name: savedWorkflow.workflow_name,
+        campaign_id: savedWorkflow.campaign_id,
+        campaign_name: (savedWorkflow as any).campaign_name,
+        steps_created: (savedWorkflow as any).steps_created || 0,
+      } : null,
       pendingApprovals: pendingApprovals.map(a => ({
         id: a.id,
         action_type: a.action_type,
