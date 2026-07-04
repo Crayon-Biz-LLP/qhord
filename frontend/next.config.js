@@ -10,9 +10,8 @@ const nextConfig = {
     // Local dev: fall back to localhost:4000
     const apiTarget =
       process.env.NEXT_PUBLIC_API_BASE_URL ||
-      (process.env.NODE_ENV === 'production' ? 'http://backend:4000/api' : null) ||
       process.env.NEXT_PUBLIC_API_URL ||
-      'http://localhost:4000/api';
+      (process.env.NODE_ENV === 'production' ? 'https://api-qhord.onrender.com/api' : 'http://localhost:4000/api');
     return [
       {
         source: '/api/:path*',

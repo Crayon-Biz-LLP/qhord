@@ -553,12 +553,13 @@ router.get('/google/callback', async (req: Request, res: Response) => {
     // Upsert operator by email
     const operator = await prisma.operator.upsert({
       where: { email },
-      update: { name },
+      update: { name, email_verified: true },
       create: {
         email,
         name,
         password_hash: await hashPassword(Math.random().toString(36).slice(-10)),
         role: 'operator',
+        email_verified: true,
         settings: {
           create: {
             notifications: defaultNotifications
