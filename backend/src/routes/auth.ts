@@ -417,7 +417,10 @@ router.post('/2fa/login-verify', async (req: Request, res: Response) => {
 
 router.get('/google', (req: Request, res: Response) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
-  const backendBase = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+  let backendBase = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+  if (!backendBase.includes('localhost') && backendBase.startsWith('http:')) {
+    backendBase = backendBase.replace('http:', 'https:');
+  }
   const redirectUri = `${backendBase}/api/auth/google/callback`;
   console.log(`[Google OAuth] Redirect URI sent to Google: ${redirectUri}`);
   
@@ -514,7 +517,10 @@ router.get('/google/callback', async (req: Request, res: Response) => {
   if (process.env.NODE_ENV === 'development') {
     frontendUrl = 'http://localhost:3000';
   }
-  const backendBase = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+  let backendBase = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+  if (!backendBase.includes('localhost') && backendBase.startsWith('http:')) {
+    backendBase = backendBase.replace('http:', 'https:');
+  }
 
   if (!code) {
     res.redirect(`${frontendUrl}/login?error=oauth_no_code`);
