@@ -15,7 +15,8 @@ async function sendVerificationEmail(email: string, name: string, token: string)
     return;
   }
   const brevo = new BrevoService(apiKey);
-  const verifyLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${token}`;
+  const frontendUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : (process.env.FRONTEND_URL || 'http://localhost:3000');
+  const verifyLink = `${frontendUrl}/verify-email?token=${token}`;
   
   const htmlContent = `
     <html>
@@ -418,6 +419,7 @@ router.get('/google', (req: Request, res: Response) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const backendBase = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
   const redirectUri = `${backendBase}/api/auth/google/callback`;
+  console.log(`[Google OAuth] Redirect URI sent to Google: ${redirectUri}`);
   
   if (!clientId) {
     // Render the simulated developer OAuth consent page
@@ -508,7 +510,10 @@ router.get('/google', (req: Request, res: Response) => {
 
 router.get('/google/callback', async (req: Request, res: Response) => {
   const { code } = req.query;
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  let frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  if (process.env.NODE_ENV === 'development') {
+    frontendUrl = 'http://localhost:3000';
+  }
   const backendBase = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
 
   if (!code) {
@@ -651,7 +656,8 @@ router.post('/resend-verification', rateLimiter(5 * 60 * 1000, 3), async (req: R
       data: { verification_token: verificationToken }
     });
 
-    const verifyLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`;
+    const frontendUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : (process.env.FRONTEND_URL || 'http://localhost:3000');
+    const verifyLink = `${frontendUrl}/verify-email?token=${verificationToken}`;
     console.log(`\n--------------------------------------------`);
     console.log(`RESENT VERIFICATION TOKEN FOR: ${email}`);
     console.log(`MOCK VERIFICATION LINK: ${verifyLink}`);
