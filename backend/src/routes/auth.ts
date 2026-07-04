@@ -15,7 +15,9 @@ async function sendVerificationEmail(email: string, name: string, token: string)
     return;
   }
   const brevo = new BrevoService(apiKey);
-  const frontendUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : (process.env.FRONTEND_URL || 'http://localhost:3000');
+  const frontendUrl = process.env.RENDER === 'true' || process.env.NODE_ENV === 'production' 
+    ? (process.env.FRONTEND_URL || 'https://qhord-frontend.vercel.app') 
+    : 'http://localhost:3000';
   const verifyLink = `${frontendUrl}/verify-email?token=${token}`;
   
   const htmlContent = `
@@ -513,9 +515,14 @@ router.get('/google', (req: Request, res: Response) => {
 
 router.get('/google/callback', async (req: Request, res: Response) => {
   const { code } = req.query;
-  let frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-  if (process.env.NODE_ENV === 'development') {
-    frontendUrl = 'http://localhost:3000';
+  let frontendUrl = process.env.FRONTEND_URL;
+  if (!frontendUrl) {
+    const host = req.get('host') || '';
+    if (host.includes('localhost') || host.includes('127.0.0.1')) {
+      frontendUrl = 'http://localhost:3000';
+    } else {
+      frontendUrl = 'https://qhord-frontend.vercel.app';
+    }
   }
   let backendBase = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
   if (!backendBase.includes('localhost') && backendBase.startsWith('http:')) {
@@ -662,7 +669,9 @@ router.post('/resend-verification', rateLimiter(5 * 60 * 1000, 3), async (req: R
       data: { verification_token: verificationToken }
     });
 
-    const frontendUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : (process.env.FRONTEND_URL || 'http://localhost:3000');
+    const frontendUrl = process.env.RENDER === 'true' || process.env.NODE_ENV === 'production' 
+      ? (process.env.FRONTEND_URL || 'https://qhord-frontend.vercel.app') 
+      : 'http://localhost:3000';
     const verifyLink = `${frontendUrl}/verify-email?token=${verificationToken}`;
     console.log(`\n--------------------------------------------`);
     console.log(`RESENT VERIFICATION TOKEN FOR: ${email}`);
