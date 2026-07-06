@@ -13,9 +13,10 @@ interface AuthModalProps {
   onClose: () => void;
   initialState?: "signin" | "signup";
   onSuccess?: () => void;
+  initialError?: string | null;
 }
 
-export const AuthModal = ({ isOpen, onClose, initialState = "signin", onSuccess }: AuthModalProps) => {
+export const AuthModal = ({ isOpen, onClose, initialState = "signin", onSuccess, initialError }: AuthModalProps) => {
   const { login, register, loading } = useAuth(false);
   const router = useRouter();
   const [isLogin, setIsLogin] = useState(initialState === "signin");
@@ -23,7 +24,7 @@ export const AuthModal = ({ isOpen, onClose, initialState = "signin", onSuccess 
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError || null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
 
@@ -34,9 +35,9 @@ export const AuthModal = ({ isOpen, onClose, initialState = "signin", onSuccess 
 
   useEffect(() => {
     setIsLogin(initialState === "signin");
-    setError(null);
+    setError(initialError || null);
     setSuccessMessage(null);
-  }, [initialState, isOpen]);
+  }, [initialState, isOpen, initialError]);
 
   const handleResendVerification = async (targetEmail: string) => {
     setResending(true);

@@ -17,15 +17,20 @@ function VerifyEmailContent() {
   const [message, setMessage] = useState("");
   const [authModalOpen, setAuthModalOpen] = useState(false);
 
-  useEffect(() => {
-    async function verify() {
-      if (!token) {
-        setVerifying(false);
-        setSuccess(false);
-        setMessage("Invalid or missing verification token.");
-        return;
-      }
+  const calledRef = React.useRef(false);
 
+  useEffect(() => {
+    if (!token) {
+      setVerifying(false);
+      setSuccess(false);
+      setMessage("Invalid or missing verification token.");
+      return;
+    }
+
+    if (calledRef.current) return;
+    calledRef.current = true;
+
+    async function verify() {
       try {
         const res = await api.get(`/auth/verify-email?token=${token}`);
         setSuccess(true);

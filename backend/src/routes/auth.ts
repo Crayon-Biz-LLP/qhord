@@ -515,15 +515,16 @@ router.get('/google', (req: Request, res: Response) => {
 
 router.get('/google/callback', async (req: Request, res: Response) => {
   const { code } = req.query;
+  const host = req.get('host') || '';
+  
   let frontendUrl = process.env.FRONTEND_URL;
-  if (!frontendUrl) {
-    const host = req.get('host') || '';
-    if (host.includes('localhost') || host.includes('127.0.0.1')) {
-      frontendUrl = 'http://localhost:3000';
-    } else {
-      frontendUrl = 'https://qhord-frontend.vercel.app';
-    }
+  if (host.includes('localhost') || host.includes('127.0.0.1')) {
+    frontendUrl = 'http://localhost:3000';
   }
+  if (!frontendUrl) {
+    frontendUrl = 'https://qhord-frontend.vercel.app';
+  }
+
   let backendBase = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
   if (!backendBase.includes('localhost') && backendBase.startsWith('http:')) {
     backendBase = backendBase.replace('http:', 'https:');
@@ -603,9 +604,15 @@ router.get('/google/callback', async (req: Request, res: Response) => {
     // Redirect back to frontend login endpoint with token
     res.redirect(`${frontendUrl}/login?token=${token}`);
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Google OAuth callback error:', error);
-    res.redirect(`${frontendUrl}/login?error=oauth_callback_failed`);
+    let errorMessage = 'unknown_error';
+    if (axios.isAxiosError(error)) {
+      errorMessage = error.response?.data?.error_description || error.response?.data?.error || error.message;
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    res.redirect(`${frontendUrl}/login?error=oauth_callback_failed&message=${encodeURIComponent(errorMessage)}`);
   }
 });
 

@@ -10,6 +10,8 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const from = searchParams.get("from") || "/dashboard";
   const token = searchParams.get("token");
+  const errorParam = searchParams.get("error");
+  const messageParam = searchParams.get("message");
 
   React.useEffect(() => {
     if (token) {
@@ -46,12 +48,24 @@ function LoginContent() {
     );
   }
 
+  let initialError = null;
+  if (errorParam) {
+    if (errorParam === "oauth_callback_failed") {
+      initialError = `Google Sign-In failed: ${messageParam || "The OAuth callback failed on the server."}`;
+    } else if (errorParam === "oauth_no_code") {
+      initialError = "Google Sign-In failed: No authorization code was received from Google.";
+    } else {
+      initialError = `Google Sign-In failed: ${errorParam}`;
+    }
+  }
+
   return (
     <AuthModal
       isOpen={true}
       onClose={handleClose}
       initialState="signin"
       onSuccess={handleSuccess}
+      initialError={initialError}
     />
   );
 }
