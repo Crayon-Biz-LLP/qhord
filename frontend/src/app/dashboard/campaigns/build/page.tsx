@@ -813,21 +813,27 @@ export default function BuildCampaignPage() {
   const handleBuild = async () => {
     setBuilding(true);
     try {
-      await api.post("/campaigns/plan", {
-        prompt: buildPrompt(),
-        workflows: workflows.map((w) => ({
-          name: w.name,
-          actions: w.actions.map((a) => ({
-            label: a.label,
-          })),
-        })),
-      }, {
-        headers: {
-          "ngrok-skip-browser-warning": "true",
-        }
+      const prompt = buildPrompt();
+      if (!prompt || prompt.length < 10) {
+        toast.error("Please fill in at least the campaign goal on Step 1");
+        setBuilding(false);
+        return;
+      }
+      const res = await api.post("/workflows/generate-from-prompt", {
+        prompt,
+        save: true,
+        clientId: selectedClient?.id,
       });
-    } catch (e) {
-      console.error("Build campaign failed:", e);
+      const approvals = res.data.pendingApprovals || [];
+      if (approvals.length > 0) {
+        toast.success(`Campaign launched with ${approvals.length} approval(s) pending`);
+      } else {
+        toast.success("Campaign launched!");
+      }
+    } catch (e: any) {
+      const msg = e?.response?.data?.error || e?.response?.data?.message || e.message || "Unknown error";
+      console.error("Build campaign failed:", msg);
+      toast.error(msg);
     } finally {
       setBuilding(false);
       router.push("/dashboard/campaigns");
@@ -2846,7 +2852,8 @@ export default function BuildCampaignPage() {
                   onClick={() => {
                     applyGeneratedWorkflow(generatedWorkflow, pendingApprovalCount);
                     setGeneratedWorkflow(null);
-                    setStep(STEPS.length - 1); // Jump to review
+                    setStep(0);
+                    toast.success("Workflow applied! Click Next to review each step.");
                   }}
                   className="flex-1 h-11 rounded-xl bg-[#1a1510] text-white text-[12px] font-bold flex items-center justify-center gap-2 hover:bg-[#2a2118] transition-colors"
                 >

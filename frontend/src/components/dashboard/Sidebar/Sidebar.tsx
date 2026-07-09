@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import {
   LayoutDashboard, Users, Activity, Settings, Bell, Search, Plus, Cpu, Zap, ShieldCheck,
-  Terminal, BarChart3, Mail, Target, ListTodo, GraduationCap, Box, Computer,
+  Terminal, BarChart3, Mail, ListTodo, GraduationCap, Box, Computer,
   Sparkles, Bot, CreditCard, DollarSign, ChevronRight, User as UserIcon, LogOut, Globe, Building2, Workflow,
   MessageSquare, TrendingUp, Bookmark, ChevronDown,
   Briefcase, Inbox, GitBranch, Handshake, LineChart, Wrench, BookOpen, KeyRound, Network, Megaphone, BrainCircuit, Wallet
@@ -40,7 +40,8 @@ export type DashboardView =
   | 'analytics' 
   | 'ai-sdr' 
   | 'ai-operator' 
-  | 'ai-engine';
+  | 'ai-engine' 
+  | 'approvals';
 
 interface SidebarProps {
   onSignOut?: () => void;
@@ -146,6 +147,7 @@ export const Sidebar = ({ onSignOut, activeView = 'dashboard', onViewChange }: S
               { icon: DataSourceIcon, label: "Command Center", id: 'command', href: '/dashboard/command' },
               { icon: ClientAccountsIcon, label: "Client Accounts", id: 'clients', href: '/dashboard/clients' },
               { icon: InboxIcon, label: "Unibox", id: 'inbox', href: '/dashboard/inbox' },
+              { icon: Megaphone, label: "Campaigns", id: 'campaigns', href: '/dashboard/campaigns' },
               { icon: LeadSourceIcon, label: "Lead Source", id: 'leads', href: '/dashboard/leads' },
               { icon: WorkflowsIcon, label: "Workflows", id: 'workflows', href: '/dashboard/workflows' },
               { icon: DealsIcon, label: "Deals", id: 'pipeline', href: '/dashboard/pipeline' },
@@ -156,6 +158,8 @@ export const Sidebar = ({ onSignOut, activeView = 'dashboard', onViewChange }: S
           {
             title: "SYSTEM",
             items: [
+              { icon: ShieldCheck, label: "Approvals", id: 'approvals', href: '/dashboard/approvals' },
+              { icon: TrendingUp, label: "Credits", id: 'credits', href: '/dashboard/credits' },
               { icon: Settings, label: "Settings", id: 'settings', href: '/dashboard/settings' },
               { icon: Wallet, label: "Billing", id: 'billing', href: '/dashboard/billing' },
             ]

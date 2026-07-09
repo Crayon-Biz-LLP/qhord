@@ -725,3 +725,32 @@ model WorkflowRunStep {
   @@map("workflow_run_steps")
 }
 
+model AuditLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  operator_id String? @db.Uuid
+  client_id  String?  @db.Uuid
+  action     String
+  entity     String?
+  entity_id  String?
+  metadata   Json?
+  ip_address String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("audit_logs")
+}
+
+model MemoryConsolidation {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspace_id   String   @db.Uuid
+  status         String   @default("running") // running / completed / failed
+  campaigns_analyzed Int  @default(0)
+  patterns_found    Int   @default(0)
+  summary        Json?
+  error_message  String?
+  started_at     DateTime @default(now()) @db.Timestamptz(6)
+  completed_at   DateTime? @db.Timestamptz(6)
+
+  @@index([workspace_id, started_at])
+  @@map("memory_consolidations")
+}
+

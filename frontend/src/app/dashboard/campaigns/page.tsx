@@ -1,24 +1,22 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { useSocket } from "@/hooks/useSocket";
 import {
   Bot, Database, Plus, CheckCircle, Clock, RefreshCw, MoreHorizontal, Target,
-  LayoutDashboard, ArrowUpRight, Sparkles,
+  LayoutDashboard, ArrowUpRight, Sparkles, Send, Play,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Loader } from "@/components/ui/Loader";
 import { api } from "../../../lib/api";
+import { toast } from "sonner";
 
 export default function CampaignsPage() {
   const router = useRouter();
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchCampaigns();
-  }, []);
-
-  const fetchCampaigns = async () => {
+  const fetchCampaigns = useCallback(async () => {
     try {
       const response = await api.get("/campaigns");
       setCampaigns(response.data.campaigns || []);
@@ -27,9 +25,23 @@ export default function CampaignsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchCampaigns();
+  }, [fetchCampaigns]);
+
+  useSocket('campaign:updated', fetchCampaigns);
 
   const goBuild = () => router.push("/dashboard/campaigns/build");
+
+  const launchCampaign = async (id: string) => {
+    try {
+      await api.post(`/campaigns/${id}/launch-workflow`);
+      toast.success("Campaign launched!");
+      fetchCampaigns();
+    } catch { toast.error("Failed to launch"); }
+  };
 
   const stats = [
     { label: "Total Campaigns", value: campaigns.length, sub: "Created by you", icon: Database, tint: "text-brand-gold" },
@@ -155,11 +167,15 @@ export default function CampaignsPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          {campaign.status === "draft" && (
-                            <button className="btn-shine h-9 px-4 rounded-none bg-[#1a1510] text-white text-[11px] font-semibold hover:bg-[#2a2118] transition-colors flex items-center gap-1.5">
-                              <ArrowUpRight size={13} className="text-brand-gold" /> Submit
+                          {campaign.status === "approved" ? (
+                            <button onClick={() => launchCampaign(campaign.id)} className="btn-shine h-9 px-4 rounded-none bg-emerald-600 text-white text-[11px] font-semibold hover:bg-emerald-700 transition-colors flex items-center gap-1.5">
+                              <Play size={13} /> Launch
                             </button>
-                          )}
+                          ) : campaign.status === "draft" ? (
+                            <button onClick={() => router.push('/dashboard/campaigns/build')} className="btn-shine h-9 px-4 rounded-none bg-[#1a1510] text-white text-[11px] font-semibold hover:bg-[#2a2118] transition-colors flex items-center gap-1.5">
+                              <ArrowUpRight size={13} className="text-brand-gold" /> Build
+                            </button>
+                          ) : null}
                           <button className="w-9 h-9 flex items-center justify-center bg-white border border-[#1a1510]/[0.07] rounded-lg hover:bg-[#f7f8f9] transition-colors">
                             <MoreHorizontal size={16} className="text-[#1a1510]/50" />
                           </button>

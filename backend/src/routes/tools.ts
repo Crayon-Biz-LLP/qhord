@@ -1,123 +1,97 @@
 import { Router, Request, Response } from 'express';
-import { prisma } from '../lib/prisma';
 import { requireAuth } from '../middleware/auth';
-import { encrypt } from '../config/encryption';
-import { ApolloService } from '../services/apollo.service';
+import { prisma } from '../lib/prisma';
 
 const router = Router();
 
-router.get('/', async (_req: Request, res: Response) => {
-  try {
-    const dbTools = await (prisma as any).tool.findMany({
-      orderBy: { name: 'asc' }
-    });
-    // Map tool_id to id for frontend compatibility
-    const tools = dbTools.map((t: any) => ({
-      ...t,
-      id: t.tool_id
-    }));
-    res.json({ tools });
-  } catch (err) {
-    console.error('Fetch tools error', err);
-    res.status(500).json({ message: 'Failed to fetch tools from database' });
-  }
-});
-
 router.use(requireAuth);
 
-router.get('/apollo/status', async (req: Request, res: Response) => {
-  const clientAccountId = req.query.clientAccountId as string;
-  if (!clientAccountId) {
-    res.status(400).json({ success: false, error: 'clientAccountId is required' });
-    return;
-  }
-
+// GET /api/tools/discover — discover active tools for a client with capabilities
+router.get('/discover', async (req: Request, res: Response) => {
   try {
-    const apolloService = new ApolloService();
-    const result = await apolloService.validateConnection(clientAccountId);
-    res.json(result);
-  } catch (error: any) {
-    res.json({ success: false, error: error.message || 'Failed to validate Apollo connection' });
-  }
-});
-
-router.get('/accounts/:clientId', async (req: Request, res: Response) => {
-  const { clientId } = req.params;
-  try {
-    const accounts = await prisma.clientToolAccount.findMany({
-      where: { client_id: clientId },
-      orderBy: { created_at: 'desc' },
-      select: {
-        id: true,
-        client_id: true,
-        tool_name: true,
-        account_label: true,
-        created_by_operator_id: true,
-        created_at: true
-      }
-    });
-    res.json({ accounts });
-  } catch (err) {
-    console.error('List tool accounts error', err);
-    res.status(500).json({ message: 'Failed to fetch tool accounts' });
-  }
-});
-
-router.post('/accounts', async (req: Request, res: Response) => {
-  const { clientId, toolName, accountLabel, apiKey } = req.body as {
-    clientId: string;
-    toolName: string;
-    accountLabel: string;
-    apiKey: string;
-  };
-
-  if (!clientId || !toolName || !accountLabel || !apiKey) {
-    res.status(400).json({ message: 'clientId, toolName, accountLabel and apiKey are required' });
-    return;
-  }
-
-  try {
-    const encryptedKey = encrypt(apiKey);
-    const account = await prisma.clientToolAccount.create({
-      data: {
-        client_id: clientId,
-        tool_name: toolName,
-        account_label: accountLabel,
-        api_key_encrypted: encryptedKey,
-        created_by_operator_id: req.user!.id
-      },
-      select: {
-        id: true,
-        client_id: true,
-        tool_name: true,
-        account_label: true,
-        created_by_operator_id: true,
-        created_at: true
-      }
-    });
-    res.status(201).json({ account });
-  } catch (err) {
-    console.error('Create tool account error', err);
-    res.status(500).json({ message: 'Failed to create tool account' });
-  }
-});
-
-router.delete('/accounts/:id', async (req: Request, res: Response) => {
-  const { id } = req.params;
-  try {
-    await prisma.clientToolAccount.delete({
-      where: { id }
-    });
-    res.status(204).send();
-  } catch (err: any) {
-    if (err.code === 'P2025') {
-       res.status(404).json({ message: 'Tool account not found' });
-       return;
+    const clientId = req.query.clientId as string;
+    if (!clientId) {
+      res.status(400).json({ error: 'clientId query parameter is required' });
+      return;
     }
-    console.error('Delete tool account error', err);
-    res.status(500).json({ message: 'Failed to delete tool account' });
+
+    const client = await prisma.client.findUnique({
+      where: { id: clientId },
+      include: { tool_accounts: true },
+    });
+
+    if (!client) {
+      res.status(404).json({ error: 'Client not found' });
+      return;
+    }
+
+    const capabilityMap: Record<string, string[]> = {
+      apollo: ['lead_sourcing', 'b2b_search', 'email_enrichment', 'company_search', 'contact_discovery'],
+      clay: ['lead_sourcing', 'waterfall_enrichment', 'data_enrichment', 'website_scraping', 'enrichment'],
+      smartlead: ['email_delivery', 'email_sequencing', 'cold_outreach', 'campaign_execution'],
+      instantly: ['cold_outreach', 'campaign_automation', 'sequence_management', 'email_delivery'],
+      heyreach: ['linkedin_outreach', 'social_selling', 'linkedin_automation'],
+      bettercontact: ['email_enrichment', 'contact_enrichment'],
+      hunter: ['email_finding', 'domain_search', 'lead_sourcing'],
+      brevo: ['email_marketing', 'transactional_email', 'sms', 'crm'],
+      calendly: ['scheduling', 'meeting_booking'],
+      salesforce: ['crm', 'lead_management', 'pipeline_tracking'],
+      hubspot: ['crm', 'lead_management', 'marketing_hub'],
+    };
+
+    const activeTools: any[] = await Promise.all(
+      (client.tool_accounts || []).map(async (account) => {
+        const toolName = account.tool_name.toLowerCase();
+        return {
+          provider: toolName,
+          toolAccountId: account.id,
+          isActive: true,
+          capabilities: capabilityMap[toolName] || [],
+          executionNode: toolName === 'apollo' || toolName === 'clay' || toolName === 'hunter'
+            ? 'source_fetch'
+            : toolName === 'smartlead' || toolName === 'instantly' || toolName === 'heyreach'
+            ? 'delivery_push'
+            : toolName === 'bettercontact' || toolName === 'clay'
+            ? 'enrichment'
+            : 'other',
+          connectedAt: account.created_at.toISOString(),
+        };
+      }),
+    );
+
+    // Also list available but unconnected tools
+    const envTools = ['apollo', 'clay', 'smartlead', 'instantly', 'heyreach', 'bettercontact', 'hunter', 'brevo', 'calendly'];
+    for (const tool of envTools) {
+      if (!activeTools.find((t) => t.provider === tool)) {
+        activeTools.push({
+          provider: tool,
+          toolAccountId: null,
+          isActive: false,
+          capabilities: capabilityMap[tool] || [],
+          executionNode: tool === 'apollo' || tool === 'clay' || tool === 'hunter'
+            ? 'source_fetch'
+            : tool === 'smartlead' || tool === 'instantly' || tool === 'heyreach'
+            ? 'delivery_push'
+            : tool === 'bettercontact' || tool === 'clay'
+            ? 'enrichment'
+            : 'other',
+          connectedAt: null,
+        });
+      }
+    }
+
+    res.json({
+      clientId,
+      clientName: client.name,
+      activeTools,
+      totalConnected: activeTools.filter((t) => t.isActive).length,
+      totalAvailable: activeTools.length,
+      aiProvider: process.env.EXECUTION_MODE === 'live' ? 'groq' : 'mock',
+    });
+  } catch (error: any) {
+    console.error('Tool discovery error:', error);
+    res.status(500).json({ error: error.message || 'Failed to discover tools' });
   }
 });
 
 export default router;
-

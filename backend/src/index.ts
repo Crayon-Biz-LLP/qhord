@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import http from 'http';
 import 'dotenv/config';
 import authRoutes from './routes/auth';
 import clientRoutes from './routes/clients';
@@ -33,12 +35,19 @@ import aiProviderRoutes from './routes/ai-providers';
 import aiExecutionLogRoutes from './routes/ai-execution-logs';
 import pendingApprovalRoutes from './routes/pending-approvals';
 import creditRoutes from './routes/credits';
+import aiProcessingRoutes from './routes/ai-processing';
 import { prisma } from './lib/prisma';
 import { campaignWorker } from './workers/campaign-worker';
 import { workflowWorker } from './workers/workflow-worker';
 import { workflowGenerationWorker } from './workers/workflow-generation.worker';
+import { auditMiddleware } from './middleware/audit';
+import { sanitizeInput } from './middleware/sanitize';
+import { generalLimiter, authLimiter } from './middleware/rate-limit';
+import { initWebSocket } from './services/websocket.service';
 
 const app = express();
+const server = http.createServer(app);
+initWebSocket(server);
 
 const allowedOrigins = [
   process.env.FRONTEND_URL,
@@ -67,19 +76,34 @@ app.use(cors({
 // Stripe webhooks must use raw body — register BEFORE express.json()
 app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }), stripeWebhookRoutes);
 
+app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false }));
 app.use(express.json({ limit: '1mb' }));
+app.use(sanitizeInput);
+app.use(generalLimiter);
+app.use(auditMiddleware);
 
 app.get('/api/health', async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'ok' });
+    const [campaignCount, approvalCount, executionCount] = await Promise.all([
+      prisma.campaign.count(),
+      prisma.pendingAction.count({ where: { status: 'pending' } }),
+      prisma.campaignWorkflowRun.count(),
+    ]);
+    res.json({
+      status: 'ok',
+      uptime: process.uptime(),
+      db: 'connected',
+      mode: process.env.EXECUTION_MODE || 'auto',
+      counts: { campaigns: campaignCount, pendingApprovals: approvalCount, executions: executionCount },
+    });
   } catch (err) {
     console.error('Health check error', err);
-    res.status(500).json({ status: 'error' });
+    res.status(500).json({ status: 'error', db: 'disconnected' });
   }
 });
 
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/clients', unifiedInboxRoutes);
 app.use('/api/tools', toolRoutes);
@@ -110,6 +134,7 @@ app.use('/api/ai-providers', aiProviderRoutes);
 app.use('/api/ai-execution-logs', aiExecutionLogRoutes);
 app.use('/api/pending-approvals', pendingApprovalRoutes);
 app.use('/api/credits', creditRoutes);
+app.use('/api/ai-processing', aiProcessingRoutes);
 
 // Optional: background inbox sync (BullMQ + Redis). Off by default so the app
 // runs without Redis; enable with INBOX_BACKGROUND_SYNC=true.
@@ -126,8 +151,7 @@ if (process.env.INBOX_BACKGROUND_SYNC === 'true') {
 
 const port = parseInt(process.env.PORT || '4000', 10);
 
-app.listen(port, () => {
-  // eslint-disable-next-line no-console
+server.listen(port, () => {
   console.log(`Backend listening on port ${port}`);
 });
 

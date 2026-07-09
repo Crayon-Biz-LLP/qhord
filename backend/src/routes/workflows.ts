@@ -736,7 +736,22 @@ router.post('/generate-from-prompt', async (req: Request, res: Response) => {
     }
 
     // ── SYNC MODE: generate immediately ─────────────────────────
-    const workflow = await workflowGenerator.generateFromPrompt(prompt, targetClientId);
+    const rawWorkflow = await workflowGenerator.generateFromPrompt(prompt, targetClientId);
+
+    // Map numeric indices to string IDs for frontend compatibility
+    const workflow = {
+      ...rawWorkflow,
+      nodes: rawWorkflow.nodes.map((n, i) => ({
+        ...n,
+        id: `node_${i}`,
+      })),
+      edges: rawWorkflow.edges.map((e) => ({
+        ...e,
+        source: `node_${e.from}`,
+        target: `node_${e.to}`,
+        id: `edge_${e.from}_${e.to}`,
+      })),
+    };
 
     // Get client approval mode
     const client = await prisma.client.findUnique({
@@ -759,7 +774,7 @@ router.post('/generate-from-prompt', async (req: Request, res: Response) => {
             const pending = await prisma.pendingAction.create({
               data: {
                 workflow_id: savedWorkflow.id,
-                campaign_id: campaignId || undefined,
+                campaign_id: savedWorkflow.campaign_id,
                 client_id: targetClientId,
                 action_type: node.tool === 'heyreach' ? 'send_linkedin' : 'send_email',
                 action_label: node.label,
@@ -779,7 +794,7 @@ router.post('/generate-from-prompt', async (req: Request, res: Response) => {
           const pending = await prisma.pendingAction.create({
             data: {
               workflow_id: savedWorkflow.id,
-              campaign_id: campaignId || undefined,
+              campaign_id: savedWorkflow.campaign_id,
               client_id: targetClientId,
               action_type: 'launch_campaign',
               action_label: `Launch "${workflow.name}" campaign`,

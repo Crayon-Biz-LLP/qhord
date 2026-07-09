@@ -7,10 +7,8 @@ import { PlannerMemoryService } from '../services/planner-memory.service';
 const router = Router();
 const plannerMemoryService = new PlannerMemoryService();
 
-// Apply authentication to all routes except /plan and GET /campaigns for testing
 router.use((req, res, next) => {
-  if (req.path === '/plan' || (req.method === 'GET' && req.path === '/')) {
-    // Skip authentication for /plan endpoint and GET campaigns for testing
+  if (req.path === '/plan') {
     return next();
   }
   return requireAuth(req, res, next);
@@ -155,23 +153,11 @@ router.post('/plan', async (req: Request, res: Response) => {
  */
 router.get('/', async (req: Request, res: Response) => {
   try {
-    // For testing without auth, get all campaigns or use test user
-    let operatorId = req.user?.id;
-    
-    if (!operatorId) {
-      // Get test user for demo
-      let testOperator = await prisma.operator.findFirst({
-        where: { email: 'demo@example.com' }
-      });
-      
-      if (testOperator) {
-        operatorId = testOperator.id;
-      }
-    }
+    const operatorId = req.user!.id;
 
     const campaigns = await prisma.campaign.findMany({
       where: {
-        ...(operatorId ? { created_by_operator_id: operatorId } : {}),
+        created_by_operator_id: operatorId,
         status: {
           not: 'workflow_template'
         }

@@ -1,6 +1,7 @@
 import { AiProvider, AiProviderConfig, AiChatRequest, AiChatResponse } from './ai-provider.interface';
 import { ClaudeProvider } from './claude.provider';
 import { OpenAIProvider } from './openai.provider';
+import { GroqProvider } from './groq.provider';
 import { MockProvider } from './mock.provider';
 import { prisma } from '../../lib/prisma';
 import { creditWallet } from '../../services/credit-wallet.service';
@@ -13,11 +14,12 @@ interface AiLogContext {
   execution_id?: string;
 }
 
-export type ProviderName = 'anthropic' | 'openai' | 'google';
+export type ProviderName = 'anthropic' | 'openai' | 'google' | 'groq';
 
 const PROVIDER_MAP: Record<string, new () => AiProvider> = {
   anthropic: ClaudeProvider,
   openai: OpenAIProvider,
+  groq: GroqProvider,
   mock: MockProvider,
 };
 
@@ -27,7 +29,10 @@ export class AiProviderFactory {
   private static getEffectiveProvider(): string {
     const mode = process.env.EXECUTION_MODE || 'auto';
     if (mode === 'mock') return 'mock';
-    return mode === 'live' ? 'anthropic' : 'anthropic';
+    if (process.env.GROQ_API_KEY) return 'groq';
+    if (process.env.OPENAI_API_KEY) return 'openai';
+    if (process.env.ANTHROPIC_API_KEY) return 'anthropic';
+    return 'mock';
   }
 
   static getProvider(name: string): AiProvider {
@@ -64,6 +69,7 @@ export class AiProviderFactory {
       anthropic: 'ANTHROPIC_API_KEY',
       openai: 'OPENAI_API_KEY',
       google: 'GOOGLE_API_KEY',
+      groq: 'GROQ_API_KEY',
     };
 
     const envKey = envVarMap[providerName];
@@ -77,6 +83,7 @@ export class AiProviderFactory {
       anthropic: 'claude-sonnet-4-20260506',
       openai: 'gpt-4o',
       google: 'gemini-2.0-flash',
+      groq: 'llama-3.3-70b-versatile',
     };
 
     return {

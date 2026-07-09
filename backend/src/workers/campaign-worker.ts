@@ -7,6 +7,7 @@ import { emptyPipelineContext, type ManifestStepLike } from '../ai/pipeline/pipe
 import type { ToolName } from '../types';
 import { mergePipelineContext } from '../ai/pipeline/pipeline-leads';
 import { findToolAccount } from '../ai/pipeline/ensure-tool-accounts';
+import { creditWallet } from '../services/credit-wallet.service';
 
 const CREDIT_COST: Record<string, number> = {
   hunter: 2,
@@ -208,6 +209,10 @@ export class CampaignWorker {
     clientId: string,
     campaignId: string
   ) {
+    // Pre-flight credit check
+    const cost = CREDIT_COST[resolved.tool] || 1;
+    await creditWallet.ensureSufficient(clientId, cost.toString());
+
     const toolAccount = await findToolAccount(clientId, resolved.tool);
 
     if (!toolAccount) {
