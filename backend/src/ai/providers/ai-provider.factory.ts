@@ -1,4 +1,4 @@
-import { AiProvider, AiProviderConfig, AiChatRequest, AiChatResponse } from './ai-provider.interface';
+import { AiProvider, AiProviderConfig, AiChatRequest, AiChatResponse, AiChatMessage } from './ai-provider.interface';
 import { ClaudeProvider } from './claude.provider';
 import { OpenAIProvider } from './openai.provider';
 import { GroqProvider } from './groq.provider';
@@ -12,6 +12,13 @@ interface AiLogContext {
   workspace_id?: string;
   lead_id?: string;
   execution_id?: string;
+}
+
+interface MemoryContextResult {
+  recentConversations: { role: string; content: string; createdAt: Date }[];
+  preferences: Record<string, any>;
+  feedbackSummary: { avgRating: number; recentComments: string[] };
+  campaignStats: { total: number; completed: number; failed: number };
 }
 
 export type ProviderName = 'anthropic' | 'openai' | 'google' | 'groq';
@@ -92,6 +99,84 @@ export class AiProviderFactory {
     };
   }
 
+  private static async loadMemoryContext(workspaceId: string): Promise<MemoryContextResult> {
+    const operators = await prisma.operator.findMany({ where: { workspace_id: workspaceId } });
+    const operatorIds = operators.map((o) => o.id);
+
+    const [conversations, agentMemory, feedbackLogs, campaigns] = await Promise.all([
+      prisma.conversationMemory.findMany({
+        where: { workspace_id: workspaceId },
+        orderBy: { created_at: 'desc' },
+        take: 20,
+      }),
+      prisma.agentMemory.findMany({
+        where: { workspace_id: workspaceId, category: 'preference' },
+      }),
+      prisma.feedbackLog.findMany({
+        where: { operator_id: { in: operatorIds } },
+        orderBy: { created_at: 'desc' },
+        take: 20,
+      }),
+      prisma.campaign.findMany({
+        where: { created_by_operator_id: { in: operatorIds } },
+        select: { status: true },
+      }),
+    ]);
+
+    const preferences: Record<string, any> = {};
+    for (const p of agentMemory) preferences[p.key] = p.value;
+
+    const ratings = feedbackLogs.filter((f) => f.rating).map((f) => f.rating);
+    const avgRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
+
+    return {
+      recentConversations: conversations.map((c) => ({
+        role: c.role,
+        content: c.content,
+        createdAt: c.created_at,
+      })),
+      preferences,
+      feedbackSummary: {
+        avgRating: Math.round(avgRating * 10) / 10,
+        recentComments: feedbackLogs.filter((f) => f.comment).slice(0, 5).map((f) => f.comment!),
+      },
+      campaignStats: {
+        total: campaigns.length,
+        completed: campaigns.filter((c) => c.status === 'completed').length,
+        failed: campaigns.filter((c) => c.status === 'failed').length,
+      },
+    };
+  }
+
+  private static buildMemorySystemPrompt(memoryContext: MemoryContextResult): string {
+    const lines: string[] = [];
+
+    if (memoryContext.preferences && Object.keys(memoryContext.preferences).length > 0) {
+      lines.push('User preferences:');
+      for (const [key, value] of Object.entries(memoryContext.preferences)) {
+        lines.push(`  - ${key}: ${typeof value === 'string' ? value : JSON.stringify(value)}`);
+      }
+    }
+
+    if (memoryContext.recentConversations.length > 0) {
+      lines.push('Recent conversation context:');
+      for (const conv of memoryContext.recentConversations.slice(0, 10)) {
+        lines.push(`  [${conv.role}]: ${conv.content.substring(0, 200)}`);
+      }
+    }
+
+    if (memoryContext.feedbackSummary.avgRating > 0) {
+      lines.push(`Average feedback rating: ${memoryContext.feedbackSummary.avgRating}/5`);
+    }
+
+    if (memoryContext.campaignStats.total > 0) {
+      lines.push(`Campaign stats: ${memoryContext.campaignStats.total} total, ${memoryContext.campaignStats.completed} completed, ${memoryContext.campaignStats.failed} failed`);
+    }
+
+    if (lines.length === 0) return '';
+    return '\n\n[Memory Context]\n' + lines.join('\n');
+  }
+
   static async chat(
     providerName: string,
     request: AiChatRequest,
@@ -103,21 +188,37 @@ export class AiProviderFactory {
     const config = { ...(await this.getConfig(resolvedName)), ...configOverride };
     const start = Date.now();
 
-    // Check & deduct credits before calling provider
+    let enrichedRequest = { ...request };
+
+    if (logContext?.workspace_id) {
+      try {
+        const memoryContext = await this.loadMemoryContext(logContext.workspace_id);
+        const memoryPrompt = this.buildMemorySystemPrompt(memoryContext);
+
+        if (memoryPrompt) {
+          enrichedRequest = {
+            ...request,
+            system: (request.system || '') + memoryPrompt,
+          };
+        }
+      } catch (err) {
+        console.error('Failed to load memory context:', err);
+      }
+    }
+
     if (logContext?.client_id) {
       await creditWallet.ensureSufficient(logContext.client_id, config.model);
     }
     try {
-      const response = await provider.chat(request, config);
+      const response = await provider.chat(enrichedRequest, config);
       const latency = Date.now() - start;
 
-      // Log AI execution
       if (prisma) {
         prisma.aiExecutionLog.create({
           data: {
             provider_id: resolvedName === 'mock' ? 'mock' : (await this.getProviderId(resolvedName)),
             model: config.model,
-            prompt: request.system ? `${request.system}\n\n${request.messages.map(m => `${m.role}: ${m.content}`).join('\n')}` : request.messages.map(m => `${m.role}: ${m.content}`).join('\n'),
+            prompt: enrichedRequest.system ? `${enrichedRequest.system}\n\n${enrichedRequest.messages.map(m => `${m.role}: ${m.content}`).join('\n')}` : enrichedRequest.messages.map(m => `${m.role}: ${m.content}`).join('\n'),
             response: response.content.substring(0, 2000),
             input_tokens: response.usage?.inputTokens ?? null,
             output_tokens: response.usage?.outputTokens ?? null,
@@ -132,7 +233,6 @@ export class AiProviderFactory {
         }).catch((e: Error) => console.error('Failed to log AI execution:', e.message));
       }
 
-      // Deduct credits after successful call
       if (logContext?.client_id) {
         creditWallet.deduct(logContext.client_id, config.model, {
           description: `AI ${resolvedName} chat (${config.model})`,
@@ -147,13 +247,12 @@ export class AiProviderFactory {
     } catch (error) {
       const latency = Date.now() - start;
 
-      // Log failed execution
       if (prisma) {
         prisma.aiExecutionLog.create({
           data: {
             provider_id: resolvedName === 'mock' ? 'mock' : (await this.getProviderId(resolvedName)),
             model: config.model,
-            prompt: request.system ? `${request.system}\n\n${request.messages.map(m => `${m.role}: ${m.content}`).join('\n')}` : request.messages.map(m => `${m.role}: ${m.content}`).join('\n'),
+            prompt: enrichedRequest.system ? `${enrichedRequest.system}\n\n${enrichedRequest.messages.map(m => `${m.role}: ${m.content}`).join('\n')}` : enrichedRequest.messages.map(m => `${m.role}: ${m.content}`).join('\n'),
             response: null,
             latency_ms: latency,
             status: 'failed',

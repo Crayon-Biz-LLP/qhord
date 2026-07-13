@@ -252,6 +252,8 @@ model Campaign {
   queue     ExecutionQueue?
   leads     Lead[]
   workflows CampaignWorkflow[]
+  ab_variants AbTestVariant[]
+  score       CampaignScore?
 
   @@map("campaigns")
 }
@@ -752,5 +754,108 @@ model MemoryConsolidation {
 
   @@index([workspace_id, started_at])
   @@map("memory_consolidations")
+}
+
+// ── AI ENGINE — Phase 6 (A/B Testing, Predictive Scoring, Confidence Routing) ──
+
+/// A/B test comparing two campaign variants
+model AbTest {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspace_id    String   @db.Uuid
+  name            String
+  description     String?
+  status          String   @default("draft") // draft / running / completed / cancelled
+  variant_a_name  String   @default("Variant A")
+  variant_b_name  String   @default("Variant B")
+  variant_a_config Json    // campaign config for variant A
+  variant_b_config Json    // campaign config for variant B
+  winner          String?  // "a" | "b" | null
+  confidence_level Float?  // statistical confidence (0-1)
+  started_at      DateTime? @db.Timestamptz(6)
+  completed_at    DateTime? @db.Timestamptz(6)
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  variants       AbTestVariant[]
+  metrics        AbTestMetric[]
+
+  @@index([workspace_id])
+  @@map("ab_tests")
+}
+
+/// Individual variant within an A/B test
+model AbTestVariant {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  test_id         String   @db.Uuid
+  test            AbTest   @relation(fields: [test_id], references: [id], onDelete: Cascade)
+  variant_key     String   // "a" or "b"
+  campaign_id     String?  @db.Uuid
+  campaign        Campaign? @relation(fields: [campaign_id], references: [id], onDelete: SetNull)
+  leads_assigned  Int      @default(0)
+  emails_sent     Int      @default(0)
+  opens           Int      @default(0)
+  replies         Int      @default(0)
+  conversions     Int      @default(0)
+  bounce_rate     Float    @default(0)
+  reply_rate      Float    @default(0)
+  open_rate       Float    @default(0)
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([test_id, variant_key])
+  @@map("ab_test_variants")
+}
+
+/// Metrics snapshot for A/B test
+model AbTestMetric {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  test_id         String   @db.Uuid
+  test            AbTest   @relation(fields: [test_id], references: [id], onDelete: Cascade)
+  variant_key     String   // "a" or "b"
+  metric_name     String   // "open_rate", "reply_rate", "conversion_rate"
+  metric_value    Float
+  sample_size     Int
+  confidence      Float?
+  recorded_at     DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([test_id, variant_key])
+  @@map("ab_test_metrics")
+}
+
+/// Predictive scoring for campaigns
+model CampaignScore {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  campaign_id     String   @unique @db.Uuid
+  campaign        Campaign @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
+  overall_score   Int      // 0-100
+  confidence      Float    // 0-1
+  deliverability_score Int  @default(0) // 0-100
+  engagement_score     Int  @default(0) // 0-100
+  conversion_score     Int  @default(0) // 0-100
+  risk_score           Int  @default(0) // 0-100 (lower = less risk)
+  recommendations Json   // array of improvement suggestions
+  scored_at       DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@map("campaign_scores")
+}
+
+/// Provider performance tracking for confidence-based routing
+model ProviderPerformance {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  provider_name   String   // "groq", "openai", "anthropic"
+  task_type       String   // "email_generation", "enrichment", "scoring", "classification"
+  total_calls     Int      @default(0)
+  success_count   Int      @default(0)
+  failure_count   Int      @default(0)
+  avg_latency_ms  Float    @default(0)
+  avg_quality_score Float  @default(0) // from feedback (1-5)
+  avg_cost_credits Float   @default(0)
+  last_call_at    DateTime? @db.Timestamptz(6)
+  confidence      Float    @default(0.5) // rolling confidence score
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@unique([provider_name, task_type])
+  @@map("provider_performance")
 }
 
