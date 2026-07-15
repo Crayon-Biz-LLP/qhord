@@ -5,6 +5,7 @@ import { GroqProvider } from './groq.provider';
 import { MockProvider } from './mock.provider';
 import { prisma } from '../../lib/prisma';
 import { creditWallet } from '../../services/credit-wallet.service';
+import { clientAiKeyService } from '../../services/client-ai-key.service';
 
 interface AiLogContext {
   client_id?: string;
@@ -57,11 +58,29 @@ export class AiProviderFactory {
     return instance;
   }
 
-  static async getConfig(providerName: string): Promise<AiProviderConfig> {
+  static async getConfig(providerName: string, clientId?: string): Promise<AiProviderConfig> {
     if (providerName === 'mock') {
       return { apiKey: 'mock', model: 'mock' };
     }
 
+    // Check if client has their own key (Bring Your Own Key)
+    if (clientId) {
+      const clientKey = await clientAiKeyService.getKey(clientId, providerName);
+      if (clientKey) {
+        const defaultModels: Record<string, string> = {
+          anthropic: 'claude-sonnet-4-20260506',
+          openai: 'gpt-4o',
+          google: 'gemini-2.0-flash',
+          groq: 'llama-3.3-70b-versatile',
+        };
+        return {
+          apiKey: clientKey,
+          model: defaultModels[providerName] || 'llama-3.3-70b-versatile',
+        };
+      }
+    }
+
+    // Fallback to platform keys
     const dbConfig = await prisma.aiProvider.findUnique({ where: { name: providerName } });
 
     if (dbConfig?.api_key_encrypted) {
@@ -185,8 +204,13 @@ export class AiProviderFactory {
   ): Promise<AiChatResponse> {
     const resolvedName = providerName === 'auto' ? this.getEffectiveProvider() : providerName;
     const provider = this.getProvider(resolvedName);
-    const config = { ...(await this.getConfig(resolvedName)), ...configOverride };
+    const config = { ...(await this.getConfig(resolvedName, logContext?.client_id)), ...configOverride };
     const start = Date.now();
+
+    // Check if client is using their own key (no credit deduction needed)
+    const isUsingClientKey = logContext?.client_id
+      ? await clientAiKeyService.hasKey(logContext.client_id, resolvedName)
+      : false;
 
     let enrichedRequest = { ...request };
 
@@ -206,7 +230,8 @@ export class AiProviderFactory {
       }
     }
 
-    if (logContext?.client_id) {
+    // Only check credits if using platform key (not client's own key)
+    if (logContext?.client_id && !isUsingClientKey) {
       await creditWallet.ensureSufficient(logContext.client_id, config.model);
     }
     try {
@@ -223,7 +248,7 @@ export class AiProviderFactory {
             input_tokens: response.usage?.inputTokens ?? null,
             output_tokens: response.usage?.outputTokens ?? null,
             latency_ms: latency,
-            cost_credits: Math.ceil(latency / 100),
+            cost_credits: isUsingClientKey ? 0 : Math.ceil(latency / 100),
             status: 'success',
             client_id: logContext?.client_id ?? null,
             campaign_id: logContext?.campaign_id ?? null,
@@ -233,7 +258,8 @@ export class AiProviderFactory {
         }).catch((e: Error) => console.error('Failed to log AI execution:', e.message));
       }
 
-      if (logContext?.client_id) {
+      // Only deduct credits if using platform key (not client's own key)
+      if (logContext?.client_id && !isUsingClientKey) {
         creditWallet.deduct(logContext.client_id, config.model, {
           description: `AI ${resolvedName} chat (${config.model})`,
           tool_name: resolvedName,

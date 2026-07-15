@@ -118,6 +118,215 @@ const BrandBrainPanel = () => {
    );
 };
 
+const ClientAiKeyPanel = () => {
+   const [clientId, setClientId] = useState<string | null>(null);
+   const [keys, setKeys] = useState<any[]>([]);
+   const [loading, setLoading] = useState(true);
+   const [saving, setSaving] = useState(false);
+   const [selectedProvider, setSelectedProvider] = useState('openai');
+   const [apiKeyInput, setApiKeyInput] = useState('');
+   const [showKey, setShowKey] = useState(false);
+   const [status, setStatus] = useState<any>(null);
+   const [toast, setToast] = useState<string | null>(null);
+
+   const providers = [
+      { id: 'openai', name: 'OpenAI', model: 'GPT-4o', color: '#10a37f' },
+      { id: 'groq', name: 'Groq', model: 'Llama 3.3 70B', color: '#f55036' },
+      { id: 'anthropic', name: 'Anthropic', model: 'Claude Sonnet', color: '#d4a574' },
+      { id: 'gemini', name: 'Google Gemini', model: 'Gemini 2.0 Flash', color: '#4285f4' },
+   ];
+
+   useEffect(() => {
+      async function load() {
+         try {
+            const clientRes = await api.get('/clients');
+            const clients = clientRes.data?.clients || [];
+            if (clients.length > 0) {
+               const cid = clients[0].id;
+               setClientId(cid);
+               const [keysRes, statusRes] = await Promise.all([
+                  api.get(`/client-ai-keys/${cid}`),
+                  api.get(`/client-ai-keys/${cid}/status`),
+               ]);
+               setKeys(keysRes.data?.keys || []);
+               setStatus(statusRes.data);
+            }
+         } catch (err) {
+            console.error('Failed to load AI keys', err);
+         } finally {
+            setLoading(false);
+         }
+      }
+      load();
+   }, []);
+
+   const handleAddKey = async () => {
+      if (!clientId || !apiKeyInput.trim()) return;
+      setSaving(true);
+      try {
+         await api.post(`/client-ai-keys/${clientId}`, {
+            providerName: selectedProvider,
+            apiKey: apiKeyInput.trim(),
+         });
+         setApiKeyInput('');
+         setToast(`${providers.find(p => p.id === selectedProvider)?.name} key added!`);
+         setTimeout(() => setToast(null), 3000);
+         // Reload
+         const [keysRes, statusRes] = await Promise.all([
+            api.get(`/client-ai-keys/${clientId}`),
+            api.get(`/client-ai-keys/${clientId}/status`),
+         ]);
+         setKeys(keysRes.data?.keys || []);
+         setStatus(statusRes.data);
+      } catch (err) {
+         setToast('Failed to add key');
+         setTimeout(() => setToast(null), 3000);
+      } finally {
+         setSaving(false);
+      }
+   };
+
+   const handleDeleteKey = async (provider: string) => {
+      if (!clientId) return;
+      try {
+         await api.delete(`/client-ai-keys/${clientId}/${provider}`);
+         setToast(`${provider} key removed`);
+         setTimeout(() => setToast(null), 3000);
+         const [keysRes, statusRes] = await Promise.all([
+            api.get(`/client-ai-keys/${clientId}`),
+            api.get(`/client-ai-keys/${clientId}/status`),
+         ]);
+         setKeys(keysRes.data?.keys || []);
+         setStatus(statusRes.data);
+      } catch (err) {
+         setToast('Failed to delete key');
+         setTimeout(() => setToast(null), 3000);
+      }
+   };
+
+   return (
+      <div className="bg-white border border-[#1a1510]/5 rounded-2xl p-7 space-y-6 shadow-sm">
+         <div className="space-y-1">
+            <h3 className="text-[12px] font-bold text-[#1a1510] tracking-[0.2em] uppercase">Bring Your Own AI Key</h3>
+            <p className="text-[10px] font-bold text-[#1a1510]/30 uppercase tracking-widest">
+               Connect your own API key — you pay your AI provider directly, no platform credits used
+            </p>
+         </div>
+
+         {loading ? (
+            <div className="flex items-center justify-center py-8">
+               <Loader2 size={20} className="animate-spin text-[#1a1510]/30" />
+            </div>
+         ) : (
+            <>
+               {/* Status Banner */}
+               {status && (
+                  <div className={`p-4 rounded-xl border ${status.usesPlatformKey ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'}`}>
+                     <div className="flex items-center gap-2">
+                        {status.usesPlatformKey ? (
+                           <AlertTriangle size={16} className="text-amber-600" />
+                        ) : (
+                           <Check size={16} className="text-emerald-600" />
+                        )}
+                        <span className={`text-[12px] font-semibold ${status.usesPlatformKey ? 'text-amber-700' : 'text-emerald-700'}`}>
+                           {status.usesPlatformKey
+                              ? `Using platform AI credits (default: ${status.defaultProvider || 'groq'})`
+                              : `Using your own ${status.defaultProvider} key — no credits deducted`
+                           }
+                        </span>
+                     </div>
+                  </div>
+               )}
+
+               {/* Connected Keys */}
+               <div className="space-y-3">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#1a1510]/30">Connected Keys</span>
+                  <div className="grid grid-cols-2 gap-3">
+                     {providers.map((provider) => {
+                        const isConnected = status?.providers?.[provider.id]?.connected;
+                        return (
+                           <div key={provider.id} className={`p-4 rounded-xl border ${isConnected ? 'bg-[#fafbfc] border-[#1a1510]/10' : 'bg-white border-dashed border-[#1a1510]/10'}`}>
+                              <div className="flex items-center justify-between">
+                                 <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${provider.color}15` }}>
+                                       <span className="text-[11px] font-bold" style={{ color: provider.color }}>{provider.name[0]}</span>
+                                    </div>
+                                    <div>
+                                       <p className="text-[12px] font-bold text-[#1a1510]">{provider.name}</p>
+                                       <p className="text-[10px] font-medium text-[#1a1510]/40">{provider.model}</p>
+                                    </div>
+                                 </div>
+                                 {isConnected ? (
+                                    <button
+                                       onClick={() => handleDeleteKey(provider.id)}
+                                       className="text-[10px] font-bold text-red-500 hover:text-red-600 uppercase tracking-widest"
+                                    >
+                                       Remove
+                                    </button>
+                                 ) : (
+                                    <span className="text-[10px] font-medium text-[#1a1510]/30">Not connected</span>
+                                 )}
+                              </div>
+                           </div>
+                        );
+                     })}
+                  </div>
+               </div>
+
+               {/* Add New Key */}
+               <div className="space-y-3 pt-4 border-t border-[#1a1510]/5">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#1a1510]/30">Add New Key</span>
+                  <div className="flex gap-3">
+                     <div className="relative w-48">
+                        <select
+                           value={selectedProvider}
+                           onChange={(e) => setSelectedProvider(e.target.value)}
+                           className="w-full h-11 bg-[#f7f8f9] border border-[#1a1510]/5 rounded-xl px-4 text-[13px] font-medium text-[#1a1510] outline-none appearance-none focus:border-[#b99b7b]/30 transition-all"
+                        >
+                           {providers.map((p) => (
+                              <option key={p.id} value={p.id}>{p.name}</option>
+                           ))}
+                        </select>
+                        <ChevronRight size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#1a1510]/20 rotate-90" />
+                     </div>
+                     <div className="flex-1 relative">
+                        <input
+                           type={showKey ? 'text' : 'password'}
+                           value={apiKeyInput}
+                           onChange={(e) => setApiKeyInput(e.target.value)}
+                           placeholder="Paste your API key..."
+                           className="w-full h-11 px-4 pr-10 bg-[#f7f8f9] border border-[#1a1510]/5 rounded-xl text-[13px] font-medium text-[#1a1510] outline-none focus:border-[#b99b7b]/30 transition-all"
+                        />
+                        <button
+                           onClick={() => setShowKey(!showKey)}
+                           className="absolute right-3 top-1/2 -translate-y-1/2 text-[#1a1510]/30 hover:text-[#1a1510]/60"
+                        >
+                           {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                     </div>
+                     <button
+                        onClick={handleAddKey}
+                        disabled={saving || !apiKeyInput.trim()}
+                        className="h-11 px-6 bg-[#1a1510] text-[#b99b7b] rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-lg shadow-black/10 hover:-translate-y-0.5 transition-all disabled:opacity-50 flex items-center gap-2"
+                     >
+                        {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                        Add Key
+                     </button>
+                  </div>
+               </div>
+
+               {/* Toast */}
+               {toast && (
+                  <div className="fixed bottom-6 right-6 bg-[#1a1510] text-white px-5 py-3 rounded-xl text-[13px] font-medium shadow-2xl z-50">
+                     {toast}
+                  </div>
+               )}
+            </>
+         )}
+      </div>
+   );
+};
+
 export default function SettingsPage() {
    const { refreshUser } = useAuth();
    const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
@@ -984,6 +1193,9 @@ export default function SettingsPage() {
 
                          {/* ── Brand Brain ── */}
                          <BrandBrainPanel />
+
+                         {/* ── Bring Your Own AI Key ── */}
+                         <ClientAiKeyPanel />
                       </motion.div>
                    )}
 
