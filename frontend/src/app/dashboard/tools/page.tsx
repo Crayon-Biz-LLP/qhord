@@ -8,7 +8,8 @@ import {
    CheckCircle, Sparkles, Bot, Box, MoreVertical, Star,
    Smartphone, MapPin, Briefcase, Globe, ExternalLink, RefreshCw,
    Database, Zap as ZapIcon, Shield, ChevronRight, Download, Settings,
-   Cpu, Layout, Layers, Link as LinkIcon, UserPlus, Send
+   Cpu, Layout, Layers, Link as LinkIcon, UserPlus, Send,
+   Loader2, X
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -29,6 +30,7 @@ interface ToolItem {
    isConnected: boolean;
    syncStat?: string;
    icon: any;
+   accountId?: string;
 }
 
 // --- Icons Mapper ---
@@ -77,39 +79,74 @@ export default function ToolsPage() {
       setTimeout(() => setToastMessage(null), 3000);
    };
 
-   const fetchData = useCallback(async () => {
-      if (isClientLoading) return;
-      
-      setLoading(true);
-      try {
-         // 1. Fetch all supported tools from backend
-         const toolsRes = await api.get("/tools");
-         const baseTools = toolsRes.data.tools;
+    const fetchData = useCallback(async () => {
+       if (isClientLoading) return;
+       
+       setLoading(true);
+       try {
+          // 1. Fetch all supported tools from backend
+          const toolsRes = await api.get("/tools");
+          const baseTools = toolsRes.data.tools;
 
-         let connectedToolNames = new Set<string>();
+          let connectedToolNames = new Set<string>();
+          let toolStatuses: Record<string, string> = {};
+          let accountIds: Record<string, string> = {};
 
-         // 2. Fetch connected accounts for the SELECTED client
-         if (selectedClient) {
-             const accountsRes = await api.get(`/tools/accounts/${selectedClient.id}`);
-             connectedToolNames = new Set(accountsRes.data.accounts.map((a: any) => a.tool_name));
-         }
+          // 2. Fetch connected accounts for the SELECTED client
+          if (selectedClient) {
+              const accountsRes = await api.get(`/tools/accounts/${selectedClient.id}`);
+              accountsRes.data.accounts.forEach((a: any) => {
+                  connectedToolNames.add(a.tool_name);
+                  toolStatuses[a.tool_name] = a.status || "connected";
+                  accountIds[a.tool_name] = a.id;
+              });
+          }
 
-         // 3. Merge info
-         const mergedTools: ToolItem[] = baseTools.map((t: any) => ({
-            ...t,
-            isConnected: connectedToolNames.has(t.id),
-            status: t.status || 'active',
-            icon: TOOL_ICONS[t.id] || Box,
-            syncStat: connectedToolNames.has(t.id) ? "Connected" : undefined
-         }));
+          // 3. Merge info
+          const mergedTools: ToolItem[] = baseTools.map((t: any) => ({
+             ...t,
+             isConnected: connectedToolNames.has(t.id),
+             status: t.status || 'active',
+             icon: TOOL_ICONS[t.id] || Box,
+             syncStat: toolStatuses[t.id] ? toolStatuses[t.id] : undefined,
+             accountId: accountIds[t.id]
+          }));
 
-         setTools(mergedTools);
-      } catch (err) {
-         console.error("Failed to fetch tools", err);
-      } finally {
-         setLoading(false);
-      }
-   }, [selectedClient, isClientLoading]);
+          setTools(mergedTools);
+       } catch (err) {
+          console.error("Failed to fetch tools", err);
+       } finally {
+          setLoading(false);
+       }
+    }, [selectedClient, isClientLoading]);
+
+    const [testingIds, setTestingIds] = useState<string[]>([]);
+
+    const handleTestConnection = async (accountId: string, toolId: string) => {
+       setTestingIds((prev) => [...prev, accountId]);
+       try {
+          await api.post(`/tools/accounts/${accountId}/test`);
+          showToast(`${toolId.toUpperCase()} connection test successful!`);
+          fetchData();
+       } catch (err: any) {
+          const msg = err.response?.data?.message || "Connection failed. Please check credentials.";
+          showToast(`${toolId.toUpperCase()} connection test failed: ${msg}`);
+          fetchData();
+       } finally {
+          setTestingIds((prev) => prev.filter((id) => id !== accountId));
+       }
+    };
+
+    const handleDisconnect = async (accountId: string, toolId: string) => {
+       if (!confirm(`Are you sure you want to disconnect ${toolId.toUpperCase()}?`)) return;
+       try {
+          await api.delete(`/tools/accounts/${accountId}`);
+          showToast(`${toolId.toUpperCase()} disconnected successfully.`);
+          fetchData();
+       } catch (err: any) {
+          showToast(`Failed to disconnect ${toolId.toUpperCase()}`);
+       }
+    };
 
    useEffect(() => {
       fetchData();
@@ -246,8 +283,21 @@ export default function ToolsPage() {
                                  </div>
                               </div>
                               {tool.isConnected && (
-                                 <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-emerald-600 shrink-0 mt-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live
+                                 <span className={`inline-flex items-center gap-1.5 text-[10px] font-medium shrink-0 mt-1 ${
+                                   tool.syncStat === "invalid" 
+                                     ? "text-red-600" 
+                                     : tool.syncStat === "expired"
+                                     ? "text-amber-600"
+                                     : "text-emerald-600"
+                                 }`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${
+                                      tool.syncStat === "invalid"
+                                        ? "bg-red-500 animate-pulse"
+                                        : tool.syncStat === "expired"
+                                        ? "bg-amber-500 animate-pulse"
+                                        : "bg-emerald-500 animate-pulse"
+                                    }`} /> 
+                                    {tool.syncStat === "invalid" ? "Invalid" : tool.syncStat === "expired" ? "Expired" : "Live"}
                                  </span>
                               )}
                            </div>
@@ -260,12 +310,28 @@ export default function ToolsPage() {
                            {/* Action */}
                            <div className="mt-5">
                               {tool.isConnected ? (
-                                 <div className="flex gap-2">
-                                    <button className="btn-shine btn-shine-dark flex-1 h-10 rounded-none border border-[#1a1510]/10 text-[#1a1510] text-xs font-semibold hover:bg-[#1a1510]/[0.02] transition-colors">
-                                       Manage
+                                 <div className="flex gap-2 w-full">
+                                    <button 
+                                       onClick={() => handleTestConnection(tool.accountId!, tool.id)}
+                                       disabled={testingIds.includes(tool.accountId!)}
+                                       className="btn-shine flex-1 h-10 rounded-none bg-[#1a1510] text-white text-xs font-semibold hover:bg-[#2a2118] transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                    >
+                                       {testingIds.includes(tool.accountId!) ? (
+                                          <>
+                                             <Loader2 size={13} className="animate-spin" /> Testing…
+                                          </>
+                                       ) : (
+                                          <>
+                                             <RefreshCw size={13} /> Test Connection
+                                          </>
+                                       )}
                                     </button>
-                                    <button className="w-10 h-10 rounded-lg bg-[#f7f8f9] border border-[#1a1510]/[0.07] flex items-center justify-center text-[#1a1510]/40 hover:text-[#1a1510] transition-colors shrink-0">
-                                       <ChevronRight size={17} />
+                                    <button 
+                                       onClick={() => handleDisconnect(tool.accountId!, tool.id)}
+                                       className="w-10 h-10 bg-red-50 border border-red-100 text-red-600 hover:bg-red-100 rounded-none flex items-center justify-center transition-colors shrink-0"
+                                       title="Disconnect tool"
+                                    >
+                                       <X size={15} />
                                     </button>
                                  </div>
                               ) : tool.status === 'active' ? (

@@ -1,8 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { requireAuth } from '../middleware/auth';
-import { encrypt } from '../config/encryption';
+import { encrypt, decrypt } from '../config/encryption';
 import { ApolloService } from '../services/apollo.service';
+import { validateToolKey } from '../validators';
 
 const router = Router();
 
@@ -52,6 +53,7 @@ router.get('/accounts/:clientId', async (req: Request, res: Response) => {
         client_id: true,
         tool_name: true,
         account_label: true,
+        status: true,
         created_by_operator_id: true,
         created_at: true
       }
@@ -77,6 +79,14 @@ router.post('/accounts', async (req: Request, res: Response) => {
   }
 
   try {
+    // Validate key before saving
+    try {
+      await validateToolKey(toolName, apiKey);
+    } catch (valErr: any) {
+      res.status(400).json({ success: false, message: valErr.message || 'Invalid API Key' });
+      return;
+    }
+
     const encryptedKey = encrypt(apiKey);
     const account = await prisma.clientToolAccount.create({
       data: {
@@ -84,6 +94,7 @@ router.post('/accounts', async (req: Request, res: Response) => {
         tool_name: toolName,
         account_label: accountLabel,
         api_key_encrypted: encryptedKey,
+        status: 'connected',
         created_by_operator_id: req.user!.id
       },
       select: {
@@ -91,6 +102,7 @@ router.post('/accounts', async (req: Request, res: Response) => {
         client_id: true,
         tool_name: true,
         account_label: true,
+        status: true,
         created_by_operator_id: true,
         created_at: true
       }
@@ -99,6 +111,62 @@ router.post('/accounts', async (req: Request, res: Response) => {
   } catch (err) {
     console.error('Create tool account error', err);
     res.status(500).json({ message: 'Failed to create tool account' });
+  }
+});
+
+router.post('/accounts/:id/test', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  try {
+    const account = await prisma.clientToolAccount.findUnique({
+      where: { id }
+    });
+
+    if (!account) {
+      res.status(404).json({ message: 'Tool account not found' });
+      return;
+    }
+
+    const decryptedKey = decrypt(account.api_key_encrypted);
+    
+    try {
+      await validateToolKey(account.tool_name, decryptedKey);
+      
+      const updated = await prisma.clientToolAccount.update({
+        where: { id },
+        data: { status: 'connected' },
+        select: {
+          id: true,
+          client_id: true,
+          tool_name: true,
+          account_label: true,
+          status: true,
+          created_by_operator_id: true,
+          created_at: true
+        }
+      });
+      
+      res.json({ success: true, message: 'Connection successful', account: updated });
+    } catch (valErr: any) {
+      const errMsg = valErr.message || 'Validation failed';
+      const updated = await prisma.clientToolAccount.update({
+        where: { id },
+        data: { status: 'invalid' },
+        select: {
+          id: true,
+          client_id: true,
+          tool_name: true,
+          account_label: true,
+          status: true,
+          created_by_operator_id: true,
+          created_at: true
+        }
+      });
+      
+      res.status(400).json({ success: false, message: errMsg, account: updated });
+    }
+  } catch (err) {
+    console.error('Test tool account connection error', err);
+    res.status(500).json({ message: 'Failed to test connection' });
   }
 });
 

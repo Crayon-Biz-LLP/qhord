@@ -267,6 +267,8 @@ export default function BuildCampaignPage() {
   const { clients, selectedClient } = useClient();
   const [step, setStep] = useState(0);
   const [campaignId] = useState(() => typeof window !== 'undefined' && window.crypto?.randomUUID ? window.crypto.randomUUID() : 'c' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15));
+  const [connectedTools, setConnectedTools] = useState<string[]>([]);
+  const [fetchingTools, setFetchingTools] = useState(false);
   const [apolloConfigModalOpen, setApolloConfigModalOpen] = useState(false);
   const [checkingConnection, setCheckingConnection] = useState(false);
   const [importingLeads, setImportingLeads] = useState(false);
@@ -364,6 +366,26 @@ export default function BuildCampaignPage() {
       set({ parentAccount: selectedClient.name });
     }
   }, [selectedClient, form.parentAccount]);
+
+  useEffect(() => {
+    async function loadConnectedTools() {
+      if (!selectedClient) {
+        setConnectedTools([]);
+        return;
+      }
+      setFetchingTools(true);
+      try {
+        const res = await api.get(`/tools/accounts/${selectedClient.id}`);
+        const toolNames = res.data.accounts.map((a: any) => a.tool_name.toLowerCase());
+        setConnectedTools(toolNames);
+      } catch (err) {
+        console.error("Failed to load client tool accounts", err);
+      } finally {
+        setFetchingTools(false);
+      }
+    }
+    loadConnectedTools();
+  }, [selectedClient]);
 
   const handleAddManualLead = () => {
     if (!manualName && !manualEmail) return;
@@ -908,7 +930,45 @@ export default function BuildCampaignPage() {
   const replyRate = personalized ? Math.min(34, 8 + emailSteps.length * 6) : 8;
   const spamRisk = emailSteps.some((s) => /free|guarantee|!!!/i.test(s.subject + s.body)) ? 42 : 10;
 
-  const next = () => setStep((s) => Math.min(s + 1, STEPS.length - 1));
+  const validateChannels = (): boolean => {
+    if (!selectedClient) {
+      toast.error("Please select an active client account from the sidebar first.");
+      return false;
+    }
+    const unconnected = form.channels.filter(toolId => {
+      const dbName = toolId.toLowerCase();
+      return !connectedTools.includes(dbName);
+    });
+    
+    if (unconnected.length > 0) {
+      toast.error(`Please connect the following tools in Tools Config first: ${unconnected.join(", ")}`);
+      return false;
+    }
+    return true;
+  };
+
+  const next = () => {
+    if (step === 0) {
+      if (!form.parentAccount) {
+        toast.error("Please select a Parent Account.");
+        return;
+      }
+      if (!form.name.trim()) {
+        toast.error("Please enter a Campaign Name.");
+        return;
+      }
+    }
+    if (step === 1) {
+      if (form.channels.length === 0) {
+        toast.error("Please select at least one Execution Tool (outreach channel).");
+        return;
+      }
+      if (!validateChannels()) {
+        return;
+      }
+    }
+    setStep((s) => Math.min(s + 1, STEPS.length - 1));
+  };
   const back = () => {
     if (step === 0) router.push("/dashboard/campaigns");
     else setStep((s) => s - 1);
@@ -990,7 +1050,28 @@ export default function BuildCampaignPage() {
 
         <div className="flex items-center gap-2.5">
           <button
-            onClick={() => isLast ? handleBuild() : setStep(STEPS.length - 1)}
+            onClick={() => {
+              if (step < 1) {
+                if (!form.parentAccount) {
+                  toast.error("Please select a Parent Account.");
+                  return;
+                }
+                if (!form.name.trim()) {
+                  toast.error("Please enter a Campaign Name.");
+                  return;
+                }
+                setStep(1);
+              } else {
+                if (form.channels.length === 0) {
+                  toast.error("Please select at least one Execution Tool (outreach channel).");
+                  return;
+                }
+                if (validateChannels()) {
+                  if (isLast) handleBuild();
+                  else setStep(STEPS.length - 1);
+                }
+              }
+            }}
             className="h-10 px-5 rounded-full border border-[#1a1510]/15 text-[12px] font-semibold text-[#1a1510] hover:bg-[#f7f8f9] transition-colors"
           >
             Build
@@ -1191,6 +1272,7 @@ export default function BuildCampaignPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       {EXECUTION_TOOLS.map((tool) => {
                         const on = form.channels.includes(tool.id);
+                        const isConnected = connectedTools.includes(tool.id.toLowerCase());
                         return (
                           <button
                             key={tool.id}
@@ -1203,7 +1285,16 @@ export default function BuildCampaignPage() {
                               <tool.icon size={18} />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="text-[14px] font-bold text-[#1a1510] truncate">{tool.id}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="text-[14px] font-bold text-[#1a1510] truncate">{tool.id}</p>
+                                <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                                  isConnected 
+                                    ? "bg-green-50 text-green-700 border border-green-200" 
+                                    : "bg-amber-50 text-amber-700 border border-amber-200"
+                                }`}>
+                                  {isConnected ? "Connected" : "Disconnected"}
+                                </span>
+                              </div>
                               <p className="text-[12px] text-[#1a1510]/45 truncate">{tool.desc}</p>
                             </div>
                             {on && <Check size={16} className="text-brand-gold shrink-0" />}

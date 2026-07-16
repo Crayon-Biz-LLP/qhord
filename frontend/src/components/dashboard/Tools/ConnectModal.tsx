@@ -160,7 +160,7 @@ export const ConnectModal = ({ isOpen, onClose, tool, clientId, onSuccess }: Con
                         >
                            {loading ? (
                               <>
-                                 <Loader2 size={15} className="animate-spin" /> Connecting…
+                                 <Loader2 size={15} className="animate-spin" /> Validating…
                               </>
                            ) : (
                               "Connect"
