@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useClient } from "../../../../contexts/ClientContext";
 import { api } from "../../../../lib/api";
 import { toast } from "sonner";
@@ -13,8 +13,10 @@ import {
   Wand2, Trash2, ArrowLeftRight, X, AlertTriangle, Plus,
   LayoutGrid, UserPlus, GitBranch, Shuffle, GitFork, LogOut, Bot,
   Star, Activity, Eye, ThumbsUp, ListChecks, DollarSign, Bell, Download, Info,
+  Paperclip, Link as LinkIcon
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { ConnectModal } from "../../../../components/dashboard/Tools/ConnectModal";
 
 // ── Step definitions ──────────────────────────────────────────────
 const STEPS = [
@@ -63,15 +65,48 @@ const TIMING_OPTIONS = [
   "Wait 1 day", "Wait 3 days", "Wait 1 week",
 ] as const;
 
-const MESSAGE_VARIABLES = ["{{first_name}}", "{{company}}", "{{title}}"] as const;
+const MESSAGE_VARIABLES = [
+  "{{first_name}}", "{{last_name}}", "{{company_name}}", "{{location}}", "{{job_title}}",
+  "{{sender_name}}", "{{sender_email}}", "{{opt_out_message}}"
+] as const;
+
+const PERSONALIZATION_VARIABLES = {
+  person: [
+    { label: "First Name", value: "{{first_name}}" },
+    { label: "Last Name", value: "{{last_name}}" },
+    { label: "Location", value: "{{location}}" },
+    { label: "Job Title", value: "{{job_title}}" },
+  ],
+  company: [
+    { label: "Company Name", value: "{{company_name}}" },
+  ],
+  sender: [
+    { label: "Name", value: "{{sender_name}}" },
+    { label: "Email", value: "{{sender_email}}" },
+    { label: "Opt-out message", value: "{{opt_out_message}}" },
+  ]
+};
 
 const PREVIEW_SAMPLE: Record<string, string> = {
   "{{first_name}}": "Sarah",
+  "{{last_name}}": "Chen",
+  "{{company_name}}": "Acme Corp",
   "{{company}}": "Acme Corp",
+  "{{location}}": "San Francisco",
+  "{{job_title}}": "VP Sales",
   "{{title}}": "VP Sales",
+  "{{sender_name}}": "Sarah Kim",
+  "{{sender_email}}": "sarah.kim@controltower.ai",
+  "{{opt_out_message}}": "If you'd prefer not to hear from me, just reply and let me know."
 };
 
-type EmailStep = { id: string; timing: string; subject: string; body: string };
+type EmailStep = {
+  id: string;
+  timing: string;
+  subject: string;
+  body: string;
+  attachments?: { name: string; size?: number; type: 'file' | 'link'; url?: string }[];
+};
 
 const WORKFLOW_TEMPLATES = [
   { id: "outbound", name: "Outbound — Email + LinkedIn", desc: "Smartlead + HeyReach + follow-ups", steps: 7 },
@@ -269,6 +304,10 @@ export default function BuildCampaignPage() {
   const [campaignId] = useState(() => typeof window !== 'undefined' && window.crypto?.randomUUID ? window.crypto.randomUUID() : 'c' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15));
   const [connectedTools, setConnectedTools] = useState<string[]>([]);
   const [fetchingTools, setFetchingTools] = useState(false);
+  const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
+  const [connectTool, setConnectTool] = useState<{ id: string; name: string } | null>(null);
+  const [openVariablePopover, setOpenVariablePopover] = useState<{ stepId: string; type: 'email' | 'linkedin' } | null>(null);
+  const [activeVariableTab, setActiveVariableTab] = useState<'person' | 'company' | 'sender'>('person');
   const [apolloConfigModalOpen, setApolloConfigModalOpen] = useState(false);
   const [checkingConnection, setCheckingConnection] = useState(false);
   const [importingLeads, setImportingLeads] = useState(false);
@@ -367,25 +406,28 @@ export default function BuildCampaignPage() {
     }
   }, [selectedClient, form.parentAccount]);
 
-  useEffect(() => {
-    async function loadConnectedTools() {
-      if (!selectedClient) {
-        setConnectedTools([]);
-        return;
-      }
-      setFetchingTools(true);
-      try {
-        const res = await api.get(`/tools/accounts/${selectedClient.id}`);
-        const toolNames = res.data.accounts.map((a: any) => a.tool_name.toLowerCase());
-        setConnectedTools(toolNames);
-      } catch (err) {
-        console.error("Failed to load client tool accounts", err);
-      } finally {
-        setFetchingTools(false);
-      }
+  const loadConnectedTools = useCallback(async () => {
+    if (!selectedClient) {
+      setConnectedTools([]);
+      return;
     }
-    loadConnectedTools();
+    setFetchingTools(true);
+    try {
+      const res = await api.get(`/tools/accounts/${selectedClient.id}`);
+      const toolNames = res.data.accounts
+        .filter((a: any) => a.account_label !== 'Auto (mock-ready)')
+        .map((a: any) => a.tool_name.toLowerCase());
+      setConnectedTools(toolNames);
+    } catch (err) {
+      console.error("Failed to load client tool accounts", err);
+    } finally {
+      setFetchingTools(false);
+    }
   }, [selectedClient]);
+
+  useEffect(() => {
+    loadConnectedTools();
+  }, [loadConnectedTools]);
 
   const handleAddManualLead = () => {
     if (!manualName && !manualEmail) return;
@@ -410,8 +452,13 @@ export default function BuildCampaignPage() {
     let result = text;
     
     let firstName = "Sarah";
+    let lastName = "Chen";
     let company = "Acme Corp";
     let title = "VP Sales";
+    let location = "San Francisco";
+    let senderName = form.owner || "Sarah Kim";
+    let senderEmail = "sarah.kim@controltower.ai";
+    let optOutMessage = "If you'd prefer not to hear from me, just reply and let me know.";
     
     if (leads.length > 0) {
       const firstLead = leads[0];
@@ -428,8 +475,10 @@ export default function BuildCampaignPage() {
       }
       
       firstName = rawFirstName || (firstLead.name || "").split(" ")[0] || "Prospect";
+      lastName = (firstLead.name || "").split(" ").slice(1).join(" ") || "Chen";
       company = firstLead.company || "Company";
       title = firstLead.title || "Prospect";
+      location = firstLead.raw?.location || firstLead.raw?.Location || "San Francisco";
       
       if (firstLead.raw) {
         Object.entries(firstLead.raw).forEach(([k, v]) => {
@@ -441,15 +490,41 @@ export default function BuildCampaignPage() {
       }
     }
     
+    // Fallback/standard replacements
     result = result.split("{{first_name}}").join(firstName);
     result = result.split("{{first name}}").join(firstName);
     result = result.split("{{First Name}}").join(firstName);
     
+    result = result.split("{{last_name}}").join(lastName);
+    result = result.split("{{last name}}").join(lastName);
+    result = result.split("{{Last Name}}").join(lastName);
+    
     result = result.split("{{company}}").join(company);
     result = result.split("{{Company}}").join(company);
+    result = result.split("{{company_name}}").join(company);
+    result = result.split("{{company name}}").join(company);
+    result = result.split("{{Company Name}}").join(company);
     
     result = result.split("{{title}}").join(title);
     result = result.split("{{Title}}").join(title);
+    result = result.split("{{job_title}}").join(title);
+    result = result.split("{{job title}}").join(title);
+    result = result.split("{{Job Title}}").join(title);
+    
+    result = result.split("{{location}}").join(location);
+    result = result.split("{{Location}}").join(location);
+    
+    result = result.split("{{sender_name}}").join(senderName);
+    result = result.split("{{sender name}}").join(senderName);
+    result = result.split("{{Sender Name}}").join(senderName);
+    
+    result = result.split("{{sender_email}}").join(senderEmail);
+    result = result.split("{{sender email}}").join(senderEmail);
+    result = result.split("{{Sender Email}}").join(senderEmail);
+    
+    result = result.split("{{opt_out_message}}").join(optOutMessage);
+    result = result.split("{{opt out message}}").join(optOutMessage);
+    result = result.split("{{Opt-out message}}").join(optOutMessage);
     
     return result;
   };
@@ -941,7 +1016,17 @@ export default function BuildCampaignPage() {
     });
     
     if (unconnected.length > 0) {
-      toast.error(`Please connect the following tools in Tools Config first: ${unconnected.join(", ")}`);
+      const firstMissing = unconnected[0];
+      toast.error(`Please connect ${firstMissing} to continue.`, {
+        action: {
+          label: "Connect Now",
+          onClick: () => {
+            setConnectTool({ id: firstMissing.toLowerCase(), name: firstMissing });
+            setIsConnectModalOpen(true);
+          }
+        },
+        duration: 10000
+      });
       return false;
     }
     return true;
@@ -980,6 +1065,14 @@ export default function BuildCampaignPage() {
       form.leadMethod === "csv" ? "a CSV upload" :
       form.leadMethod === "manual" ? "a manual list" :
       form.leadSource;
+
+    const emailStepsDetail = emailSteps.map((s, idx) => {
+      const atts = s.attachments && s.attachments.length > 0
+        ? `with attachments: ${s.attachments.map(a => `${a.name} (${a.type})`).join(", ")}`
+        : "without attachments";
+      return `Step ${idx + 1} (${s.timing}): Subject: "${s.subject || "No Subject"}" ${atts}`;
+    }).join("; ");
+
     return (
       `Create a ${intent} campaign${form.name ? ` named "${form.name}"` : ""}` +
       `${form.parentAccount ? ` under ${form.parentAccount}` : ""} ` +
@@ -989,8 +1082,8 @@ export default function BuildCampaignPage() {
       `${form.industry ? ` in ${form.industry}` : ""}` +
       `${form.geo ? ` (${form.geo})` : ""}. ` +
       `Use these tools: ${form.channels.join(", ")}. ` +
-      `Run a ${emailSteps.length}-step ${form.tone.toLowerCase()} email sequence` +
-      `${emailSteps[0]?.subject ? ` opening with subject "${emailSteps[0].subject}"` : ""}. ` +
+      `Run a ${emailSteps.length}-step ${form.tone.toLowerCase()} email sequence. ` +
+      `Sequence details: ${emailStepsDetail}. ` +
       `Warm up over ${form.warmupDays} days with a daily limit of ${form.dailyLimit}.`
     );
   };
@@ -1276,10 +1369,17 @@ export default function BuildCampaignPage() {
                         return (
                           <button
                             key={tool.id}
-                            onClick={() => toggleChannel(tool.id)}
+                            onClick={() => {
+                              if (!isConnected) {
+                                setConnectTool({ id: tool.id.toLowerCase(), name: tool.id });
+                                setIsConnectModalOpen(true);
+                              } else {
+                                toggleChannel(tool.id);
+                              }
+                            }}
                             className={`flex items-center gap-3 p-4 rounded-2xl border bg-white text-left transition-all ${
                               on ? "border-brand-gold ring-2 ring-brand-gold/15" : "border-[#1a1510]/[0.07] hover:border-[#1a1510]/15"
-                            }`}
+                            } ${!isConnected ? "opacity-75 hover:opacity-100" : ""}`}
                           >
                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${ICON_TILE}`}>
                               <tool.icon size={18} />
@@ -1297,7 +1397,21 @@ export default function BuildCampaignPage() {
                               </div>
                               <p className="text-[12px] text-[#1a1510]/45 truncate">{tool.desc}</p>
                             </div>
-                            {on && <Check size={16} className="text-brand-gold shrink-0" />}
+                            {!isConnected ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setConnectTool({ id: tool.id.toLowerCase(), name: tool.id });
+                                  setIsConnectModalOpen(true);
+                                }}
+                                className="h-7 px-3 rounded-lg border border-brand-gold text-[10px] font-bold text-brand-gold bg-brand-gold/5 hover:bg-brand-gold/10 transition-colors shrink-0"
+                              >
+                                Connect
+                              </button>
+                            ) : (
+                              on && <Check size={16} className="text-brand-gold shrink-0" />
+                            )}
                           </button>
                         );
                       })}
@@ -1880,18 +1994,138 @@ export default function BuildCampaignPage() {
                             className="w-full h-28 px-4 py-3 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[14px] resize-none focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
                           />
 
-                          {/* Variables */}
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-[11px] font-medium text-[#1a1510]/40">Variables:</span>
-                            {MESSAGE_VARIABLES.map((v) => (
+                          {/* Attachments List */}
+                          {s.attachments && s.attachments.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 py-1">
+                              {s.attachments.map((att, attIdx) => (
+                                <div
+                                  key={attIdx}
+                                  className="flex items-center gap-1.5 px-2.5 py-1 bg-[#1a1510]/5 border border-[#1a1510]/10 rounded-lg text-xs font-medium text-[#1a1510]/80"
+                                >
+                                  {att.type === 'link' ? <LinkIcon size={11} className="text-brand-gold" /> : <Paperclip size={11} className="text-brand-gold" />}
+                                  <span className="truncate max-w-[160px]">{att.name}</span>
+                                  {att.size && <span className="text-[10px] text-[#1a1510]/40">({(att.size / (1024 * 1024)).toFixed(2)} MB)</span>}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const updated = s.attachments?.filter((_, i) => i !== attIdx);
+                                      updateStep(s.id, { attachments: updated });
+                                    }}
+                                    className="text-[#1a1510]/30 hover:text-red-500 transition-colors ml-1"
+                                  >
+                                    <X size={12} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Email Editor Toolbar */}
+                          <div className="flex flex-wrap items-center gap-3">
+                            {/* Hidden file input */}
+                            <input
+                              type="file"
+                              id={`file-upload-${s.id}`}
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                const maxSize = 10 * 1024 * 1024; // 10MB
+                                if (file.size > maxSize) {
+                                  toast.error("File is too large. Please attach files under 10MB.");
+                                  return;
+                                }
+                                const currentAtts = s.attachments || [];
+                                updateStep(s.id, {
+                                  attachments: [...currentAtts, { name: file.name, size: file.size, type: 'file' }]
+                                });
+                                e.target.value = '';
+                              }}
+                            />
+
+                            {/* Personalization Dropdown */}
+                            <div className="relative">
                               <button
-                                key={v}
-                                onClick={() => insertVariable(s.id, v)}
-                                className="text-[11px] font-semibold text-brand-gold px-2 py-0.5 rounded-md bg-brand-gold/10 hover:bg-brand-gold/20 transition-colors"
+                                type="button"
+                                onClick={() => {
+                                  if (openVariablePopover?.stepId === s.id && openVariablePopover?.type === 'email') {
+                                    setOpenVariablePopover(null);
+                                  } else {
+                                    setOpenVariablePopover({ stepId: s.id, type: 'email' });
+                                    setActiveVariableTab('person');
+                                  }
+                                }}
+                                className="h-9 px-3 rounded-xl border border-[#1a1510]/10 text-xs font-semibold text-[#1a1510]/70 flex items-center gap-1.5 hover:bg-[#f7f8f9] transition-colors"
                               >
-                                {v}
+                                <Sparkles size={13} className="text-brand-gold" /> Personalize
                               </button>
-                            ))}
+                              {openVariablePopover?.stepId === s.id && openVariablePopover?.type === 'email' && (
+                                <>
+                                  <div className="fixed inset-0 z-30" onClick={() => setOpenVariablePopover(null)} />
+                                  <div className="absolute left-0 mt-2 w-72 bg-white border border-[#1a1510]/10 rounded-xl shadow-[0_12px_32px_-8px_rgba(26,21,16,0.18)] z-40 p-4 space-y-3">
+                                    {/* Tabs */}
+                                    <div className="flex border-b border-[#1a1510]/5 pb-2">
+                                      {(['person', 'company', 'sender'] as const).map((tab) => (
+                                        <button
+                                          type="button"
+                                          key={tab}
+                                          onClick={() => setActiveVariableTab(tab)}
+                                          className={`flex-1 text-[10px] font-black uppercase tracking-wider text-center py-1 transition-all ${
+                                            activeVariableTab === tab
+                                              ? "border-b-2 border-[#1a1510] text-[#1a1510]"
+                                              : "text-[#1a1510]/35 hover:text-[#1a1510]"
+                                          }`}
+                                        >
+                                          {tab}
+                                        </button>
+                                      ))}
+                                    </div>
+                                    {/* Tab Items */}
+                                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                                      {PERSONALIZATION_VARIABLES[activeVariableTab].map((v) => (
+                                        <button
+                                          type="button"
+                                          key={v.value}
+                                          onClick={() => {
+                                            insertVariable(s.id, v.value);
+                                            setOpenVariablePopover(null);
+                                          }}
+                                          className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#1a1510] hover:bg-[#f7f8f9] transition-colors flex items-center justify-between"
+                                        >
+                                          <span>{v.label}</span>
+                                          <span className="text-[10px] text-[#1a1510]/40 font-mono">{v.value}</span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+
+                            {/* Attach File Button */}
+                            <button
+                              type="button"
+                              onClick={() => document.getElementById(`file-upload-${s.id}`)?.click()}
+                              className="h-9 px-3 rounded-xl border border-[#1a1510]/10 text-xs font-semibold text-[#1a1510]/70 flex items-center gap-1.5 hover:bg-[#f7f8f9] transition-colors"
+                            >
+                              <Paperclip size={13} className="text-[#1a1510]/40" /> Attach File
+                            </button>
+
+                            {/* Add Link Button */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const url = window.prompt("Enter link URL (e.g. https://calendly.com/...):");
+                                if (!url) return;
+                                const currentAtts = s.attachments || [];
+                                updateStep(s.id, {
+                                  attachments: [...currentAtts, { name: url, type: 'link', url }]
+                                });
+                              }}
+                              className="h-9 px-3 rounded-xl border border-[#1a1510]/10 text-xs font-semibold text-[#1a1510]/70 flex items-center gap-1.5 hover:bg-[#f7f8f9] transition-colors"
+                            >
+                              <LinkIcon size={13} className="text-[#1a1510]/40" /> Add Link
+                            </button>
                           </div>
                         </div>
                       ))}
@@ -1981,18 +2215,63 @@ export default function BuildCampaignPage() {
                               className="w-full h-24 px-4 py-3 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[14px] resize-none focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
                             />
 
-                            {/* Variables */}
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-[11px] font-medium text-[#1a1510]/40">Variables:</span>
-                              {MESSAGE_VARIABLES.map((v) => (
-                                <button
-                                  key={v}
-                                  onClick={() => insertLiVariable(s.id, v)}
-                                  className="text-[11px] font-semibold text-brand-gold px-2 py-0.5 rounded-md bg-brand-gold/10 hover:bg-brand-gold/20 transition-colors"
-                                >
-                                  {v}
-                                </button>
-                              ))}
+                            {/* Personalization Dropdown */}
+                            <div className="relative">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (openVariablePopover?.stepId === s.id && openVariablePopover?.type === 'linkedin') {
+                                    setOpenVariablePopover(null);
+                                  } else {
+                                    setOpenVariablePopover({ stepId: s.id, type: 'linkedin' });
+                                    setActiveVariableTab('person');
+                                  }
+                                }}
+                                className="h-9 px-3 rounded-xl border border-[#1a1510]/10 text-xs font-semibold text-[#1a1510]/70 flex items-center gap-1.5 hover:bg-[#f7f8f9] transition-colors"
+                              >
+                                <Sparkles size={13} className="text-brand-gold" /> Personalize
+                              </button>
+                              {openVariablePopover?.stepId === s.id && openVariablePopover?.type === 'linkedin' && (
+                                <>
+                                  <div className="fixed inset-0 z-30" onClick={() => setOpenVariablePopover(null)} />
+                                  <div className="absolute left-0 mt-2 w-72 bg-white border border-[#1a1510]/10 rounded-xl shadow-[0_12px_32px_-8px_rgba(26,21,16,0.18)] z-40 p-4 space-y-3">
+                                    {/* Tabs */}
+                                    <div className="flex border-b border-[#1a1510]/5 pb-2">
+                                      {(['person', 'company', 'sender'] as const).map((tab) => (
+                                        <button
+                                          type="button"
+                                          key={tab}
+                                          onClick={() => setActiveVariableTab(tab)}
+                                          className={`flex-1 text-[10px] font-black uppercase tracking-wider text-center py-1 transition-all ${
+                                            activeVariableTab === tab
+                                              ? "border-b-2 border-[#1a1510] text-[#1a1510]"
+                                              : "text-[#1a1510]/35 hover:text-[#1a1510]"
+                                          }`}
+                                        >
+                                          {tab}
+                                        </button>
+                                      ))}
+                                    </div>
+                                    {/* Tab Items */}
+                                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                                      {PERSONALIZATION_VARIABLES[activeVariableTab].map((v) => (
+                                        <button
+                                          type="button"
+                                          key={v.value}
+                                          onClick={() => {
+                                            insertLiVariable(s.id, v.value);
+                                            setOpenVariablePopover(null);
+                                          }}
+                                          className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#1a1510] hover:bg-[#f7f8f9] transition-colors flex items-center justify-between"
+                                        >
+                                          <span>{v.label}</span>
+                                          <span className="text-[10px] text-[#1a1510]/40 font-mono">{v.value}</span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </>
+                              )}
                             </div>
                           </div>
                         ))
@@ -2843,6 +3122,17 @@ export default function BuildCampaignPage() {
           </>
         )}
       </AnimatePresence>
+
+      <ConnectModal
+        isOpen={isConnectModalOpen}
+        onClose={() => setIsConnectModalOpen(false)}
+        tool={connectTool}
+        clientId={selectedClient?.id || ""}
+        onSuccess={() => {
+          loadConnectedTools();
+          toast.success(`${connectTool?.name} connected successfully!`);
+        }}
+      />
     </div>
   );
 }

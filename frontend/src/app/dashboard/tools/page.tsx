@@ -9,7 +9,7 @@ import {
    Smartphone, MapPin, Briefcase, Globe, ExternalLink, RefreshCw,
    Database, Zap as ZapIcon, Shield, ChevronRight, Download, Settings,
    Cpu, Layout, Layers, Link as LinkIcon, UserPlus, Send,
-   Loader2, X
+   Loader2, X, Calendar
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -51,6 +51,7 @@ const TOOL_ICONS: Record<string, any> = {
    hubspot: Layout,
    salesforce: Shield,
    pipedrive: Target,
+   calendly: Calendar,
 };
 
 const CATEGORIES = [

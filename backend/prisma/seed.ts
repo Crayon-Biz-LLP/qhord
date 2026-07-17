@@ -22,6 +22,7 @@ const SUPPORTED_TOOLS = [
   { tool_id: "hubspot", name: "HubSpot", category: "CRM", description: "CRM & marketing scale platform" },
   { tool_id: "salesforce", name: "Salesforce", category: "CRM", description: "Enterprise CRM and revenue cloud" },
   { tool_id: "pipedrive", name: "Pipedrive", category: "CRM", description: "Sales-first CRM for focused teams" },
+  { tool_id: "calendly", name: "Calendly", category: "CRM", description: "Meeting booking and scheduling automation" },
 ];
 
 const PLAYBOOKS = [
