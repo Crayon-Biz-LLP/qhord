@@ -33,7 +33,7 @@ model Operator {
   approved_approvals    CampaignApproval[]   @relation("approval_approved_by")
   notifications         Notification[]
   workflows             Workflow[]
-  campaign_workflows    CampaignWorkflow[]
+
 
   @@map("operators")
 }
@@ -253,7 +253,7 @@ model Campaign {
   approvals CampaignApproval[]
   queue     ExecutionQueue?
   leads     Lead[]
-  workflows CampaignWorkflow[]
+
 
   @@map("campaigns")
 }
@@ -328,7 +328,7 @@ model Lead {
 
   client    Client   @relation(fields: [client_id], references: [id], onDelete: Cascade)
   campaign  Campaign? @relation(fields: [campaign_id], references: [id], onDelete: SetNull)
-  workflow_runs CampaignWorkflowRun[]
+
 
   @@map("leads")
 }
@@ -449,17 +449,12 @@ model InboxConversationMessage {
 model Workflow {
   id                     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name                   String
-  mode                   String    @default("standard") // standard / advanced
-  execution_mode         String    @default("auto_with_guardrails") // auto_with_guardrails / manual / approval_required
-  trigger_type           String
-  target_type            String    @default("people") // people / companies / deals
-  account_scope          String?
-  campaign_scope         String?
-  enrollment_filters     Json      @default("[]")
-  guardrails             Json      @default("[]")
-  path_actions           Json      @default("[]")
-  tool_configuration     Json      @default("{}")
-  status                 String    @default("draft") // draft / active / paused / completed
+  description            String?
+  status                 String    @default("draft") // draft / active / paused / archived / error
+  triggerType            String    @default("manual") // e.g. manual, scheduled, event
+  triggerTool            String?
+  version                Int       @default(1)
+  isActive               Boolean   @default(false)
   created_by_operator_id String    @db.Uuid
   workspace_id           String?   @db.Uuid
   client_id              String    @db.Uuid
@@ -468,6 +463,9 @@ model Workflow {
 
   created_by             Operator  @relation(fields: [created_by_operator_id], references: [id], onDelete: Cascade)
   client                 Client    @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  
+  nodes                  WorkflowNode[]
+  edges                  WorkflowEdge[]
   runs                   WorkflowRun[]
 
   @@map("workflows")
@@ -477,50 +475,41 @@ model WorkflowRun {
   id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   workflow_id     String   @db.Uuid
   workflow        Workflow @relation(fields: [workflow_id], references: [id], onDelete: Cascade)
-  trigger_event   String
-  record_id       String?
-  target_type     String
-  filter_result   Json?    // stores details of filter evaluation
-  guardrail_result Json?   // stores details of guardrail evaluation
-  action_executed String?  // step/action executed
-  tool_used       String?  // tool used
+  triggerSource   String?
+  triggerPayload  Json?
   status          String   @default("pending") // pending / running / completed / failed / held
+  startedAt       DateTime? @db.Timestamptz(6)
+  completedAt     DateTime? @db.Timestamptz(6)
+  currentNodeId   String?  @db.Uuid
+  totalRecords    Int      @default(0)
+  successfulRecords Int    @default(0)
+  failedRecords   Int      @default(0)
   error_message   String?
-  timestamp       DateTime @default(now()) @db.Timestamptz(6)
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  steps           WorkflowRunStep[]
+  waiting_events  WorkflowWaitingEvent[]
 
   @@map("workflow_runs")
-}
-
-model CampaignWorkflow {
-  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  campaign_id     String   @db.Uuid
-  workflow_name   String
-  status          String   @default("draft") // draft, active, paused, completed
-  execution_mode  String   @default("auto_with_guardrails")
-  created_by      String   @db.Uuid
-  created_at      DateTime @default(now()) @db.Timestamptz(6)
-  updated_at      DateTime @default(now()) @updatedAt @db.Timestamptz(6)
-
-  campaign        Campaign @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
-  operator        Operator @relation(fields: [created_by], references: [id], onDelete: Cascade)
-  nodes           WorkflowNode[]
-  edges           WorkflowEdge[]
-  runs            CampaignWorkflowRun[]
-
-  @@map("campaign_workflows")
 }
 
 model WorkflowNode {
   id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   workflow_id        String   @db.Uuid
-  node_type          String   // source, enrichment, ai, action, condition, delay, event
-  tool               String   // apollo, clay, smartlead, instantly, bettercontact, heyreach, calendly
+  node_type          String   // trigger, action, search, enrichment, condition, filter, delay, wait, branch, internal
+  tool               String   
+  action             String?  
+  label              String?  
   configuration_json Json     @default("{}")
-  position           Json?    // e.g. { "x": 0, "y": 0 }
+  inputMappingJson   Json     @default("{}")
+  outputSchemaJson   Json     @default("{}")
+  position           Json?    
+  retryPolicyJson    Json     @default("{}")
+  errorPolicyJson    Json     @default("{}")
 
-  workflow           CampaignWorkflow @relation(fields: [workflow_id], references: [id], onDelete: Cascade)
-  source_edges       WorkflowEdge[]   @relation("source_node")
-  target_edges       WorkflowEdge[]   @relation("target_node")
+  workflow           Workflow       @relation(fields: [workflow_id], references: [id], onDelete: Cascade)
+  source_edges       WorkflowEdge[] @relation("source_node")
+  target_edges       WorkflowEdge[] @relation("target_node")
   run_steps          WorkflowRunStep[]
 
   @@map("workflow_nodes")
@@ -531,44 +520,49 @@ model WorkflowEdge {
   workflow_id    String   @db.Uuid
   source_node_id String   @db.Uuid
   target_node_id String   @db.Uuid
-  condition_type String?  // e.g. "yes", "no", "default"
+  branchKey      String?  
+  conditionJson  Json?    
+  priority       Int      @default(0)
 
-  workflow       CampaignWorkflow @relation(fields: [workflow_id], references: [id], onDelete: Cascade)
-  source_node    WorkflowNode     @relation("source_node", fields: [source_node_id], references: [id], onDelete: Cascade)
-  target_node    WorkflowNode     @relation("target_node", fields: [target_node_id], references: [id], onDelete: Cascade)
+  workflow       Workflow       @relation(fields: [workflow_id], references: [id], onDelete: Cascade)
+  source_node    WorkflowNode   @relation("source_node", fields: [source_node_id], references: [id], onDelete: Cascade)
+  target_node    WorkflowNode   @relation("target_node", fields: [target_node_id], references: [id], onDelete: Cascade)
 
   @@map("workflow_edges")
-}
-
-model CampaignWorkflowRun {
-  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  campaign_workflow_id String   @db.Uuid
-  status               String   @default("pending") // pending, running, completed, failed, held
-  error_message        String?
-  lead_id              String?  @db.Uuid
-  created_at           DateTime @default(now()) @db.Timestamptz(6)
-  updated_at           DateTime @default(now()) @updatedAt @db.Timestamptz(6)
-
-  workflow             CampaignWorkflow @relation(fields: [campaign_workflow_id], references: [id], onDelete: Cascade)
-  lead                 Lead?            @relation(fields: [lead_id], references: [id], onDelete: SetNull)
-  steps                WorkflowRunStep[]
-
-  @@map("campaign_workflow_runs")
 }
 
 model WorkflowRunStep {
   id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   run_id         String   @db.Uuid
   node_id        String   @db.Uuid
-  status         String   @default("pending") // pending, running, completed, failed, waiting_event
+  record_id      String?  
+  input_json     Json?
   output_json    Json?
+  status         String   @default("pending") // pending, running, completed, failed, waiting_event
+  attempt        Int      @default(1)
+  error_code     String?
   error_message  String?
   started_at     DateTime? @db.Timestamptz(6)
   completed_at   DateTime? @db.Timestamptz(6)
 
-  run            CampaignWorkflowRun @relation(fields: [run_id], references: [id], onDelete: Cascade)
-  node           WorkflowNode        @relation(fields: [node_id], references: [id], onDelete: Cascade)
+  run            WorkflowRun  @relation(fields: [run_id], references: [id], onDelete: Cascade)
+  node           WorkflowNode @relation(fields: [node_id], references: [id], onDelete: Cascade)
 
   @@map("workflow_run_steps")
+}
+
+model WorkflowWaitingEvent {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  run_id         String   @db.Uuid
+  node_id        String   @db.Uuid
+  record_id      String?  
+  event_type     String
+  correlation_id String
+  timeout_at     DateTime? @db.Timestamptz(6)
+  status         String    @default("waiting") // waiting, received, timeout
+
+  run            WorkflowRun @relation(fields: [run_id], references: [id], onDelete: Cascade)
+
+  @@map("workflow_waiting_events")
 }
 

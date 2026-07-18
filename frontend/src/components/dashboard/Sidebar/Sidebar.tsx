@@ -148,6 +148,7 @@ export const Sidebar = ({ onSignOut, activeView = 'dashboard', onViewChange }: S
               { icon: ClientAccountsIcon, label: "Client Accounts", id: 'clients', href: '/dashboard/clients' },
               { icon: InboxIcon, label: "Unibox", id: 'inbox', href: '/dashboard/inbox' },
               { icon: LeadSourceIcon, label: "Lead Source", id: 'leads', href: '/dashboard/leads' },
+              { icon: Megaphone, label: "Campaigns", id: 'campaigns', href: '/dashboard/campaigns' },
               { icon: WorkflowsIcon, label: "Workflows", id: 'workflows', href: '/dashboard/workflows' },
               { icon: ShieldCheck, label: "Approvals", id: 'approvals', href: '/dashboard/approvals' },
               { icon: DealsIcon, label: "Deals", id: 'pipeline', href: '/dashboard/pipeline' },

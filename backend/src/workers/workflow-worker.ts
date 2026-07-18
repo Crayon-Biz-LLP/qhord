@@ -1,15 +1,9 @@
 import { Worker, Job } from 'bullmq';
 import { redisConnection } from '../queue/bullmq-setup';
-import { workflowEngine } from '../services/workflow.engine';
-
-interface WorkflowJobData {
-  workflowId: string;
-  payload: any;
-  operatorId: string;
-}
+import { automationEngine } from '../services/automation.engine';
 
 export class WorkflowWorker {
-  private worker: Worker<WorkflowJobData, any, string>;
+  private worker: Worker<any, any, string>;
 
   constructor() {
     this.worker = new Worker(
@@ -39,15 +33,11 @@ export class WorkflowWorker {
   }
 
   private async processWorkflowJob(job: Job<any, any, string>) {
-    const { workflowId, payload, operatorId, runId, nextNodeId } = job.data;
     try {
-      if (runId && nextNodeId) {
-        console.log(`[WorkflowWorker] Resuming execution of campaign workflow run: ${runId} from node: ${nextNodeId}`);
-        const { campaignWorkflowEngine } = await import('../services/campaign-workflow.engine');
-        await campaignWorkflowEngine.executeNode(runId, nextNodeId);
+      if (job.name.startsWith('run-')) {
+        await automationEngine.processStep(job.data);
       } else {
-        console.log(`[WorkflowWorker] Processing job for legacy workflow: ${workflowId}`);
-        await workflowEngine.executeWorkflow(workflowId, payload, operatorId);
+        console.warn(`[WorkflowWorker] Unknown job type: ${job.name}`);
       }
     } catch (error) {
       console.error(`[WorkflowWorker] Job processing error:`, error);

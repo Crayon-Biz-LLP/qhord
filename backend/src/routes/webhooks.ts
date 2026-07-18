@@ -1,5 +1,4 @@
 import { Router, Request, Response } from 'express';
-import { campaignWorkflowEngine } from '../services/campaign-workflow.engine';
 
 const router = Router();
 
@@ -13,7 +12,7 @@ router.post('/apollo', async (req: Request, res: Response) => {
     const eventType = payload.event_type || 'Apollo: email_replied';
 
     if (email) {
-      await campaignWorkflowEngine.resumeWorkflowRunOnEvent(email, eventType, payload);
+      console.log(`[WebhookRouter] Webhook for ${email} - event: ${eventType} (Processing skipped for now)`);
     }
 
     res.json({ success: true, message: 'Apollo webhook processed' });
@@ -33,7 +32,7 @@ router.post('/smartlead', async (req: Request, res: Response) => {
     const eventType = payload.event_type || 'Smartlead: email_replied';
 
     if (email) {
-      await campaignWorkflowEngine.resumeWorkflowRunOnEvent(email, eventType, payload);
+      console.log(`[WebhookRouter] Webhook for ${email} - event: ${eventType} (Processing skipped for now)`);
     }
 
     res.json({ success: true, message: 'Smartlead webhook processed' });
@@ -53,7 +52,7 @@ router.post('/heyreach', async (req: Request, res: Response) => {
     const eventType = payload.event || 'HeyReach: linkedin_replied';
 
     if (email) {
-      await campaignWorkflowEngine.resumeWorkflowRunOnEvent(email, eventType, payload);
+      console.log(`[WebhookRouter] Webhook for ${email} - event: ${eventType} (Processing skipped for now)`);
     }
 
     res.json({ success: true, message: 'HeyReach webhook processed' });
@@ -75,7 +74,7 @@ router.post('/calendly', async (req: Request, res: Response) => {
     const eventType = event || 'Calendly: meeting_booked';
 
     if (email) {
-      await campaignWorkflowEngine.resumeWorkflowRunOnEvent(email, eventType, payload);
+      console.log(`[WebhookRouter] Webhook for ${email} - event: ${eventType} (Processing skipped for now)`);
     }
 
     res.json({ success: true, message: 'Calendly webhook processed' });
