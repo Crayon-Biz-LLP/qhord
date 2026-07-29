@@ -13,7 +13,7 @@ import {
   Wand2, Trash2, ArrowLeftRight, X, AlertTriangle, Plus,
   LayoutGrid, UserPlus, GitBranch, Shuffle, GitFork, LogOut, Bot,
   Star, Activity, Eye, ThumbsUp, ListChecks, DollarSign, Bell, Download, Info,
-  Paperclip, Link as LinkIcon
+  Paperclip, Link as LinkIcon, Braces, ChevronRight, User, Briefcase, GraduationCap
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { ConnectModal } from "../../../../components/dashboard/Tools/ConnectModal";
@@ -70,20 +70,19 @@ const MESSAGE_VARIABLES = [
   "{{sender_name}}", "{{sender_email}}", "{{opt_out_message}}"
 ] as const;
 
-const PERSONALIZATION_VARIABLES = {
+const PERSONALIZATION_VARIABLES: Record<string, any[]> = {
   person: [
-    { label: "First Name", value: "{{first_name}}" },
-    { label: "Last Name", value: "{{last_name}}" },
-    { label: "Location", value: "{{location}}" },
-    { label: "Job Title", value: "{{job_title}}" },
+    { label: "Name", value: "{{first_name}}", icon: User },
+    { label: "Job Title", value: "{{job_title}}", icon: Briefcase },
+    { label: "Location", value: "{{location}}", icon: Globe },
   ],
   company: [
-    { label: "Company Name", value: "{{company_name}}" },
+    { label: "Company Name", value: "{{company_name}}", icon: Building2 },
   ],
   sender: [
-    { label: "Name", value: "{{sender_name}}" },
-    { label: "Email", value: "{{sender_email}}" },
-    { label: "Opt-out message", value: "{{opt_out_message}}" },
+    { label: "Name", value: "{{sender_name}}", icon: User },
+    { label: "Email", value: "{{sender_email}}", icon: Mail },
+    { label: "Opt-out message", value: "{{opt_out_message}}", icon: Info },
   ]
 };
 
@@ -245,7 +244,6 @@ const EXECUTION_TOOLS = [
 ] as const;
 
 const LEAD_METHODS = [
-  { id: "tool", label: "Import leads from tool", icon: Database },
   { id: "csv", label: "Import CSV file", icon: Upload },
   { id: "manual", label: "Enter manually", icon: Pencil },
 ] as const;
@@ -370,10 +368,15 @@ export default function BuildCampaignPage() {
     trigger: true, rules: true, agents: true, linkedin: true, actions: true,
   });
 
-  const [manualName, setManualName] = useState("");
-  const [manualEmail, setManualEmail] = useState("");
-  const [manualCompany, setManualCompany] = useState("");
-  const [manualTitle, setManualTitle] = useState("");
+  const [manualForm, setManualForm] = useState({
+    first_name: "", last_name: "", title: "", company_name: "", company_name_for_emails: "",
+    email: "", email_status: "", email_confidence: "", seniority: "", sub_departments: "",
+    contact_owner: "", work_direct_phone: "", mobile_phone: "", corporate_phone: "",
+    other_phone: "", stage: "", account_owner: "", industry: "", person_linkedin_url: "",
+    website: "", company_linkedin_url: "", state: "", country: "", company_address: "",
+    company_city: "", company_state: "", company_country: "", company_phone: "",
+    subsidiary_of_organization_id: "", qualify_contact: ""
+  });
 
   const [form, setForm] = useState({
     name: "",
@@ -383,7 +386,7 @@ export default function BuildCampaignPage() {
     owner: "" as string,
     channels: ["Apollo", "Smartlead"] as string[],
     strategies: ["Email"] as string[],
-    leadMethod: "tool" as string,
+    leadMethod: "csv" as string,
     leadSource: "Apollo" as string,
     manualLeads: "" as string,
     leadCount: 100,
@@ -430,21 +433,27 @@ export default function BuildCampaignPage() {
   }, [loadConnectedTools]);
 
   const handleAddManualLead = () => {
-    if (!manualName && !manualEmail) return;
-    const newLead: Lead = {
+    if (!manualForm.first_name && !manualForm.email) return;
+    const newLead = {
+      ...manualForm,
       id: `manual_${Date.now()}`,
-      name: manualName || "Unknown",
-      email: manualEmail || "Unknown",
-      company: manualCompany || "Unknown",
-      title: manualTitle || "Unknown",
+      name: (manualForm.first_name + " " + manualForm.last_name).trim() || "Unknown",
+      email: manualForm.email || "Unknown",
+      company: manualForm.company_name || "Unknown",
+      title: manualForm.title || "Unknown",
       status: "verified",
-      source: "manual",
+      source: "manual"
     };
-    setLeads((prev) => [...prev, newLead]);
-    setManualName("");
-    setManualEmail("");
-    setManualCompany("");
-    setManualTitle("");
+    setLeads((prev) => [...prev, newLead as any]);
+    setManualForm({
+      first_name: "", last_name: "", title: "", company_name: "", company_name_for_emails: "",
+      email: "", email_status: "", email_confidence: "", seniority: "", sub_departments: "",
+      contact_owner: "", work_direct_phone: "", mobile_phone: "", corporate_phone: "",
+      other_phone: "", stage: "", account_owner: "", industry: "", person_linkedin_url: "",
+      website: "", company_linkedin_url: "", state: "", country: "", company_address: "",
+      company_city: "", company_state: "", company_country: "", company_phone: "",
+      subsidiary_of_organization_id: "", qualify_contact: ""
+    });
   };
 
   const renderTemplate = (text: string) => {
@@ -1250,26 +1259,11 @@ export default function BuildCampaignPage() {
                     })}
                   </div>
 
-                  {/* Advanced: manually select tools */}
-                  <div className="rounded-2xl border border-[#1a1510]/[0.07] bg-white overflow-hidden">
-                    <button
-                      onClick={() => setAdvancedOpen((o) => !o)}
-                      className="w-full flex items-center gap-2.5 px-5 py-4 text-[13px] font-semibold text-[#1a1510]/70 hover:bg-[#f7f8f9] transition-colors"
-                    >
-                      <Settings2 size={16} className="text-[#1a1510]/40" />
-                      Advanced: manually select tools
-                      <ChevronDown size={16} className={`ml-auto text-[#1a1510]/40 transition-transform ${advancedOpen ? "rotate-180" : ""}`} />
-                    </button>
-                    <AnimatePresence initial={false}>
-                      {advancedOpen && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: "auto", opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className="overflow-hidden"
-                        >
-                          <div className="px-5 pb-5 pt-1 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  <div className="mt-6 rounded-2xl border border-[#1a1510]/[0.07] bg-white overflow-hidden">
+                    <div className="px-5 py-4 border-b border-[#1a1510]/[0.05]">
+                      <h4 className="text-[13px] font-semibold text-[#1a1510]">Connected Tools</h4>
+                    </div>
+                    <div className="px-5 py-5 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                             {ALL_TOOLS.map((tool) => {
                               const on = form.channels.includes(tool);
                               return (
@@ -1287,10 +1281,7 @@ export default function BuildCampaignPage() {
                               );
                             })}
                           </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
+                    </div>
 
                   <div className="h-px bg-[#1a1510]/[0.07]" />
 
@@ -1791,54 +1782,59 @@ export default function BuildCampaignPage() {
                   )}
 
                   {form.leadMethod === "manual" && (
-                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-3">
-                      <div className="flex-1 min-w-[120px]">
-                        <input
-                          type="text"
-                          value={manualName}
-                          onChange={(e) => setManualName(e.target.value)}
-                          onKeyDown={handleKeyDown}
-                          placeholder="Full Name"
-                          className="w-full h-11 px-4 rounded-xl bg-white border border-[#1a1510]/[0.07] text-[14px] focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
-                        />
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 max-h-[40vh] overflow-y-auto p-1 scrollbar-hide">
+                      {[
+                        { label: 'First Name', key: 'first_name' },
+                        { label: 'Last Name', key: 'last_name' },
+                        { label: 'Title', key: 'title' },
+                        { label: 'Company Name', key: 'company_name' },
+                        { label: 'Company Name for Emails', key: 'company_name_for_emails' },
+                        { label: 'Email', key: 'email' },
+                        { label: 'Email Status', key: 'email_status' },
+                        { label: 'Email Confidence', key: 'email_confidence' },
+                        { label: 'Seniority', key: 'seniority' },
+                        { label: 'Sub Departments', key: 'sub_departments' },
+                        { label: 'Contact Owner', key: 'contact_owner' },
+                        { label: 'Work Direct Phone', key: 'work_direct_phone' },
+                        { label: 'Mobile Phone', key: 'mobile_phone' },
+                        { label: 'Corporate Phone', key: 'corporate_phone' },
+                        { label: 'Other Phone', key: 'other_phone' },
+                        { label: 'Stage', key: 'stage' },
+                        { label: 'Account Owner', key: 'account_owner' },
+                        { label: 'Industry', key: 'industry' },
+                        { label: 'Person Linkedin Url', key: 'person_linkedin_url' },
+                        { label: 'Website', key: 'website' },
+                        { label: 'Company Linkedin Url', key: 'company_linkedin_url' },
+                        { label: 'State', key: 'state' },
+                        { label: 'Country', key: 'country' },
+                        { label: 'Company Address', key: 'company_address' },
+                        { label: 'Company City', key: 'company_city' },
+                        { label: 'Company State', key: 'company_state' },
+                        { label: 'Company Country', key: 'company_country' },
+                        { label: 'Company Phone', key: 'company_phone' },
+                        { label: 'Subsidiary of (Organization ID)', key: 'subsidiary_of_organization_id' },
+                        { label: 'Qualify Contact', key: 'qualify_contact' }
+                      ].map((field) => (
+                        <div key={field.key} className="flex-1 min-w-[150px]">
+                          <input
+                            type="text"
+                            value={(manualForm as any)[field.key]}
+                            onChange={(e) => setManualForm({ ...manualForm, [field.key]: e.target.value })}
+                            onKeyDown={handleKeyDown}
+                            placeholder={field.label}
+                            className="w-full h-11 px-4 rounded-xl bg-white border border-[#1a1510]/[0.07] text-[12px] focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30 shadow-sm"
+                          />
+                        </div>
+                      ))}
+                      <div className="flex-1 min-w-[150px] col-span-2 sm:col-span-1">
+                        <button
+                          type="button"
+                          onClick={handleAddManualLead}
+                          className="w-full h-11 rounded-xl bg-[#1a1510] hover:bg-[#2a2118] text-white flex items-center justify-center gap-2 transition-colors font-bold text-sm shadow-md"
+                        >
+                          <Plus size={16} className="text-brand-gold" /> Add
+                        </button>
                       </div>
-                      <div className="flex-1 min-w-[120px]">
-                        <input
-                          type="email"
-                          value={manualEmail}
-                          onChange={(e) => setManualEmail(e.target.value)}
-                          onKeyDown={handleKeyDown}
-                          placeholder="Email"
-                          className="w-full h-11 px-4 rounded-xl bg-white border border-[#1a1510]/[0.07] text-[14px] focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-[120px]">
-                        <input
-                          type="text"
-                          value={manualCompany}
-                          onChange={(e) => setManualCompany(e.target.value)}
-                          onKeyDown={handleKeyDown}
-                          placeholder="Company"
-                          className="w-full h-11 px-4 rounded-xl bg-white border border-[#1a1510]/[0.07] text-[14px] focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-[120px]">
-                        <input
-                          type="text"
-                          value={manualTitle}
-                          onChange={(e) => setManualTitle(e.target.value)}
-                          onKeyDown={handleKeyDown}
-                          placeholder="Title"
-                          className="w-full h-11 px-4 rounded-xl bg-white border border-[#1a1510]/[0.07] text-[14px] focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleAddManualLead}
-                        className="w-11 h-11 rounded-xl bg-[#1a1510] hover:bg-[#2a2118] text-white flex items-center justify-center transition-colors shrink-0 font-bold"
-                      >
-                        <Plus size={18} className="text-brand-gold" />
-                      </button>
                     </div>
                   )}
 
@@ -2055,47 +2051,69 @@ export default function BuildCampaignPage() {
                                     setActiveVariableTab('person');
                                   }
                                 }}
-                                className="h-9 px-3 rounded-xl border border-[#1a1510]/10 text-xs font-semibold text-[#1a1510]/70 flex items-center gap-1.5 hover:bg-[#f7f8f9] transition-colors"
+                                className={`h-9 px-3 rounded-xl flex items-center gap-1.5 transition-colors border text-xs font-semibold ${
+                                  openVariablePopover?.stepId === s.id && openVariablePopover?.type === 'email'
+                                    ? "bg-brand-gold/10 border-brand-gold/40 text-brand-gold"
+                                    : "bg-white border-[#1a1510]/10 text-[#1a1510]/70 hover:bg-[#f7f8f9] hover:text-[#1a1510]"
+                                }`}
                               >
-                                <Sparkles size={13} className="text-brand-gold" /> Personalize
+                                <Braces size={14} strokeWidth={2.5} />
+                                <span>Dynamic Variables</span>
                               </button>
                               {openVariablePopover?.stepId === s.id && openVariablePopover?.type === 'email' && (
                                 <>
                                   <div className="fixed inset-0 z-30" onClick={() => setOpenVariablePopover(null)} />
-                                  <div className="absolute left-0 mt-2 w-72 bg-white border border-[#1a1510]/10 rounded-xl shadow-[0_12px_32px_-8px_rgba(26,21,16,0.18)] z-40 p-4 space-y-3">
-                                    {/* Tabs */}
-                                    <div className="flex border-b border-[#1a1510]/5 pb-2">
-                                      {(['person', 'company', 'sender'] as const).map((tab) => (
+                                  <div className="absolute left-0 bottom-full mb-2 w-[320px] bg-white border border-[#1a1510]/10 rounded-xl shadow-[0_12px_32px_-8px_rgba(26,21,16,0.18)] z-40 p-0 overflow-hidden flex flex-col">
+                                    <div className="p-3 pb-0">
+                                      <div className="relative">
+                                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#1a1510]/40" />
+                                        <input type="text" placeholder="Search" className="w-full h-8 pl-8 pr-3 rounded-lg border border-[#1a1510]/20 text-[13px] focus:outline-none focus:border-brand-gold/50 placeholder:text-[#1a1510]/30" />
+                                      </div>
+                                    </div>
+                                    <div className="flex border-b border-[#1a1510]/10 mt-3 px-3">
+                                      {(['person', 'company', 'sender', 'advanced'] as const).map((tab) => (
                                         <button
                                           type="button"
                                           key={tab}
-                                          onClick={() => setActiveVariableTab(tab)}
-                                          className={`flex-1 text-[10px] font-black uppercase tracking-wider text-center py-1 transition-all ${
+                                          onClick={() => { if (tab !== 'advanced') setActiveVariableTab(tab as any); }}
+                                          className={`flex-1 text-[12px] font-semibold capitalize tracking-wide text-center py-2.5 transition-all relative ${
                                             activeVariableTab === tab
-                                              ? "border-b-2 border-[#1a1510] text-[#1a1510]"
+                                              ? "text-[#1a1510]"
                                               : "text-[#1a1510]/35 hover:text-[#1a1510]"
                                           }`}
                                         >
                                           {tab}
+                                          {activeVariableTab === tab && (
+                                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1a1510]" />
+                                          )}
                                         </button>
                                       ))}
                                     </div>
-                                    {/* Tab Items */}
-                                    <div className="space-y-1 max-h-48 overflow-y-auto">
-                                      {PERSONALIZATION_VARIABLES[activeVariableTab].map((v) => (
-                                        <button
-                                          type="button"
-                                          key={v.value}
-                                          onClick={() => {
-                                            insertVariable(s.id, v.value);
-                                            setOpenVariablePopover(null);
-                                          }}
-                                          className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#1a1510] hover:bg-[#f7f8f9] transition-colors flex items-center justify-between"
-                                        >
-                                          <span>{v.label}</span>
-                                          <span className="text-[10px] text-[#1a1510]/40 font-mono">{v.value}</span>
-                                        </button>
-                                      ))}
+                                    <div className="p-2 space-y-0.5 max-h-[300px] overflow-y-auto">
+                                      <div className="px-2 py-2 text-[11px] font-semibold text-[#1a1510]/40 uppercase tracking-wider mt-1 mb-1">Basic information</div>
+                                      {PERSONALIZATION_VARIABLES[activeVariableTab]?.map((v) => {
+                                        const Icon = v.icon;
+                                        return (
+                                          <button
+                                            type="button"
+                                            key={v.value}
+                                            onClick={() => {
+                                              insertVariable(s.id, v.value);
+                                              setOpenVariablePopover(null);
+                                            }}
+                                            className="w-full text-left px-2 py-2 rounded-lg hover:bg-[#f7f8f9] flex items-center justify-between group transition-colors"
+                                          >
+                                            <div className="flex items-center gap-3">
+                                              <Icon size={15} className="text-[#1a1510]/50 group-hover:text-[#1a1510]" />
+                                              <span className="text-[13px] font-medium text-[#1a1510]">{v.label}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                              <span className="text-[10px] font-mono text-[#1a1510]/30">{v.value}</span>
+                                              <ChevronRight size={14} className="text-[#1a1510]/30" />
+                                            </div>
+                                          </button>
+                                        );
+                                      })}
                                     </div>
                                   </div>
                                 </>
@@ -2227,47 +2245,69 @@ export default function BuildCampaignPage() {
                                     setActiveVariableTab('person');
                                   }
                                 }}
-                                className="h-9 px-3 rounded-xl border border-[#1a1510]/10 text-xs font-semibold text-[#1a1510]/70 flex items-center gap-1.5 hover:bg-[#f7f8f9] transition-colors"
+                                className={`h-9 px-3 rounded-xl flex items-center gap-1.5 transition-colors border text-xs font-semibold ${
+                                  openVariablePopover?.stepId === s.id && openVariablePopover?.type === 'linkedin'
+                                    ? "bg-brand-gold/10 border-brand-gold/40 text-brand-gold"
+                                    : "bg-white border-[#1a1510]/10 text-[#1a1510]/70 hover:bg-[#f7f8f9] hover:text-[#1a1510]"
+                                }`}
                               >
-                                <Sparkles size={13} className="text-brand-gold" /> Personalize
+                                <Braces size={14} strokeWidth={2.5} />
+                                <span>Dynamic Variables</span>
                               </button>
                               {openVariablePopover?.stepId === s.id && openVariablePopover?.type === 'linkedin' && (
                                 <>
                                   <div className="fixed inset-0 z-30" onClick={() => setOpenVariablePopover(null)} />
-                                  <div className="absolute left-0 mt-2 w-72 bg-white border border-[#1a1510]/10 rounded-xl shadow-[0_12px_32px_-8px_rgba(26,21,16,0.18)] z-40 p-4 space-y-3">
-                                    {/* Tabs */}
-                                    <div className="flex border-b border-[#1a1510]/5 pb-2">
-                                      {(['person', 'company', 'sender'] as const).map((tab) => (
+                                  <div className="absolute left-0 bottom-full mb-2 w-[320px] bg-white border border-[#1a1510]/10 rounded-xl shadow-[0_12px_32px_-8px_rgba(26,21,16,0.18)] z-40 p-0 overflow-hidden flex flex-col">
+                                    <div className="p-3 pb-0">
+                                      <div className="relative">
+                                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#1a1510]/40" />
+                                        <input type="text" placeholder="Search" className="w-full h-8 pl-8 pr-3 rounded-lg border border-[#1a1510]/20 text-[13px] focus:outline-none focus:border-brand-gold/50 placeholder:text-[#1a1510]/30" />
+                                      </div>
+                                    </div>
+                                    <div className="flex border-b border-[#1a1510]/10 mt-3 px-3">
+                                      {(['person', 'company', 'sender', 'advanced'] as const).map((tab) => (
                                         <button
                                           type="button"
                                           key={tab}
-                                          onClick={() => setActiveVariableTab(tab)}
-                                          className={`flex-1 text-[10px] font-black uppercase tracking-wider text-center py-1 transition-all ${
+                                          onClick={() => { if (tab !== 'advanced') setActiveVariableTab(tab as any); }}
+                                          className={`flex-1 text-[12px] font-semibold capitalize tracking-wide text-center py-2.5 transition-all relative ${
                                             activeVariableTab === tab
-                                              ? "border-b-2 border-[#1a1510] text-[#1a1510]"
+                                              ? "text-[#1a1510]"
                                               : "text-[#1a1510]/35 hover:text-[#1a1510]"
                                           }`}
                                         >
                                           {tab}
+                                          {activeVariableTab === tab && (
+                                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1a1510]" />
+                                          )}
                                         </button>
                                       ))}
                                     </div>
-                                    {/* Tab Items */}
-                                    <div className="space-y-1 max-h-48 overflow-y-auto">
-                                      {PERSONALIZATION_VARIABLES[activeVariableTab].map((v) => (
-                                        <button
-                                          type="button"
-                                          key={v.value}
-                                          onClick={() => {
-                                            insertLiVariable(s.id, v.value);
-                                            setOpenVariablePopover(null);
-                                          }}
-                                          className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#1a1510] hover:bg-[#f7f8f9] transition-colors flex items-center justify-between"
-                                        >
-                                          <span>{v.label}</span>
-                                          <span className="text-[10px] text-[#1a1510]/40 font-mono">{v.value}</span>
-                                        </button>
-                                      ))}
+                                    <div className="p-2 space-y-0.5 max-h-[300px] overflow-y-auto">
+                                      <div className="px-2 py-2 text-[11px] font-semibold text-[#1a1510]/40 uppercase tracking-wider mt-1 mb-1">Basic information</div>
+                                      {PERSONALIZATION_VARIABLES[activeVariableTab]?.map((v) => {
+                                        const Icon = v.icon;
+                                        return (
+                                          <button
+                                            type="button"
+                                            key={v.value}
+                                            onClick={() => {
+                                              insertLiVariable(s.id, v.value);
+                                              setOpenVariablePopover(null);
+                                            }}
+                                            className="w-full text-left px-2 py-2 rounded-lg hover:bg-[#f7f8f9] flex items-center justify-between group transition-colors"
+                                          >
+                                            <div className="flex items-center gap-3">
+                                              <Icon size={15} className="text-[#1a1510]/50 group-hover:text-[#1a1510]" />
+                                              <span className="text-[13px] font-medium text-[#1a1510]">{v.label}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                              <span className="text-[10px] font-mono text-[#1a1510]/30">{v.value}</span>
+                                              <ChevronRight size={14} className="text-[#1a1510]/30" />
+                                            </div>
+                                          </button>
+                                        );
+                                      })}
                                     </div>
                                   </div>
                                 </>

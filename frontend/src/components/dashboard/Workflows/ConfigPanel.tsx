@@ -4,9 +4,12 @@ import { X, Search, Check, Settings2, Database, AlertCircle, Link, Paperclip, Ch
 import { useClient } from "../../../contexts/ClientContext";
 import { api } from "@/lib/api";
 
-const TOOLS = ["Apollo", "Clay", "BetterContact", "Smartlead", "Instantly", "HeyReach", "Calendly"];
+const TOOLS = ["Human", "Apollo", "Clay", "BetterContact", "Smartlead", "Instantly", "HeyReach", "Calendly"];
 
 const ACTIONS: Record<string, { id: string, label: string }[]> = {
+  Human: [
+    { id: "require_approval", label: "Require Manual Approval" }
+  ],
   Apollo: [
     { id: "search_people", label: "Search People" },
     { id: "enrich_contact", label: "Enrich Contact" }

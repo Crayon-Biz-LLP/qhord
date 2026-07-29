@@ -14,10 +14,13 @@ interface LeadsProps {
    onBackToDashboard: () => void;
 }
 
+import { useCRM } from "../../../contexts/CRMContext";
+
 export const Leads = ({ onBackToDashboard }: LeadsProps) => {
    const [activeFilter, setActiveFilter] = useState("All Leads");
+   const { globalLeads } = useCRM();
 
-   const leads = [
+   const staticLeads = [
       {
          name: "Sarah Chen",
          company: "Stripe",
@@ -69,6 +72,20 @@ export const Leads = ({ onBackToDashboard }: LeadsProps) => {
          time: "2d ago"
       },
    ];
+
+   const allLeads = [...staticLeads, ...globalLeads.map(l => ({
+      name: l.name || "Unknown",
+      company: l.company || "Unknown",
+      persona: l.title || "Prospect",
+      location: l.location || "Unknown",
+      icp: "High",
+      source: l.source === 'csv' ? 'CSV Import' : (l.source === 'manual' ? 'Manual Entry' : 'Tool'),
+      status: l.status || "Not Started",
+      time: "Just now"
+   }))];
+
+   const displayLeads = activeFilter === "All Leads" ? allLeads : allLeads.filter(l => l.source === activeFilter || l.status === activeFilter || l.icp === activeFilter);
+
 
    return (
       <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#f7f8f9] text-[#1a1510] font-sans selection:bg-brand-gold/30">
@@ -192,8 +209,8 @@ export const Leads = ({ onBackToDashboard }: LeadsProps) => {
                            <th className="p-8"></th>
                         </tr>
                      </thead>
-                     <tbody className="divide-y divide-[#1a1510]/[0.03]">
-                        {leads.map((lead, i) => (
+                     <tbody className="divide-y divide-[#1a1510]/5">
+                        {displayLeads.map((lead, i) => (
                            <motion.tr
                               key={i}
                               initial={{ opacity: 0, x: -10 }}

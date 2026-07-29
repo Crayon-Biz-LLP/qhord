@@ -382,6 +382,7 @@ export const Campaigns = ({ onBackToDashboard }: CampaignsProps) => {
                           <th className="py-5 px-4 text-[9px] font-black text-[#1a1510]/20 uppercase tracking-widest text-center">Health</th>
                           <th className="py-5 px-4 text-[9px] font-black text-[#1a1510]/20 uppercase tracking-widest text-center">Stack</th>
                           <th className="py-5 px-8 text-[9px] font-black text-[#1a1510]/20 uppercase tracking-widest text-right">Metrics</th>
+                          <th className="py-5 px-4"></th>
                        </tr>
                     </thead>
                     <tbody className="divide-y divide-[#1a1510]/5">
@@ -430,6 +431,12 @@ export const Campaigns = ({ onBackToDashboard }: CampaignsProps) => {
                                 <div className="flex flex-col items-end">
                                    <span className="text-xs font-black text-[#1a1510]">{row.pipeline}</span>
                                    <span className="text-[9px] font-bold text-[#1a1510]/20 uppercase">{row.replies} Replies • {row.mtgs} Mtgs</span>
+                                </div>
+                             </td>
+                             <td className="py-6 px-4 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="flex justify-end gap-2">
+                                   <button className="px-3 py-1.5 rounded-lg bg-white border border-[#1a1510]/10 text-[9px] font-black uppercase tracking-widest text-[#1a1510] hover:border-brand-gold/50 transition-colors">View</button>
+                                   <button className="px-3 py-1.5 rounded-lg bg-[#1a1510] text-brand-gold text-[9px] font-black uppercase tracking-widest hover:bg-[#2a2118] transition-colors">Edit</button>
                                 </div>
                              </td>
                           </tr>

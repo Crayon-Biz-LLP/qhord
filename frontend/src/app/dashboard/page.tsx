@@ -11,10 +11,12 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "../../hooks/useAuth";
 import { CreateCampaignModal } from "@/components/campaigns/CreateCampaignModal";
 import { api } from "../../lib/api";
+import { useClient } from "../../contexts/ClientContext";
 
 export default function DashboardHub() {
   const router = useRouter();
   const { user } = useAuth();
+  const { selectedClient } = useClient();
   const [greeting, setGreeting] = useState("");
   const [currentDate, setCurrentDate] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -134,7 +136,7 @@ export default function DashboardHub() {
               <span className="text-[11px] font-semibold text-[#1a1510]/40 uppercase tracking-[0.18em]">{currentDate}</span>
             </div>
             <h1 className="text-[2rem] sm:text-[2.5rem] font-bold tracking-tight text-[#1a1510] leading-[1.05] whitespace-nowrap">
-              {greeting}, <span className="text-brand-gold">{user?.name || "Operator"}</span>
+              {greeting}, <span className="text-brand-gold">{selectedClient?.name || user?.name || "Operator"}</span>
             </h1>
             <p className="text-sm text-[#1a1510]/45 mt-1.5">
               {dashboardMetrics?.totalLeads ? `${dashboardMetrics.totalLeads} leads collected — pipeline is humming.` : 'Your GTM pipeline is ready. Let’s build something.'}

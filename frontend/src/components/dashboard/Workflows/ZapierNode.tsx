@@ -22,6 +22,7 @@ export const ZapierNode = ({
      if (node.type === "condition" || node.type === "branch") return <GitBranch size={18} />;
      
      switch (node.tool.toLowerCase()) {
+        case "human": return <ShieldAlert size={18} />;
         case "apollo": return <Search size={18} />;
         case "clay": return <Wand2 size={18} />;
         case "smartlead": 
@@ -33,6 +34,7 @@ export const ZapierNode = ({
 
   const getToolColor = () => {
     switch (node.tool.toLowerCase()) {
+      case "human": return "bg-orange-50 text-orange-600 border-orange-200";
       case "apollo": return "bg-indigo-50 text-indigo-600 border-indigo-200";
       case "clay": return "bg-zinc-800 text-yellow-300 border-zinc-700";
       case "smartlead": return "bg-blue-50 text-blue-600 border-blue-200";
@@ -45,7 +47,7 @@ export const ZapierNode = ({
 
   return (
     <div 
-      className={`relative w-80 rounded-xl border bg-white shadow-sm transition-all cursor-pointer group hover:shadow-md ${isSelected ? 'border-brand-gold ring-1 ring-brand-gold shadow-md' : 'border-slate-200'}`}
+      className={`relative w-full max-w-xl rounded-2xl border bg-white shadow-sm transition-all cursor-pointer group hover:shadow-md ${isSelected ? 'border-brand-gold ring-1 ring-brand-gold shadow-md' : 'border-slate-200'}`}
       onClick={onClick}
     >
       <div className="flex items-start p-4">

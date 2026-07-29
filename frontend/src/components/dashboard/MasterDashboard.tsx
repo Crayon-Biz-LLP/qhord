@@ -24,7 +24,10 @@ interface DashboardProps {
   userName?: string;
 }
 
+import { useClient } from "../../contexts/ClientContext";
+
 export const Workflow = ({ onSignOut, userName = "Sarah" }: DashboardProps) => {
+  const { selectedClient } = useClient();
   const [greeting, setGreeting] = useState("");
   const [currentDate, setCurrentDate] = useState("");
   const [view, setView] = useState<DashboardView>('dashboard');
@@ -142,7 +145,7 @@ export const Workflow = ({ onSignOut, userName = "Sarah" }: DashboardProps) => {
             {/* Welcome Section */}
             <section className="flex items-end justify-between">
               <div>
-                 <h1 className="text-2xl font-black tracking-tighter text-[#1a1510] mb-1 leading-none">{greeting}, {userName}</h1>
+                 <h1 className="text-2xl font-black tracking-tighter text-[#1a1510] mb-1 leading-none">{greeting}, {selectedClient?.name || userName}</h1>
                  <p className="text-[11px] font-medium text-[#1a1510]/40">{currentDate} — Your GTM engine is running at <span className="text-emerald-500 font-bold">94% health</span></p>
               </div>
               <div className="flex gap-4">

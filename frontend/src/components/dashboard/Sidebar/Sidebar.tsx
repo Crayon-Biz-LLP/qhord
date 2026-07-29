@@ -21,25 +21,25 @@ import { DealsIcon } from "../../ui/icons/DealsIcon";
 import { AnalyticsIcon } from "../../ui/icons/AnalyticsIcon";
 import { ToolsIcon } from "../../ui/icons/ToolsIcon";
 
-export type DashboardView = 
-  | 'dashboard' 
-  | 'clients' 
-  | 'command' 
-  | 'workflows' 
-  | 'campaigns' 
-  | 'inbox' 
-  | 'pipeline' 
-  | 'leads' 
-  | 'accounts' 
-  | 'tools' 
-  | 'playbooks' 
-  | 'apis' 
-  | 'pricing' 
-  | 'billing' 
-  | 'settings' 
-  | 'analytics' 
-  | 'ai-sdr' 
-  | 'ai-operator' 
+export type DashboardView =
+  | 'dashboard'
+  | 'clients'
+  | 'command'
+  | 'workflows'
+  | 'campaigns'
+  | 'inbox'
+  | 'pipeline'
+  | 'leads'
+  | 'accounts'
+  | 'tools'
+  | 'playbooks'
+  | 'apis'
+  | 'pricing'
+  | 'billing'
+  | 'settings'
+  | 'analytics'
+  | 'ai-sdr'
+  | 'ai-operator'
   | 'ai-engine'
   | 'approvals';
 
@@ -114,11 +114,10 @@ export const Sidebar = ({ onSignOut, activeView = 'dashboard', onViewChange }: S
                           setSelectedClient(c);
                           setIsDropdownOpen(false);
                         }}
-                        className={`w-full text-left px-3.5 py-2 text-[13px] font-medium transition-colors truncate flex items-center justify-between ${
-                          isSelected
-                            ? "text-brand-gold bg-white/5"
-                            : "text-white/55 hover:text-white hover:bg-white/5"
-                        }`}
+                        className={`w-full text-left px-3.5 py-2 text-[13px] font-medium transition-colors truncate flex items-center justify-between ${isSelected
+                          ? "text-brand-gold bg-white/5"
+                          : "text-white/55 hover:text-white hover:bg-white/5"
+                          }`}
                       >
                         <span className="truncate">{c.name}</span>
                         {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-brand-gold shrink-0 ml-2" />}
@@ -150,7 +149,6 @@ export const Sidebar = ({ onSignOut, activeView = 'dashboard', onViewChange }: S
               { icon: LeadSourceIcon, label: "Lead Source", id: 'leads', href: '/dashboard/leads' },
               { icon: Megaphone, label: "Campaigns", id: 'campaigns', href: '/dashboard/campaigns' },
               { icon: WorkflowsIcon, label: "Workflows", id: 'workflows', href: '/dashboard/workflows' },
-              { icon: ShieldCheck, label: "Approvals", id: 'approvals', href: '/dashboard/approvals' },
               { icon: DealsIcon, label: "Deals", id: 'pipeline', href: '/dashboard/pipeline' },
               { icon: AnalyticsIcon, label: "Analytics", id: 'analytics', href: '/dashboard/analytics' },
               { icon: ToolsIcon, label: "Tools Config", id: 'tools', href: '/dashboard/tools' },
@@ -203,7 +201,8 @@ export const Sidebar = ({ onSignOut, activeView = 'dashboard', onViewChange }: S
       </div>
 
       <div className="relative mt-auto p-4 space-y-3 border-t border-white/[0.06]">
-        <div className="relative p-3.5 rounded-xl bg-gradient-to-br from-brand-gold/[0.12] to-white/[0.02] border border-brand-gold/15 space-y-2.5 overflow-hidden">
+        {/* Credits section removed temporarily */}
+        {/* <div className="relative p-3.5 rounded-xl bg-gradient-to-br from-brand-gold/[0.12] to-white/[0.02] border border-brand-gold/15 space-y-2.5 overflow-hidden">
           <div className="absolute -top-8 -right-6 w-24 h-24 bg-brand-gold/15 rounded-full blur-2xl" />
           <div className="relative flex items-center justify-between">
             <div className="flex flex-col">
@@ -213,9 +212,9 @@ export const Sidebar = ({ onSignOut, activeView = 'dashboard', onViewChange }: S
             <Link href="/dashboard/billing" className="px-3 py-1.5 rounded-lg bg-brand-gold text-[#1a1510] text-[10px] font-bold uppercase tracking-wider hover:bg-[#cba87f] transition-colors">Upgrade</Link>
           </div>
           <div className="relative w-full h-1.5 rounded-full bg-white/[0.08] overflow-hidden">
-             <div className="h-full bg-gradient-to-r from-brand-gold to-[#cba87f] rounded-full" style={{ width: `${Math.min((userCredits / 2000) * 100, 100)}%` }}></div>
+            <div className="h-full bg-gradient-to-r from-brand-gold to-[#cba87f] rounded-full" style={{ width: `${Math.min((userCredits / 2000) * 100, 100)}%` }}></div>
           </div>
-        </div>
+        </div> */}
 
         <div className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-white/[0.04] transition-colors">
           <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-gold to-[#a98b6c] flex items-center justify-center text-[#1a1510] font-bold text-[12px] shrink-0">

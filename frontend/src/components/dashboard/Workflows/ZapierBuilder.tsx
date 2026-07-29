@@ -174,14 +174,14 @@ export const ZapierBuilder = ({ workflowId, onClose }: { workflowId: string | nu
                 />
                 
                 {index < nodes.length - 1 && (
-                  <div className="w-0.5 h-8 bg-slate-200" />
+                  <div className="w-0 h-4" />
                 )}
                 
                 {/* Add Node Button positioned precisely below */}
-                <div className="relative w-full flex justify-center -my-3 z-10 opacity-0 hover:opacity-100 transition-opacity duration-200 py-2">
+                <div className="relative w-full flex justify-center -my-3 z-10 opacity-0 hover:opacity-100 transition-opacity duration-200 py-1">
                    <button 
                      onClick={() => addNode(index)}
-                     className="w-6 h-6 rounded-full bg-brand-gold text-[#1a1510] flex items-center justify-center shadow hover:scale-110 transition-transform"
+                     className="w-6 h-6 rounded-full bg-[#1a1510] text-brand-gold flex items-center justify-center shadow hover:scale-110 transition-transform border border-brand-gold/30"
                    >
                      <Plus size={14} />
                    </button>

@@ -7,8 +7,9 @@ import {
    Settings, Bell, Bot, Box, Search, ShieldCheck, Zap, TrendingUp,
    LayoutDashboard, Terminal, Target, Mail, BarChart3, Clock,
    CheckCircle, MoreHorizontal, MoreVertical, Layers, ArrowRight,
-   Sparkles, Filter, LayoutPanelLeft, LineChart, PieChart
+   Sparkles, Filter, LayoutPanelLeft, LineChart, PieChart, Download
 } from "lucide-react";
+import { useCRM } from "../../../contexts/CRMContext";
 
 interface PipelineProps {
    onBackToDashboard: () => void;
@@ -81,6 +82,17 @@ const PIPELINE_KPIS = [
 ];
 
 export const Pipeline = ({ onBackToDashboard }: PipelineProps) => {
+   const { globalDeals } = useCRM();
+
+   // Flatten pipeline stages to get static deals
+   const staticDeals = PIPELINE_STAGES.flatMap(stage => 
+      stage.deals.map(d => ({ ...d, stage: stage.title, stageId: stage.id }))
+   );
+
+   const allDeals = [...staticDeals, ...globalDeals.map(d => ({
+      ...d, stage: "New Lead", stageId: 1
+   }))];
+
    return (
       <div className="flex-1 flex flex-col h-full bg-[#f7f8f9] text-[#1a1510] font-sans selection:bg-brand-gold/30">
 
@@ -167,76 +179,75 @@ export const Pipeline = ({ onBackToDashboard }: PipelineProps) => {
                </div>
             </section>
 
-            {/* 4. Strategic Pipeline Board - FORCED 5-COLUMN VIEW */}
-            <section className="grid grid-cols-5 gap-4 w-full min-h-[500px]">
-               {PIPELINE_STAGES.map((stage, i) => (
-                  <div key={stage.id} className="flex flex-col gap-4">
-                     {/* Lane Header */}
-                     <div className="space-y-3">
-                        <div className="flex items-center justify-between px-1">
-                           <div className="flex items-center gap-2">
-                              <h4 className="text-[10px] lg:text-[11px] font-black text-[#1a1510] tracking-widest uppercase">{stage.title}</h4>
-                              <span className="px-1.5 py-0.5 rounded bg-[#1a1510]/5 text-[8px] font-black text-[#1a1510]/30">{stage.count}</span>
-                           </div>
-                           <span className="text-[9px] lg:text-[10px] font-black text-[#1a1510] tracking-tighter">{stage.value}</span>
-                        </div>
-                        <div className="h-1 w-full bg-[#1a1510]/5 rounded-full overflow-hidden">
-                           <motion.div
-                              initial={{ width: 0 }}
-                              animate={{ width: "100%" }}
-                              transition={{ delay: i * 0.1 }}
-                              className={`h-full ${stage.color} opacity-60 rounded-full`}
-                           />
-                        </div>
-                     </div>
-
-                     {/* Deal Cards */}
-                     <div className="space-y-3">
-                        {stage.deals.map((deal) => (
-                           <motion.div
-                              key={deal.id}
-                              className="bg-white p-4 rounded-3xl border border-[#1a1510]/5 shadow-sm hover:shadow-lg transition-all cursor-grab active:cursor-grabbing relative group overflow-hidden"
+            {/* 4. Strategic Pipeline Board - LIST VIEW (APOLLO STYLE) */}
+            <div className="bg-white rounded-[3rem] border border-[#1a1510]/5 shadow-sm overflow-hidden flex-1 mb-6 mr-6 ml-6">
+               <div className="overflow-x-auto scrollbar-hide h-full">
+                  <table className="w-full text-left border-collapse">
+                     <thead>
+                        <tr className="border-b border-[#1a1510]/[0.03] bg-[#fcfcfc]/50">
+                           <th className="p-6 w-[60px]"><input type="checkbox" className="w-5 h-5 rounded-lg border-[#1a1510]/10 text-brand-gold focus:ring-brand-gold/20 cursor-pointer" /></th>
+                           <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-[#1a1510]/30">Deal Name</th>
+                           <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-[#1a1510]/30">Contact</th>
+                           <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-[#1a1510]/30">Amount</th>
+                           <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-[#1a1510]/30">Stage</th>
+                           <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-[#1a1510]/30 text-center">Health</th>
+                           <th className="p-6"></th>
+                        </tr>
+                     </thead>
+                     <tbody className="divide-y divide-[#1a1510]/5">
+                        {allDeals.map((deal, i) => (
+                           <motion.tr
+                              key={deal.id + '-' + i}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: i * 0.05 }}
+                              className="group hover:bg-[#f7f8f9]/50 transition-all cursor-pointer"
                            >
-                              {/* Probability Bubble */}
-                              <div className="absolute top-2 right-2 p-1 px-1.5 rounded bg-brand-gold/5 text-brand-gold text-[7px] font-black uppercase opacity-0 group-hover:opacity-100 transition-opacity">
-                                 {deal.health}% Prob
-                              </div>
-
-                              <div className="flex items-center gap-3 mb-3">
-                                 <div className="w-7 h-7 rounded-xl bg-[#1a1510] text-brand-gold flex items-center justify-center font-black text-[10px]">
-                                    {deal.avatar}
-                                 </div>
-                                 <div className="min-w-0">
-                                    <h5 className="text-[11px] font-black text-[#1a1510] leading-none mb-1 truncate">{deal.name}</h5>
-                                    <div className="flex items-center gap-1">
-                                       <span className="text-[8px] font-bold text-[#1a1510]/20 uppercase tracking-widest truncate">{deal.contact}</span>
-                                       {deal.auto && <Zap size={8} className="text-brand-gold fill-brand-gold" />}
+                              <td className="p-6"><input type="checkbox" className="w-5 h-5 rounded-lg border-[#1a1510]/10 text-brand-gold focus:ring-brand-gold/20 cursor-pointer" /></td>
+                              <td className="p-6">
+                                 <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-xl bg-[#1a1510] text-brand-gold flex items-center justify-center text-[11px] font-black border border-brand-gold/10 shadow-md">
+                                       {deal.avatar}
                                     </div>
+                                    <h4 className="text-[13px] font-black text-[#1a1510]">{deal.name}</h4>
                                  </div>
-                              </div>
-
-                              <div className="flex items-end justify-between border-t border-[#1a1510]/[0.02] pt-2">
-                                 <div>
-                                    <p className="text-[7px] font-black text-[#1a1510]/20 uppercase tracking-[0.1em] mb-0.5">Value</p>
-                                    <p className="text-base font-black text-[#1a1510] tracking-tighter leading-none">{deal.amount}</p>
+                              </td>
+                              <td className="p-6">
+                                 <div className="flex items-center gap-1">
+                                    <span className="text-[11px] font-bold text-[#1a1510]/70">{deal.contact}</span>
+                                    {deal.auto && <Zap size={10} className="text-brand-gold fill-brand-gold ml-1" />}
                                  </div>
-                                 <div className="text-right">
-                                    <div className="flex items-center gap-1 justify-end">
-                                       <div className={`w-1 h-1 rounded-full ${deal.health > 80 ? 'bg-emerald-500' : 'bg-brand-gold'}`} />
-                                       <span className="text-[9px] font-black text-[#1a1510]">{deal.health}%</span>
+                              </td>
+                              <td className="p-6">
+                                 <span className="text-[12px] font-black text-[#1a1510] tracking-tighter">{deal.amount}</span>
+                              </td>
+                              <td className="p-6">
+                                 <span className="text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider bg-[#1a1510]/5 text-[#1a1510]/70">
+                                    {deal.stage}
+                                 </span>
+                              </td>
+                              <td className="p-6">
+                                 <div className="flex flex-col items-center gap-1.5">
+                                    <div className="w-16 h-1.5 bg-[#f7f8f9] rounded-full overflow-hidden">
+                                       <div 
+                                          className={`h-full rounded-full ${deal.health > 80 ? 'bg-emerald-500' : 'bg-brand-gold'}`} 
+                                          style={{ width: `${deal.health}%` }} 
+                                       />
                                     </div>
+                                    <span className="text-[9px] font-black text-[#1a1510]/60">{deal.health}%</span>
                                  </div>
-                              </div>
-                           </motion.div>
+                              </td>
+                              <td className="p-6 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+                                 <button className="p-2 hover:bg-[#1a1510]/5 rounded-xl transition-colors">
+                                    <MoreHorizontal size={16} className="text-[#1a1510]/40 hover:text-[#1a1510]" />
+                                 </button>
+                              </td>
+                           </motion.tr>
                         ))}
-
-                        <button className="w-full h-10 border-2 border-dashed border-[#1a1510]/5 rounded-[1.5rem] bg-white/40 text-[8px] font-black uppercase tracking-widest text-[#1a1510]/10 hover:border-brand-gold/30 hover:text-brand-gold transition-all flex items-center justify-center gap-2">
-                           <Plus size={12} /> Add
-                        </button>
-                     </div>
-                  </div>
-               ))}
-            </section>
+                     </tbody>
+                  </table>
+               </div>
+            </div>
          </main>
       </div>
    );
