@@ -4,8 +4,9 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useClient } from "../../../contexts/ClientContext";
 import { api } from "@/lib/api";
 import {
-   Play, LineChart, Shield, TrendingUp, Plus, ArrowRight, X, Settings, ArrowLeft
+   Play, LineChart, Shield, TrendingUp, Plus, ArrowRight, X, Settings, ArrowLeft, MoreVertical
 } from "lucide-react";
+import { toast } from "react-hot-toast";
 import { ZapierBuilder } from "@/components/dashboard/Workflows/ZapierBuilder";
 
 export const Workflows = ({ onBackToDashboard }: { onBackToDashboard: () => void }) => {
@@ -16,6 +17,37 @@ export const Workflows = ({ onBackToDashboard }: { onBackToDashboard: () => void
    const [isLoading, setIsLoading] = useState(false);
    const [searchTerm, setSearchTerm] = useState("");
    const [editingWorkflowId, setEditingWorkflowId] = useState<string | null>(null);
+   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+   const [renamingWorkflow, setRenamingWorkflow] = useState<any | null>(null);
+   const [renameValue, setRenameValue] = useState("");
+   const [deletingWorkflowId, setDeletingWorkflowId] = useState<string | null>(null);
+
+   const handleRename = async (id: string) => {
+       if (!renameValue.trim()) return;
+       try {
+           const { data } = await api.put(`/workflows/${id}`, { name: renameValue });
+           if (data.success) {
+               toast.success("Workflow renamed successfully");
+               setRenamingWorkflow(null);
+               fetchWorkflows();
+           }
+       } catch (err) {
+           toast.error("Failed to rename workflow");
+       }
+   };
+
+   const handleDelete = async (id: string) => {
+       try {
+           const { data } = await api.delete(`/workflows/${id}`);
+           if (data.success) {
+               toast.success("Workflow deleted");
+               setDeletingWorkflowId(null);
+               fetchWorkflows();
+           }
+       } catch (err) {
+           toast.error("Failed to delete workflow");
+       }
+   };
 
    const fetchWorkflows = useCallback(async () => {
       if (!selectedClient?.id) {
@@ -125,8 +157,8 @@ export const Workflows = ({ onBackToDashboard }: { onBackToDashboard: () => void
          </div>
 
          {/* Workflows List */}
-         <div className="bg-white border border-[#1a1510]/[0.07] rounded-2xl overflow-hidden shadow-sm">
-             <div className="p-4 border-b border-[#1a1510]/[0.05]">
+         <div className="bg-white border border-[#1a1510]/[0.07] rounded-2xl shadow-sm">
+             <div className="p-4 border-b border-[#1a1510]/[0.05] rounded-t-2xl">
                  <input 
                     type="text" 
                     placeholder="Search workflows..."
@@ -158,7 +190,7 @@ export const Workflows = ({ onBackToDashboard }: { onBackToDashboard: () => void
              ) : (
                 <div className="divide-y divide-[#1a1510]/[0.05]">
                    {filteredWorkflows.map(wf => (
-                      <div key={wf.id} className="p-4 hover:bg-slate-50 transition-colors flex items-center justify-between group">
+                      <div key={wf.id} className="p-4 hover:bg-slate-50 transition-colors flex items-center justify-between group last:rounded-b-2xl">
                           <div>
                               <div className="flex items-center gap-2 mb-1">
                                  <span className={`w-2 h-2 rounded-full ${wf.status === 'active' ? 'bg-emerald-500' : wf.status === 'paused' ? 'bg-amber-400' : 'bg-slate-300'}`} />
@@ -170,16 +202,88 @@ export const Workflows = ({ onBackToDashboard }: { onBackToDashboard: () => void
                                  <span>Updated {new Date(wf.updated_at).toLocaleDateString()}</span>
                               </div>
                           </div>
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button onClick={() => openBuilder(wf.id)} className="h-8 px-3 bg-white border border-slate-200 rounded-md text-xs font-semibold hover:border-brand-gold/40 text-slate-700">
-                                  Edit
+                          <div className="relative">
+                              <button onClick={(e) => { e.stopPropagation(); setMenuOpenId(menuOpenId === wf.id ? null : wf.id); }} className="h-8 w-8 flex items-center justify-center bg-white border border-slate-200 rounded-md text-slate-400 hover:text-[#1a1510] hover:border-brand-gold/40 hover:bg-slate-50 transition-colors">
+                                  <MoreVertical size={16} />
                               </button>
+                              
+                              {menuOpenId === wf.id && (
+                                  <>
+                                      <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setMenuOpenId(null); }} />
+                                      <div className="absolute right-0 top-full mt-1 w-36 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-50">
+                                          <button 
+                                              onClick={(e) => { e.stopPropagation(); setMenuOpenId(null); setRenamingWorkflow(wf); setRenameValue(wf.name); }}
+                                              className="w-full px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 hover:text-[#1a1510] flex items-center gap-2"
+                                          >
+                                              Rename
+                                          </button>
+                                          <button 
+                                              onClick={(e) => { e.stopPropagation(); setMenuOpenId(null); openBuilder(wf.id); }}
+                                              className="w-full px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 hover:text-[#1a1510] flex items-center gap-2"
+                                          >
+                                              Edit
+                                          </button>
+                                          <div className="h-px bg-slate-100 my-1" />
+                                          <button 
+                                              onClick={(e) => { e.stopPropagation(); setMenuOpenId(null); setDeletingWorkflowId(wf.id); }}
+                                              className="w-full px-3 py-2 text-left text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2"
+                                          >
+                                              Delete
+                                          </button>
+                                      </div>
+                                  </>
+                              )}
                           </div>
                       </div>
                    ))}
                 </div>
              )}
          </div>
+
+          {/* Rename Modal */}
+          {renamingWorkflow && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/20 backdrop-blur-sm p-4">
+                  <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+                      <div className="flex items-center justify-between p-4 border-b border-slate-100">
+                          <h3 className="font-semibold text-[#1a1510]">Rename "{renamingWorkflow.name}"</h3>
+                          <button onClick={() => setRenamingWorkflow(null)} className="text-slate-400 hover:text-slate-600"><X size={16}/></button>
+                      </div>
+                      <div className="p-4">
+                          <label className="block text-xs font-semibold text-slate-500 mb-1.5">Name (required)</label>
+                          <input 
+                              type="text" 
+                              value={renameValue} 
+                              onChange={(e) => setRenameValue(e.target.value)}
+                              className="w-full h-10 px-3 border-2 border-brand-gold/50 rounded-lg outline-none focus:border-brand-gold bg-white"
+                              autoFocus
+                          />
+                      </div>
+                      <div className="flex items-center justify-end gap-2 p-4 bg-slate-50 border-t border-slate-100">
+                          <button onClick={() => setRenamingWorkflow(null)} className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200/50 rounded-lg transition-colors">Cancel</button>
+                          <button onClick={() => handleRename(renamingWorkflow.id)} className="px-4 py-2 text-sm font-semibold text-[#1a1510] bg-slate-200 hover:bg-slate-300 rounded-lg transition-colors">Save</button>
+                      </div>
+                  </div>
+              </div>
+          )}
+
+          {/* Delete Confirmation Modal */}
+          {deletingWorkflowId && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/20 backdrop-blur-sm p-4">
+                  <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden text-center">
+                      <div className="p-6">
+                          <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-4">
+                              <Shield size={24} />
+                          </div>
+                          <h3 className="font-bold text-[#1a1510] text-lg mb-2">Delete Automation?</h3>
+                          <p className="text-sm text-slate-500 leading-relaxed">Are you sure you want to delete this automation? This action cannot be undone.</p>
+                      </div>
+                      <div className="flex items-center p-4 bg-slate-50 border-t border-slate-100 gap-3">
+                          <button onClick={() => setDeletingWorkflowId(null)} className="flex-1 px-4 py-2 text-sm font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors">Cancel</button>
+                          <button onClick={() => handleDelete(deletingWorkflowId)} className="flex-1 px-4 py-2 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors">Delete</button>
+                      </div>
+                  </div>
+              </div>
+          )}
       </div>
    );
 };

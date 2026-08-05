@@ -1,462 +1,335 @@
 import React, { useState, useEffect } from "react";
 import { WfNode } from "./ZapierBuilder";
-import { X, Search, Check, Settings2, Database, AlertCircle, Link, Paperclip, ChevronRight, CheckCircle2 } from "lucide-react";
+import { X, Search, Wand2, Mail, Send, Activity, Clock, GitBranch, ShieldAlert, Settings2 } from "lucide-react";
 import { useClient } from "../../../contexts/ClientContext";
-import { api } from "@/lib/api";
 
-const TOOLS = ["Human", "Apollo", "Clay", "BetterContact", "Smartlead", "Instantly", "HeyReach", "Calendly"];
-
-const ACTIONS: Record<string, { id: string, label: string }[]> = {
-  Human: [
-    { id: "require_approval", label: "Require Manual Approval" }
-  ],
+export const ACTIONS: Record<string, { id: string, label: string }[]> = {
   Apollo: [
-    { id: "search_people", label: "Search People" },
-    { id: "enrich_contact", label: "Enrich Contact" }
+    { id: "create_account", label: "Create Account" },
+    { id: "create_contact", label: "Create Contact" },
+    { id: "create_deal", label: "Create Deal" },
+    { id: "create_task", label: "Create Task" },
+    { id: "update_account", label: "Update Account" },
+    { id: "update_contact", label: "Update Contact" },
+    { id: "update_deal", label: "Update Deal" }
   ],
   Clay: [
-    { id: "enrich_lead", label: "Enrich Lead via Table" }
-  ],
-  BetterContact: [
-    { id: "verify_email", label: "Verify Email" }
-  ],
-  Smartlead: [
-    { id: "add_to_campaign", label: "Add to Campaign / Send Email" }
-  ],
-  Instantly: [
-    { id: "add_to_campaign", label: "Add to Campaign" }
+    { id: "import_table", label: "Import Table" },
+    { id: "find_person", label: "Find Person" },
+    { id: "company_enrichment", label: "Company Enrichment" },
+    { id: "email_enrichment", label: "Email Enrichment" },
+    { id: "ai_research", label: "AI Research" },
+    { id: "update_row", label: "Update Row" }
   ],
   HeyReach: [
-    { id: "add_to_campaign", label: "Add to LinkedIn Campaign" }
+    { id: "send_connection_request", label: "Send Connection Request" },
+    { id: "send_linkedin_message", label: "Send LinkedIn Message" },
+    { id: "send_follow_up", label: "Send Follow-up" },
+    { id: "visit_profile", label: "Visit Profile" },
+    { id: "like_post", label: "Like Post" },
+    { id: "follow_profile", label: "Follow Profile" }
+  ],
+  Smartlead: [
+    { id: "send_email", label: "Send Email" },
+    { id: "add_lead", label: "Add Lead" },
+    { id: "add_to_campaign", label: "Add to Campaign" },
+    { id: "pause_campaign", label: "Pause Campaign" },
+    { id: "resume_campaign", label: "Resume Campaign" },
+    { id: "stop_campaign", label: "Stop Campaign" }
+  ],
+  BetterContact: [
+    { id: "find_email", label: "Find Email" },
+    { id: "find_phone", label: "Find Phone" },
+    { id: "verify_email", label: "Verify Email" },
+    { id: "verify_phone", label: "Verify Phone" },
+    { id: "enrich_contact", label: "Enrich Contact" }
   ],
   Calendly: [
-    { id: "check_booking", label: "Check Booking Status" }
+    { id: "create_scheduling_link", label: "Create Scheduling Link" },
+    { id: "check_availability", label: "Check Availability" },
+    { id: "book_meeting", label: "Book Meeting" },
+    { id: "cancel_meeting", label: "Cancel Meeting" }
+  ],
+  Gojiberry: [
+    { id: "import_contacts", label: "Import Contacts" },
+    { id: "export_contacts", label: "Export Contacts" },
+    { id: "sync_leads", label: "Sync Leads" },
+    { id: "update_contact", label: "Update Contact" },
+    { id: "create_campaign", label: "Create Campaign" }
+  ],
+  delay: [
+    { id: "delay_after_queue", label: "Delay After Queue" },
+    { id: "delay_for", label: "Delay For" },
+    { id: "delay_until", label: "Delay Until" }
   ]
 };
 
-export const ConfigPanel = ({ 
-  node, 
+export const ConfigPanel = ({
+  node,
   allNodes,
-  onChange, 
-  onClose 
-}: { 
-  node: WfNode; 
+  onChange,
+  onClose
+}: {
+  node: WfNode;
   allNodes: WfNode[];
   onChange: (updates: Partial<WfNode>) => void;
   onClose: () => void;
 }) => {
   const { selectedClient } = useClient();
-  const [connectedAccounts, setConnectedAccounts] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState<"app" | "account" | "action">("app");
 
+  // Make sure tool has an initial action if available
   useEffect(() => {
-    // Determine which tab to show by default based on node state
-    if (!node.tool) {
-      setActiveTab("app");
-    } else if (node.tool && !node.action) {
-      setActiveTab("app");
-    } else {
-      setActiveTab("action");
+    if (node.tool && !node.action && ACTIONS[node.tool]?.[0]) {
+      onChange({ action: ACTIONS[node.tool][0].id, label: ACTIONS[node.tool][0].label });
     }
-    
-    // Fetch connected tools for client
-    if (selectedClient?.id) {
-      // Mocking fetch for now, you would normally call your accounts endpoint
-      setConnectedAccounts(["apollo", "smartlead"]); 
-    }
-  }, [node.tool, node.action, selectedClient]);
-
-  const handleToolSelect = (tool: string) => {
-    onChange({ tool, action: null, label: `Setup ${tool}` });
-  };
-
-  const handleActionSelect = (actionId: string, actionLabel: string) => {
-    onChange({ action: actionId, label: actionLabel });
-    setActiveTab("account");
-  };
+  }, [node.tool, node.action]);
 
   const handleConfigChange = (key: string, value: any) => {
     onChange({ config: { ...node.config, [key]: value } });
   };
 
-  const isToolConnected = node.tool ? connectedAccounts.includes(node.tool.toLowerCase()) : false;
+  const getIcon = () => {
+    if (node.type === "trigger") {
+      if (node.label?.includes("Schedule")) return <Clock size={14} />;
+      return <Activity size={14} />;
+    }
+    if (node.tool === "if_else") return <GitBranch size={14} />;
+
+    switch (node.tool?.toLowerCase()) {
+      case "human": return <ShieldAlert size={14} />;
+      case "apollo": return <Search size={14} />;
+      case "clay": return <Wand2 size={14} />;
+      case "smartlead":
+      case "instantly": return <Mail size={14} />;
+      case "heyreach": return <Send size={14} />;
+      default: return <Activity size={14} />;
+    }
+  };
+
+  const getTypeLabel = () => {
+    if (node.type === "trigger") return "TRIGGERS";
+    if (node.tool === "if_else") return "LOGIC";
+    return "CHANNELS";
+  };
 
   return (
     <div className="h-full flex flex-col bg-white">
-      <div className="h-16 px-6 border-b border-slate-200 flex items-center justify-between shrink-0 bg-white">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center font-bold text-slate-700 text-sm border border-slate-200">
-            {node.tool ? node.tool.charAt(0) : "1"}
+      {/* Header */}
+      <div className="h-14 px-4 border-b border-[#1a1510]/[0.07] flex items-center justify-between shrink-0 bg-[#faf9f8]">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded bg-white border border-[#1a1510]/[0.07] flex items-center justify-center text-[#1a1510]/70">
+            {getIcon()}
           </div>
-          <div>
-            <h3 className="font-bold text-slate-800 text-sm">
-              {node.type === "trigger" ? "1. Trigger" : `2. Action`}
-            </h3>
-            <div className="text-xs text-slate-500 font-medium">
-               {node.tool ? `${node.tool} • ${ACTIONS[node.tool]?.find(a => a.id === node.action)?.label || 'Select Event'}` : "Select App & Event"}
-            </div>
-          </div>
+          <h3 className="font-bold text-[#1a1510] text-[11px] tracking-widest uppercase">
+            {getTypeLabel()} / {node.tool || "Action"}
+          </h3>
         </div>
-        <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-md transition-colors text-slate-400">
-          <X size={18} />
+        <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-md transition-colors text-slate-400">
+          <X size={16} />
         </button>
       </div>
-      
-      <div className="flex-1 overflow-y-auto">
-         {/* Accordion Style Sections */}
-         
-         {/* Section 1: App & Event */}
-         <div className="border-b border-slate-200">
-            <button 
-               onClick={() => setActiveTab("app")}
-               className="w-full flex items-center justify-between p-6 hover:bg-slate-50 transition-colors"
-            >
-               <div className="flex items-center gap-3 text-sm font-bold text-slate-800">
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${node.tool && node.action ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-600'}`}>
-                     {node.tool && node.action ? <CheckCircle2 size={14} /> : "1"}
-                  </span>
-                  App & Event
-               </div>
-               {activeTab !== "app" && <ChevronRight size={18} className="text-slate-400" />}
-            </button>
-            
-            {activeTab === "app" && (
-               <div className="px-6 pb-6 space-y-6">
-                  {node.type !== "trigger" && (
-                     <div className="space-y-3">
-                        <label className="text-xs font-bold text-slate-800">App *</label>
-                        {!node.tool ? (
-                           <div className="grid grid-cols-2 gap-2">
-                              {TOOLS.map(tool => (
-                                 <button 
-                                   key={tool}
-                                   onClick={() => handleToolSelect(tool)}
-                                   className="p-3 border border-slate-200 rounded-lg text-sm font-semibold hover:border-brand-gold hover:bg-brand-gold/5 text-left transition-colors text-slate-700 bg-white shadow-sm"
-                                 >
-                                   {tool}
-                                 </button>
-                              ))}
-                           </div>
-                        ) : (
-                           <div className="flex items-center justify-between p-3 border border-slate-200 rounded-lg bg-white shadow-sm">
-                              <span className="text-sm font-bold text-slate-800">{node.tool}</span>
-                              <button onClick={() => handleToolSelect("")} className="text-xs font-semibold text-brand-gold hover:underline">Change</button>
-                           </div>
-                        )}
-                     </div>
-                  )}
 
-                  {node.tool && (
-                     <div className="space-y-3">
-                        <label className="text-xs font-bold text-slate-800">Trigger Event *</label>
-                        <div className="space-y-2">
-                           {ACTIONS[node.tool]?.map(action => (
-                              <button 
-                                key={action.id}
-                                onClick={() => handleActionSelect(action.id, action.label)}
-                                className={`w-full p-3 border rounded-lg text-sm font-semibold text-left flex items-center justify-between transition-colors shadow-sm ${node.action === action.id ? 'border-brand-gold bg-brand-gold/5 text-slate-800' : 'border-slate-200 text-slate-600 hover:border-slate-300 bg-white'}`}
-                              >
-                                {action.label}
-                                {node.action === action.id && <Check size={16} className="text-brand-gold" />}
-                              </button>
-                           ))}
-                        </div>
-                     </div>
-                  )}
+      {/* Scrollable Fields */}
+      <div className="flex-1 overflow-y-auto p-5 space-y-8 custom-scrollbar">
+        {/* Generic Tool Not Configured */}
+        {!node.tool && (
+          <div className="flex flex-col items-center justify-center p-8 text-center opacity-50 mt-10">
+            <ShieldAlert size={32} className="mb-4 text-slate-300" />
+            <p className="text-sm font-medium text-slate-500">Please select a tool from the Block Library on the right to configure it.</p>
+          </div>
+        )}
 
-                  {node.tool && node.action && (
-                     <button onClick={() => setActiveTab("account")} className="w-full py-3 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-lg transition-colors text-sm">
-                        Continue
-                     </button>
-                  )}
-               </div>
+        {/* Step 1: Provider / Integration */}
+        {node.tool && (
+          <div className="space-y-3">
+            <label className="text-[13px] font-bold text-[#1a1510]">App <span className="text-red-500">*</span></label>
+            <div className="flex items-center justify-between p-3 border border-brand-gold/30 rounded-lg bg-brand-gold/5">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-md bg-white shadow-sm flex items-center justify-center text-[#1a1510] border border-[#1a1510]/[0.05]">
+                  {getIcon()}
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-[#1a1510]">{node.tool}</div>
+                  <div className="text-[11px] text-[#1a1510]/60">Connected as {selectedClient?.name || 'Workspace Default'}</div>
+                </div>
+              </div>
+              <button className="text-[11px] font-bold text-brand-gold underline">Change</button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Action Dropdown */}
+        {node.tool && (
+          <div className="space-y-3">
+            <label className="text-[13px] font-bold text-[#1a1510]">Action event <span className="text-red-500">*</span></label>
+            <div className="relative">
+              <select
+                value={node.action || ""}
+                onChange={(e) => {
+                  const label = ACTIONS[node.tool]?.find(a => a.id === e.target.value)?.label || "";
+                  onChange({ action: e.target.value, label, config: {} }); // reset config when action changes
+                }}
+                className="w-full p-3 bg-white border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none focus:border-brand-gold font-medium text-[#1a1510] appearance-none cursor-pointer"
+              >
+                <option value="" disabled>Select an action...</option>
+                {ACTIONS[node.tool]?.map(action => (
+                  <option key={action.id} value={action.id}>{action.label}</option>
+                ))}
+              </select>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Dynamic Configuration Fields */}
+        {node.tool && node.action && (
+          <div className="space-y-4 pt-4 border-t border-[#1a1510]/[0.07]">
+            <label className="text-[13px] font-bold text-[#1a1510]">{node.tool === 'delay' ? 'Configure' : 'Account'} <span className="text-red-500">*</span></label>
+
+            {/* Apollo -> Account Setup */}
+            {node.tool === "Apollo" && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 border border-[#1a1510]/[0.07] rounded-lg p-3 bg-white">
+                  <input type="text" className="w-full text-sm outline-none bg-transparent" placeholder="Connect Apollo" readOnly />
+                  <button className="text-[12px] font-bold text-white bg-[#4F46E5] px-4 py-2 rounded-md hover:bg-[#4338CA] transition-colors whitespace-nowrap">Sign In</button>
+                </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Apollo is a secure partner with Zapier. Your credentials are encrypted & can be removed at any time. You can manage all of your connected accounts here.
+                </p>
+              </div>
             )}
-         </div>
 
-         {/* Section 2: Account */}
-         {node.tool && node.action && (
-            <div className="border-b border-slate-200">
-               <button 
-                  onClick={() => setActiveTab("account")}
-                  className="w-full flex items-center justify-between p-6 hover:bg-slate-50 transition-colors"
-               >
-                  <div className="flex items-center gap-3 text-sm font-bold text-slate-800">
-                     <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${isToolConnected ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-600'}`}>
-                        {isToolConnected ? <CheckCircle2 size={14} /> : "2"}
-                     </span>
-                     Account
+            {/* HeyReach -> Send LinkedIn Message */}
+            {node.tool === "HeyReach" && node.action === "send_linkedin_message" && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#1a1510]">Connected Account</label>
+                  <select className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-[#faf9f8]"><option>Default HeyReach Account</option></select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#1a1510]">Campaign</label>
+                  <select className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none"><option>Select Campaign...</option><option>Outbound Q3</option></select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#1a1510]">Message Template</label>
+                  <textarea value={node.config?.message_template || ""} onChange={e => handleConfigChange("message_template", e.target.value)} className="w-full h-24 p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none resize-none" placeholder="Hi {{first_name}}, I saw..." />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-bold text-[#1a1510]">Delay (Hours)</label>
+                    <input type="number" value={node.config?.delay || ""} onChange={e => handleConfigChange("delay", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none" placeholder="24" />
                   </div>
-                  {activeTab !== "account" && <ChevronRight size={18} className="text-slate-400" />}
-               </button>
-               
-               {activeTab === "account" && (
-                  <div className="px-6 pb-6 space-y-4">
-                     <label className="text-xs font-bold text-slate-800">{node.tool} Account *</label>
-                     <div className="p-4 border border-slate-200 rounded-lg bg-white shadow-sm">
-                        {isToolConnected ? (
-                           <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                 <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                                 <span className="text-sm font-medium text-slate-700">Connected as {selectedClient?.name || 'Client'}</span>
-                              </div>
-                              <button className="text-xs font-semibold text-slate-400 hover:text-slate-600">Reconnect</button>
-                           </div>
-                        ) : (
-                           <div className="text-center py-4 space-y-3">
-                              <AlertCircle size={24} className="mx-auto text-amber-500" />
-                              <div className="text-sm font-medium text-slate-600">
-                                 You do not have access to {node.tool} yet. Please connect this tool to continue.
-                              </div>
-                              <button className="px-4 py-2 bg-brand-gold text-slate-900 text-sm font-bold rounded hover:brightness-105 transition-all">
-                                 Connect {node.tool}
-                              </button>
-                           </div>
-                        )}
-                     </div>
-
-                     {isToolConnected && (
-                        <button onClick={() => setActiveTab("action")} className="w-full mt-4 py-3 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-lg transition-colors text-sm">
-                           Continue
-                        </button>
-                     )}
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-bold text-[#1a1510]">Variables</label>
+                    <input type="text" value={node.config?.variables || ""} onChange={e => handleConfigChange("variables", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none" placeholder='{"first_name": "John"}' />
                   </div>
-               )}
-            </div>
-         )}
+                </div>
+              </div>
+            )}
 
-         {/* Section 3: Action Setup */}
-         {node.tool && node.action && (
-            <div className="border-b border-slate-200">
-               <button 
-                  onClick={() => setActiveTab("action")}
-                  className="w-full flex items-center justify-between p-6 hover:bg-slate-50 transition-colors"
-               >
-                  <div className="flex items-center gap-3 text-sm font-bold text-slate-800">
-                     <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${activeTab === 'action' ? 'bg-brand-gold/20 text-brand-gold' : 'bg-slate-200 text-slate-600'}`}>
-                        3
-                     </span>
-                     Action
+            {/* Calendly -> Book Meeting */}
+            {node.tool === "Calendly" && node.action === "book_meeting" && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#1a1510]">Connected Account</label>
+                  <select className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-[#faf9f8]"><option>Default Calendly Account</option></select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#1a1510]">Event Type</label>
+                  <select className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none"><option>Select Event Type...</option><option>30 Min Discovery</option></select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#1a1510]">Date & Time</label>
+                  <input type="datetime-local" value={node.config?.datetime || ""} onChange={e => handleConfigChange("datetime", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-bold text-[#1a1510]">Invitee Email</label>
+                    <input type="email" value={node.config?.invitee || ""} onChange={e => handleConfigChange("invitee", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none" placeholder="{{contact.email}}" />
                   </div>
-                  {activeTab !== "action" && <ChevronRight size={18} className="text-slate-400" />}
-               </button>
-               
-               {activeTab === "action" && (
-                  <div className="px-6 pb-6 space-y-6">
-                     
-                     {/* Apollo Search Fields */}
-                     {node.tool === "Apollo" && node.action === "search_people" && (
-                        <div className="space-y-4">
-                           <div className="space-y-1">
-                              <label className="text-xs font-bold text-slate-800">First Name</label>
-                              <input 
-                                 type="text"
-                                 value={node.config?.first_name || ""}
-                                 onChange={e => handleConfigChange("first_name", e.target.value)}
-                                 className="w-full p-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-brand-gold"
-                                 placeholder="e.g. John"
-                              />
-                           </div>
-                           <div className="space-y-1">
-                              <label className="text-xs font-bold text-slate-800">Last Name</label>
-                              <input 
-                                 type="text"
-                                 value={node.config?.last_name || ""}
-                                 onChange={e => handleConfigChange("last_name", e.target.value)}
-                                 className="w-full p-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-brand-gold"
-                                 placeholder="e.g. Doe"
-                              />
-                           </div>
-                           <div className="space-y-1">
-                              <label className="text-xs font-bold text-slate-800">Company Name</label>
-                              <input 
-                                 type="text"
-                                 value={node.config?.company || ""}
-                                 onChange={e => handleConfigChange("company", e.target.value)}
-                                 className="w-full p-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-brand-gold"
-                                 placeholder="e.g. Acme Corp"
-                              />
-                           </div>
-                           <div className="space-y-1">
-                              <label className="text-xs font-bold text-slate-800">Location</label>
-                              <input 
-                                 type="text"
-                                 value={node.config?.location || ""}
-                                 onChange={e => handleConfigChange("location", e.target.value)}
-                                 className="w-full p-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-brand-gold"
-                                 placeholder="e.g. New York, United States"
-                              />
-                           </div>
-                           <div className="space-y-1">
-                              <label className="text-xs font-bold text-slate-800">Job Title</label>
-                              <input 
-                                 type="text"
-                                 value={node.config?.job_title || ""}
-                                 onChange={e => handleConfigChange("job_title", e.target.value)}
-                                 className="w-full p-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-brand-gold"
-                                 placeholder="e.g. Founder, CEO"
-                              />
-                           </div>
-                        </div>
-                     )}
-
-                     {/* Smartlead Email Fields */}
-                     {(node.tool === "Smartlead" || node.tool === "Instantly") && node.action === "add_to_campaign" && (
-                        <div className="space-y-4">
-                           <div className="space-y-1">
-                              <label className="text-xs font-bold text-slate-800">Email Subject</label>
-                              <input 
-                                 type="text"
-                                 value={node.config?.subject || ""}
-                                 onChange={e => handleConfigChange("subject", e.target.value)}
-                                 className="w-full p-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-brand-gold"
-                                 placeholder="Quick question regarding {{companyName}}"
-                              />
-                           </div>
-                           <div className="space-y-1">
-                              <label className="text-xs font-bold text-slate-800">Email Body</label>
-                              <textarea 
-                                 value={node.config?.body || ""}
-                                 onChange={e => handleConfigChange("body", e.target.value)}
-                                 className="w-full p-2.5 border border-slate-200 rounded-lg text-sm h-32 outline-none focus:border-brand-gold resize-none"
-                                 placeholder="Hi {{firstName}},\n\n..."
-                              />
-                           </div>
-                           <div className="space-y-1 border-t border-slate-100 pt-4 mt-2">
-                              <label className="text-xs font-bold text-slate-800 flex items-center gap-1"><Paperclip size={12}/> Attachments & Media</label>
-                              <p className="text-[11px] text-slate-500 mb-2">Attach files, videos under 10MB, documents, or links.</p>
-                              
-                              <div className="space-y-2">
-                                 <div className="flex gap-2">
-                                    <input 
-                                       type="text"
-                                       value={node.config?.attachment_url || ""}
-                                       onChange={e => handleConfigChange("attachment_url", e.target.value)}
-                                       className="flex-1 p-2 text-sm border border-slate-200 rounded outline-none focus:border-brand-gold"
-                                       placeholder="Paste a link (e.g. Loom video, Google Drive)"
-                                    />
-                                    <button className="px-3 py-2 bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold rounded hover:bg-slate-200">
-                                       Add Link
-                                    </button>
-                                 </div>
-                                 <div className="text-center p-4 border-2 border-dashed border-slate-200 rounded bg-slate-50 text-slate-500 hover:border-brand-gold/50 hover:bg-brand-gold/5 cursor-pointer transition-colors">
-                                    <div className="text-sm font-semibold">Click to upload files</div>
-                                    <div className="text-xs mt-1">PDF, DOCX, MP4 (Max 10MB)</div>
-                                 </div>
-                              </div>
-                           </div>
-                        </div>
-                     )}
-
-                     {/* Clay Fields */}
-                     {node.tool === "Clay" && (
-                        <div className="space-y-4">
-                           <div className="space-y-1">
-                              <label className="text-xs font-bold text-slate-800">Clay Table ID</label>
-                              <input 
-                                 type="text"
-                                 value={node.config?.table_id || ""}
-                                 onChange={e => handleConfigChange("table_id", e.target.value)}
-                                 className="w-full p-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-brand-gold"
-                                 placeholder="e.g. tbl_123abc"
-                              />
-                           </div>
-                           <div className="space-y-1">
-                              <label className="text-xs font-bold text-slate-800">Lookup Column Map (Domain or Email)</label>
-                              <input 
-                                 type="text"
-                                 value={node.config?.lookup_value || ""}
-                                 onChange={e => handleConfigChange("lookup_value", e.target.value)}
-                                 className="w-full p-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-brand-gold font-mono text-xs"
-                                 placeholder="{{steps.apollo_search.email}}"
-                              />
-                           </div>
-                        </div>
-                     )}
-
-                     {/* BetterContact Fields */}
-                     {node.tool === "BetterContact" && (
-                        <div className="space-y-4">
-                           <div className="space-y-1">
-                              <label className="text-xs font-bold text-slate-800">Email Address to Verify</label>
-                              <input 
-                                 type="text"
-                                 value={node.config?.email_to_verify || ""}
-                                 onChange={e => handleConfigChange("email_to_verify", e.target.value)}
-                                 className="w-full p-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-brand-gold font-mono text-xs"
-                                 placeholder="{{steps.apollo_search.email}}"
-                              />
-                           </div>
-                        </div>
-                     )}
-
-                     {/* HeyReach Fields */}
-                     {node.tool === "HeyReach" && (
-                        <div className="space-y-4">
-                           <div className="space-y-1">
-                              <label className="text-xs font-bold text-slate-800">HeyReach Campaign ID</label>
-                              <input 
-                                 type="text"
-                                 value={node.config?.campaign_id || ""}
-                                 onChange={e => handleConfigChange("campaign_id", e.target.value)}
-                                 className="w-full p-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-brand-gold"
-                                 placeholder="e.g. cmp_xyz789"
-                              />
-                           </div>
-                           <div className="space-y-1">
-                              <label className="text-xs font-bold text-slate-800">LinkedIn Profile URL Map</label>
-                              <input 
-                                 type="text"
-                                 value={node.config?.linkedin_url || ""}
-                                 onChange={e => handleConfigChange("linkedin_url", e.target.value)}
-                                 className="w-full p-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-brand-gold font-mono text-xs"
-                                 placeholder="{{steps.apollo_search.linkedin_url}}"
-                              />
-                           </div>
-                        </div>
-                     )}
-
-                     {/* Calendly Fields */}
-                     {node.tool === "Calendly" && (
-                        <div className="space-y-4">
-                           <div className="space-y-1">
-                              <label className="text-xs font-bold text-slate-800">Invitee Email Address</label>
-                              <input 
-                                 type="text"
-                                 value={node.config?.invitee_email || ""}
-                                 onChange={e => handleConfigChange("invitee_email", e.target.value)}
-                                 className="w-full p-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-brand-gold font-mono text-xs"
-                                 placeholder="{{steps.apollo_search.email}}"
-                              />
-                           </div>
-                        </div>
-                     )}
-
-                     {/* Default Generic JSON field for other actions */}
-                     {node.tool !== "Apollo" && node.tool !== "Smartlead" && node.tool !== "Instantly" && node.tool !== "Clay" && node.tool !== "BetterContact" && node.tool !== "HeyReach" && node.tool !== "Calendly" && (
-                         <div className="space-y-1">
-                           <label className="text-xs font-bold text-slate-800">Configuration JSON</label>
-                           <textarea 
-                              value={JSON.stringify(node.config, null, 2)}
-                              onChange={(e) => {
-                                 try {
-                                    const parsed = JSON.parse(e.target.value);
-                                    onChange({ config: parsed });
-                                 } catch (err) {}
-                              }}
-                              className="w-full h-40 p-3 text-xs font-mono border border-slate-200 rounded-lg outline-none focus:border-brand-gold"
-                           />
-                        </div>
-                     )}
-
-                     <div className="pt-6 border-t border-slate-100 flex gap-3">
-                        <button onClick={onClose} className="flex-1 py-3 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-lg transition-colors text-sm">
-                           Continue
-                        </button>
-                     </div>
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-bold text-[#1a1510]">Timezone</label>
+                    <select className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none"><option>UTC</option><option>America/New_York</option></select>
                   </div>
-               )}
-            </div>
-         )}
+                </div>
+              </div>
+            )}
+
+            {/* Delay -> Delay For */}
+            {node.tool === "delay" && node.action === "delay_for" && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#1a1510]">Time Delayed For (value) <span className="text-red-500">*</span></label>
+                  <input type="number" value={node.config?.delay_value || ""} onChange={e => handleConfigChange("delay_value", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" placeholder="1.0" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#1a1510]">Time Delayed For (unit) <span className="text-red-500">*</span></label>
+                  <select value={node.config?.delay_unit || ""} onChange={e => handleConfigChange("delay_unit", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
+                    <option value="" disabled>Choose value...</option>
+                    <option value="minutes">Minutes</option>
+                    <option value="hours">Hours</option>
+                    <option value="days">Days</option>
+                    <option value="weeks">Weeks</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Delay -> Delay Until */}
+            {node.tool === "delay" && node.action === "delay_until" && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#1a1510]">Date/Time Delayed Until <span className="text-red-500">*</span></label>
+                  <input type="text" value={node.config?.delay_until_time || ""} onChange={e => handleConfigChange("delay_until_time", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" placeholder="Enter text or insert data..." />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#1a1510]">How should we handle dates in the past?</label>
+                  <select value={node.config?.delay_past_behavior || ""} onChange={e => handleConfigChange("delay_past_behavior", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
+                    <option value="" disabled>Choose value...</option>
+                    <option value="continue_15_min">Continue if it's up to 15 minutes</option>
+                    <option value="continue_1_hour">Continue if it's up to one hour</option>
+                    <option value="continue_1_day">Continue if it's up to one day (default)</option>
+                    <option value="always_continue">Always continue</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Delay -> Delay After Queue */}
+            {node.tool === "delay" && node.action === "delay_after_queue" && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#1a1510]">Queue Title</label>
+                  <input type="text" value={node.config?.queue_title || ""} onChange={e => handleConfigChange("queue_title", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" placeholder="Enter text or insert data..." />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#1a1510]">Time Delayed For (value) <span className="text-red-500">*</span></label>
+                  <input type="number" value={node.config?.delay_value || ""} onChange={e => handleConfigChange("delay_value", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" placeholder="1.0" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#1a1510]">Time Delayed For (unit) <span className="text-red-500">*</span></label>
+                  <select value={node.config?.delay_unit || ""} onChange={e => handleConfigChange("delay_unit", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
+                    <option value="" disabled>Choose value...</option>
+                    <option value="minutes">Minutes</option>
+                    <option value="hours">Hours</option>
+                    <option value="days">Days</option>
+                    <option value="weeks">Weeks</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Generic Configuration fallback if not explicitly designed above */}
+            {(!["Apollo", "HeyReach", "Calendly", "delay"].includes(node.tool) || !["search_people", "send_linkedin_message", "book_meeting", "delay_for", "delay_until", "delay_after_queue"].includes(node.action)) && (
+              <div className="flex flex-col items-center justify-center p-8 text-center opacity-70 border border-dashed border-slate-300 rounded-lg">
+                <Settings2 size={24} className="mb-2 text-slate-400" />
+                <p className="text-sm font-medium text-slate-500">Configuration fields for <br /><b>{node.action}</b><br /> will load dynamically.</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

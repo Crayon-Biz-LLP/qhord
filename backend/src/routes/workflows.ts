@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { prisma } from '../lib/prisma';
+import { workflowEngine } from '../services/workflowEngine';
 
 const router = Router();
 router.use(requireAuth);
@@ -42,6 +43,7 @@ router.post('/', async (req: Request, res: Response) => {
         client_id: clientId,
         nodes: {
           create: nodes?.map((n: any) => ({
+            id: n.id,
             node_type: n.nodeType,
             tool: n.tool,
             action: n.action,
@@ -49,12 +51,22 @@ router.post('/', async (req: Request, res: Response) => {
             configuration_json: n.configurationJson || {},
             position: n.position || {}
           })) || []
+        },
+        edges: {
+          create: req.body.edges?.map((e: any) => ({
+            id: e.id,
+            source_node_id: e.source,
+            target_node_id: e.target,
+            branchKey: e.branchKey,
+            conditionJson: e.conditionJson || {}
+          })) || []
         }
       }
     });
 
     res.status(201).json({ success: true, workflow: wf });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ success: false, error: 'Failed to create workflow' });
   }
 });
@@ -64,11 +76,12 @@ router.get('/:id', async (req: Request, res: Response) => {
   try {
     const wf = await prisma.workflow.findUnique({
       where: { id: req.params.id },
-      include: { nodes: true }
+      include: { nodes: true, edges: true }
     });
     if (!wf) return res.status(404).json({ success: false, error: 'Workflow not found' });
     res.json({ success: true, workflow: wf });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ success: false, error: 'Failed to fetch workflow' });
   }
 });
@@ -90,9 +103,11 @@ router.put('/:id', async (req: Request, res: Response) => {
     });
 
     if (nodes) {
+       await prisma.workflowEdge.deleteMany({ where: { workflow_id: wf.id } });
        await prisma.workflowNode.deleteMany({ where: { workflow_id: wf.id } });
        await prisma.workflowNode.createMany({
           data: nodes.map((n: any) => ({
+             id: n.id, // Frontend must provide UUIDs
              workflow_id: wf.id,
              node_type: n.nodeType,
              tool: n.tool,
@@ -102,6 +117,19 @@ router.put('/:id', async (req: Request, res: Response) => {
              position: n.position || {}
           }))
        });
+
+       if (req.body.edges && req.body.edges.length > 0) {
+          await prisma.workflowEdge.createMany({
+             data: req.body.edges.map((e: any) => ({
+                id: e.id,
+                workflow_id: wf.id,
+                source_node_id: e.source,
+                target_node_id: e.target,
+                branchKey: e.branchKey,
+                conditionJson: e.conditionJson || {}
+             }))
+          });
+       }
     }
 
     res.json({ success: true, workflow: wf });
@@ -123,7 +151,26 @@ router.get('/:id/runs', async (req: Request, res: Response) => {
   }
 });
 
-// ── DELETE /api/workflows/:id ────────────────────────────────────
+// ── POST /api/workflows/:id/runs ─────────────────────────────────
+router.post('/:id/runs', async (req: Request, res: Response) => {
+  try {
+    const { triggerPayload } = req.body;
+    const run = await prisma.workflowRun.create({
+      data: {
+        workflow_id: req.params.id,
+        status: 'pending',
+        triggerPayload
+      }
+    });
+
+    // Fire and forget (in a real app, send to a queue)
+    workflowEngine.executeRun(run.id).catch(console.error);
+
+    res.json({ success: true, run });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to start run' });
+  }
+});
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     await prisma.workflow.delete({ where: { id: req.params.id } });
