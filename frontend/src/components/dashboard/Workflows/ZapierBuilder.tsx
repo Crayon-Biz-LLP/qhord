@@ -148,7 +148,7 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
   return { nodes: layoutedNodes, edges };
 };
 
-const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | null; onClose: () => void }) => {
+export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | null; onClose: (workflowId?: string) => void }) => {
   const { selectedClient } = useClient();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -159,6 +159,9 @@ const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | null; onC
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [insertingEdgeId, setInsertingEdgeId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [testTrace, setTestTrace] = useState<string[] | null>(null);
+  const [showTestModal, setShowTestModal] = useState(false);
   const [isLoading, setIsLoading] = useState(!!workflowId);
   const [searchBlock, setSearchBlock] = useState("");
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -375,14 +378,43 @@ const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | null; onC
         const { data } = await api.post("/workflows", payload);
         if (data.success) {
            toast.success("Workflow created");
-           onClose();
+           onClose(data.workflow?.id);
         }
       }
-    } catch (err) {
-      console.error("Save error", err);
+    } catch (error) {
+      console.error(error);
       toast.error("Failed to save workflow");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleTestRun = async () => {
+    if (!workflowId) {
+      toast.error("Please save the workflow first before testing.");
+      return;
+    }
+    await handleSave(workflowStatus);
+    
+    setIsTesting(true);
+    setTestTrace(null);
+    setShowTestModal(true);
+    
+    try {
+      const { data } = await api.post(`/workflows/${workflowId}/test`, {});
+      if (data.success) {
+        setTestTrace(data.trace || []);
+        toast.success("Test run completed");
+      } else {
+        toast.error(data.error || "Test run failed");
+        setTestTrace(["❌ Test run failed: " + data.error]);
+      }
+    } catch (error: any) {
+      console.error(error);
+      toast.error("Test run error");
+      setTestTrace(["❌ Exception occurred: " + error.message]);
+    } finally {
+      setIsTesting(false);
     }
   };
 
@@ -429,14 +461,21 @@ const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | null; onC
           
           <button 
             onClick={() => handleSave("draft")} 
-            disabled={isSaving}
+            disabled={isSaving || isTesting}
             className="h-8 px-3 text-[13px] font-semibold text-slate-600 hover:text-[#1a1510] flex items-center gap-2 hover:bg-slate-100 rounded-lg transition-colors"
           >
             <Save size={14} /> {isSaving ? "Saving..." : "Save Draft"}
           </button>
           <button 
+            onClick={handleTestRun} 
+            disabled={isSaving || isTesting}
+            className="h-8 px-3 text-[13px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-2 hover:bg-indigo-50 rounded-lg border border-indigo-100 transition-colors"
+          >
+            <Play size={14} /> {isTesting ? "Testing..." : "Test Run"}
+          </button>
+          <button 
             onClick={() => handleSave(workflowStatus === "active" ? "paused" : "active")} 
-            disabled={isSaving}
+            disabled={isSaving || isTesting}
             className={`h-8 px-4 text-[13px] font-semibold rounded-lg text-white disabled:opacity-50 flex items-center gap-2 transition-colors ${workflowStatus === 'active' ? 'bg-[#1a1510] hover:bg-[#2a2118]' : 'bg-[#1a1510] hover:bg-[#2a2118]'}`}
           >
             {workflowStatus === "active" ? <><Pause size={14}/> Pause</> : "Publish"}
@@ -551,6 +590,49 @@ const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | null; onC
           </div>
         </div>
       </div>
+      
+      {/* Test Trace Modal */}
+      {showTestModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1a1510]/20 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl shadow-xl border border-[#1a1510]/[0.07] w-[600px] max-w-full flex flex-col overflow-hidden max-h-[80vh]">
+            <div className="flex items-center justify-between p-4 border-b border-[#1a1510]/[0.07]">
+              <h3 className="font-bold text-sm text-[#1a1510] flex items-center gap-2">
+                <Play size={16} className="text-indigo-500" />
+                Workflow Test Execution Trace
+              </h3>
+              <button onClick={() => setShowTestModal(false)} className="p-1 hover:bg-slate-100 rounded-md">
+                <X size={16} className="text-slate-500" />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto flex-1 bg-slate-50 font-mono text-xs text-slate-700 leading-relaxed space-y-1">
+              {isTesting && !testTrace && (
+                <div className="text-slate-500 flex items-center gap-2 animate-pulse">
+                  <Activity size={14} /> Executing graph dynamically...
+                </div>
+              )}
+              {testTrace?.map((line, idx) => (
+                <div key={idx} className={`
+                  ${line.includes('❌') ? 'text-red-600 font-semibold' : ''}
+                  ${line.includes('⚠') ? 'text-amber-600' : ''}
+                  ${line.includes('✓') ? 'text-emerald-600' : ''}
+                  ${line.includes('↳') ? 'text-indigo-600 pl-4' : ''}
+                  ${line.includes('Starting node:') ? 'font-bold mt-2 pt-2 border-t border-slate-200' : ''}
+                `}>
+                  {line}
+                </div>
+              ))}
+            </div>
+            <div className="p-4 border-t border-[#1a1510]/[0.07] flex justify-end">
+              <button 
+                onClick={() => setShowTestModal(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -592,10 +674,10 @@ const BlockCategory = ({ category, onItemClick }: { category: any, onItemClick: 
   );
 };
 
-export const ZapierBuilder = (props: any) => {
+export const ZapierBuilder = ({ workflowId, onClose }: { workflowId: string | null; onClose: (workflowId?: string) => void }) => {
   return (
     <ReactFlowProvider>
-      <BuilderCanvas {...props} />
+      <BuilderCanvas workflowId={workflowId} onClose={onClose} />
     </ReactFlowProvider>
   );
 };

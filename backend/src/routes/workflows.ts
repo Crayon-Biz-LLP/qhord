@@ -171,6 +171,27 @@ router.post('/:id/runs', async (req: Request, res: Response) => {
     res.status(500).json({ success: false, error: 'Failed to start run' });
   }
 });
+
+// ── POST /api/workflows/:id/test ─────────────────────────────────
+router.post('/:id/test', async (req: Request, res: Response) => {
+  try {
+    const { triggerPayload } = req.body;
+    const run = await prisma.workflowRun.create({
+      data: {
+        workflow_id: req.params.id,
+        status: 'pending',
+        triggerPayload
+      }
+    });
+
+    // Wait for the test execution to complete and get the trace
+    const result = await workflowEngine.executeRun(run.id, true);
+
+    res.json({ success: true, run, trace: result?.trace || [], result });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to test workflow' });
+  }
+});
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     await prisma.workflow.delete({ where: { id: req.params.id } });

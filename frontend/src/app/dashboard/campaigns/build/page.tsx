@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { ConnectModal } from "../../../../components/dashboard/Tools/ConnectModal";
+import { ZapierBuilder } from "../../../../components/dashboard/Workflows/ZapierBuilder";
 
 // ── Step definitions ──────────────────────────────────────────────
 const STEPS = [
@@ -300,6 +301,8 @@ export default function BuildCampaignPage() {
   const { clients, selectedClient } = useClient();
   const [step, setStep] = useState(0);
   const [campaignId] = useState(() => typeof window !== 'undefined' && window.crypto?.randomUUID ? window.crypto.randomUUID() : 'c' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15));
+  const [campaignWorkflowId, setCampaignWorkflowId] = useState<string | null>(null);
+  const [isBuilderOpen, setIsBuilderOpen] = useState(false);
   const [connectedTools, setConnectedTools] = useState<string[]>([]);
   const [fetchingTools, setFetchingTools] = useState(false);
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
@@ -1102,6 +1105,7 @@ export default function BuildCampaignPage() {
     try {
       const response = await api.post("/campaigns/plan", {
         prompt: buildPrompt(),
+        workflowId: campaignWorkflowId,
         workflows: workflows.map((w) => ({
           name: w.name,
           actions: w.actions.map((a) => ({
@@ -1130,6 +1134,20 @@ export default function BuildCampaignPage() {
       setBuilding(false);
     }
   };
+
+  if (isBuilderOpen) {
+    return (
+      <div className="fixed inset-0 z-50 bg-white">
+        <ZapierBuilder 
+          workflowId={campaignWorkflowId} 
+          onClose={(id?: string) => {
+             if (id) setCampaignWorkflowId(id);
+             setIsBuilderOpen(false);
+          }} 
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#f7f8f9] text-[#1a1510] font-sans selection:bg-brand-gold/30">
@@ -2334,169 +2352,44 @@ export default function BuildCampaignPage() {
               {/* STEP 5 — WORKFLOW */}
               {step === 4 && (
                 <Section
-                  title="Workflows"
-                  subtitle="Create one workflow per channel or campaign type — e.g. one for LinkedIn, one for Apollo"
+                  title="Workflow"
+                  subtitle="Create your campaign automation workflow."
                   action={
-                    <button
-                      onClick={addWorkflow}
-                      className="h-10 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-[12px] font-semibold text-[#1a1510]/70 hover:text-[#1a1510] hover:border-[#1a1510]/20 transition-colors flex items-center gap-2"
-                    >
-                      <Plus size={15} className="text-[#1a1510]/40" /> Add Workflow
-                    </button>
+                    !campaignWorkflowId && (
+                      <button
+                        onClick={() => setIsBuilderOpen(true)}
+                        className="h-10 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-[12px] font-semibold text-[#1a1510]/70 hover:text-[#1a1510] hover:border-[#1a1510]/20 transition-colors flex items-center gap-2"
+                      >
+                        <Plus size={15} className="text-[#1a1510]/40" /> Create Workflow
+                      </button>
+                    )
                   }
                 >
-                  {/* Adaptive Mode */}
-                  <div className="flex items-center justify-between gap-4 p-4 rounded-2xl border border-[#1a1510]/[0.07] bg-white">
-                    <div className="flex items-start gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-xl bg-brand-gold/15 text-brand-gold flex items-center justify-center shrink-0">
-                        <Sparkles size={17} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-bold text-[#1a1510]">Adaptive Mode</p>
-                        <p className="text-[12px] text-[#1a1510]/45">Auto Re-engine modifies the workflow based on engagement. Stays inside guardrails.</p>
-                      </div>
-                    </div>
-                    <Toggle on={adaptiveMode} onChange={() => setAdaptiveMode((v) => !v)} />
-                  </div>
-
-                  {/* Workflow tabs */}
-                  <div className="flex flex-wrap items-center gap-2">
-                    {workflows.map((w) => {
-                      const active = w.id === activeWf;
-                      return (
-                        <span
-                          key={w.id}
-                          className={`flex items-center gap-2 pl-3.5 pr-2 py-2 rounded-full text-[12px] font-semibold transition-colors ${
-                            active ? "bg-brand-gold/15 text-[#1a1510] ring-1 ring-brand-gold/30" : "bg-[#f7f8f9] text-[#1a1510]/50"
-                          }`}
-                        >
-                          <button onClick={() => setActiveWf(w.id)}>{w.name}</button>
-                          {workflows.length > 1 && (
-                            <button onClick={() => removeWorkflow(w.id)} className="text-[#1a1510]/30 hover:text-[#1a1510] transition-colors">
-                              <X size={13} />
-                            </button>
-                          )}
-                        </span>
-                      );
-                    })}
-                  </div>
-
-                  {/* Workflow name */}
-                  <div className="relative">
-                    <Pencil size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#1a1510]/30" />
-                    <input
-                      value={activeWorkflow.name}
-                      onChange={(e) => renameActiveWorkflow(e.target.value)}
-                      placeholder="Workflow name"
-                      className="w-full h-11 pl-10 pr-4 rounded-xl bg-white border border-[#1a1510]/[0.07] text-[14px] font-semibold focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all"
-                    />
-                  </div>
-
-                  {/* Templates */}
-                  <div>
-                    <p className="text-[12px] font-semibold text-[#1a1510]/40 uppercase tracking-wider mb-3">Start from a Template</p>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      {WORKFLOW_TEMPLATES.map((t) => {
-                        const selected = selectedTemplate === t.id;
-                        return (
-                          <button
-                            key={t.id}
-                            onClick={() => setSelectedTemplate(t.id)}
-                            className={`text-left p-4 rounded-2xl border bg-white transition-all ${
-                              selected ? "border-brand-gold ring-2 ring-brand-gold/15" : "border-[#1a1510]/[0.07] hover:border-[#1a1510]/15"
-                            }`}
-                          >
-                            <h4 className="text-[13px] font-bold text-[#1a1510]">{t.name}</h4>
-                            <p className="text-[11px] text-[#1a1510]/45 mt-1 mb-3 line-clamp-1">{t.desc}</p>
-                            <span className="text-[10px] font-semibold text-[#1a1510]/60 px-2 py-1 rounded-md bg-[#f7f8f9]">{t.steps} steps</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Canvas */}
-                  <div
-                    className="rounded-2xl border border-[#1a1510]/[0.07] p-6 min-h-[280px] flex flex-col items-center"
-                    style={{ backgroundColor: "#fbfbfa", backgroundImage: "radial-gradient(circle at 1px 1px, rgba(26,21,16,0.08) 1px, transparent 0)", backgroundSize: "20px 20px" }}
-                  >
-                    {/* Trigger node */}
-                    <button
-                      onClick={openTriggerPicker}
-                      className="w-full max-w-sm text-left rounded-2xl border border-brand-gold/40 bg-brand-gold/[0.06] p-4 hover:border-brand-gold transition-colors"
-                    >
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <div className="w-7 h-7 rounded-lg bg-brand-gold/20 text-brand-gold flex items-center justify-center">
-                          {(() => { const Icon = activeWorkflow.trigger ? getBlockIcon(activeWorkflow.trigger.label) : Zap; return <Icon size={15} />; })()}
+                  {campaignWorkflowId ? (
+                     <div className="rounded-2xl border border-brand-gold/40 bg-brand-gold/[0.06] p-6 flex flex-col items-center text-center">
+                        <div className="w-12 h-12 rounded-xl bg-white border border-brand-gold/20 flex items-center justify-center text-brand-gold mb-3">
+                           <RefreshCw size={20} />
                         </div>
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-[#1a1510]/50">Trigger</span>
-                      </div>
-                      {activeWorkflow.trigger ? (
-                        <p className="text-[14px] font-bold text-[#1a1510]">{activeWorkflow.trigger.label}</p>
-                      ) : (
-                        <>
-                          <p className="text-[14px] font-bold text-[#1a1510]">When this happens…</p>
-                          <p className="text-[12px] text-[#1a1510]/45">Choose an app & event to start</p>
-                        </>
-                      )}
-                    </button>
-
-                    {/* Action nodes */}
-                    {activeWorkflow.actions.map((a) => {
-                      const Icon = getBlockIcon(a.label);
-                      return (
-                        <React.Fragment key={a.id}>
-                          <div className="w-px h-6 bg-[#1a1510]/15" />
-                          <div className="w-full max-w-sm rounded-2xl border border-[#1a1510]/[0.07] bg-white p-4 flex items-center gap-3 group">
-                            <div className="w-7 h-7 rounded-lg bg-[#1a1510] text-brand-gold flex items-center justify-center shrink-0">
-                              <Icon size={14} />
-                            </div>
-                            <span className="text-[13px] font-semibold text-[#1a1510] flex-1">{a.label}</span>
-                            <button onClick={() => removeAction(a.id)} className="text-[#1a1510]/25 hover:text-[#1a1510] transition-colors opacity-0 group-hover:opacity-100">
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </React.Fragment>
-                      );
-                    })}
-
-                    {/* Connector + add */}
-                    <div className="w-px h-6 bg-[#1a1510]/15" />
-                    <button
-                      onClick={openActionPicker}
-                      className="w-9 h-9 rounded-full bg-white border border-[#1a1510]/15 flex items-center justify-center text-[#1a1510]/50 hover:text-[#1a1510] hover:border-brand-gold/50 transition-colors"
-                    >
-                      <Plus size={16} />
-                    </button>
-                    <p className="text-[12px] text-[#1a1510]/35 mt-3">
-                      {!activeWorkflow.trigger
-                        ? "Select a trigger to start"
-                        : activeWorkflow.actions.length === 0
-                        ? "Add your first action below"
-                        : "End of workflow"}
-                    </p>
-                  </div>
-
-                  {/* Guardrails */}
-                  <div>
-                    <p className="text-[12px] font-semibold text-[#1a1510]/40 uppercase tracking-wider mb-3">Guardrails</p>
-                    <div className="rounded-2xl border border-[#1a1510]/[0.07] bg-white divide-y divide-[#1a1510]/[0.06]">
-                      {GUARDRAILS.map((g) => (
-                        <div key={g.id} className="flex items-center justify-between gap-4 px-5 py-3.5">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <Toggle on={!!guardrails[g.id]} onChange={() => toggleGuardrail(g.id)} disabled={g.required} />
-                            <div className="min-w-0">
-                              <p className="text-[13px] font-semibold text-[#1a1510]">{g.label}</p>
-                              <p className="text-[12px] text-[#1a1510]/45">→ {g.desc}</p>
-                            </div>
-                          </div>
-                          {g.required && (
-                            <span className="text-[10px] font-semibold text-[#1a1510]/40 uppercase tracking-wider shrink-0">Required</span>
-                          )}
+                        <h4 className="text-[14px] font-bold text-[#1a1510]">Workflow Attached</h4>
+                        <p className="text-[12px] text-[#1a1510]/60 mt-1 mb-4">Your automation is ready to launch with this campaign.</p>
+                        <div className="flex gap-2">
+                           <button onClick={() => setIsBuilderOpen(true)} className="h-9 px-4 rounded-lg bg-white border border-[#1a1510]/10 text-[12px] font-semibold hover:bg-slate-50 transition-colors">
+                              Edit Workflow
+                           </button>
+                           <button onClick={() => setCampaignWorkflowId(null)} className="h-9 px-4 rounded-lg bg-red-50 text-red-600 border border-red-100 text-[12px] font-semibold hover:bg-red-100 transition-colors">
+                              Remove
+                           </button>
                         </div>
-                      ))}
-                    </div>
-                  </div>
+                     </div>
+                  ) : (
+                     <div className="rounded-2xl border border-[#1a1510]/[0.07] border-dashed p-10 flex flex-col items-center text-center bg-[#fafafa]">
+                        <div className="w-12 h-12 rounded-xl bg-white border border-[#1a1510]/10 flex items-center justify-center text-[#1a1510]/40 mb-3">
+                           <LayoutGrid size={20} />
+                        </div>
+                        <h4 className="text-[14px] font-bold text-[#1a1510]">No Workflow Created</h4>
+                        <p className="text-[12px] text-[#1a1510]/45 mt-1 max-w-sm">Create a workflow to orchestrate your emails, LinkedIn messages, and CRM actions.</p>
+                     </div>
+                  )}
 
                   {/* Daily Send Limit */}
                   <Field label="Daily Send Limit" icon={Zap}>

@@ -2,6 +2,9 @@ import React, { useState, useEffect } from "react";
 import { WfNode } from "./ZapierBuilder";
 import { X, Search, Wand2, Mail, Send, Activity, Clock, GitBranch, ShieldAlert, Settings2 } from "lucide-react";
 import { useClient } from "../../../contexts/ClientContext";
+import { api } from "../../../lib/api";
+
+import { ACTION_SCHEMAS, FieldSchema } from "./actionSchemas";
 
 export const ACTIONS: Record<string, { id: string, label: string }[]> = {
   Apollo: [
@@ -57,6 +60,11 @@ export const ACTIONS: Record<string, { id: string, label: string }[]> = {
     { id: "update_contact", label: "Update Contact" },
     { id: "create_campaign", label: "Create Campaign" }
   ],
+  Instantly: [
+    { id: "add_lead", label: "Add Lead" },
+    { id: "send_email", label: "Send Email" },
+    { id: "add_to_campaign", label: "Add to Campaign" }
+  ],
   delay: [
     { id: "delay_after_queue", label: "Delay After Queue" },
     { id: "delay_for", label: "Delay For" },
@@ -76,8 +84,26 @@ export const ConfigPanel = ({
   onClose: () => void;
 }) => {
   const { selectedClient } = useClient();
+  const [toolAccounts, setToolAccounts] = useState<any[]>([]);
+  const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
 
-  // Make sure tool has an initial action if available
+  useEffect(() => {
+    const fetchAccounts = async () => {
+      if (selectedClient?.id) {
+        setIsLoadingAccounts(true);
+        try {
+          const res = await api.get(`/tools/accounts/${selectedClient.id}`);
+          // The backend returns { accounts: [...] }
+          setToolAccounts(res.data?.accounts || res.data || []);
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setIsLoadingAccounts(false);
+        }
+      }
+    };
+    fetchAccounts();
+  }, [selectedClient?.id]);
   useEffect(() => {
     if (node.tool && !node.action && ACTIONS[node.tool]?.[0]) {
       onChange({ action: ACTIONS[node.tool][0].id, label: ACTIONS[node.tool][0].label });
@@ -112,6 +138,22 @@ export const ConfigPanel = ({
     return "CHANNELS";
   };
 
+  const normalizeToolName = (name?: string) => {
+    if (!name) return "";
+    const normalized = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (normalized === 'apolloio') return 'apollo';
+    if (normalized === 'bettercontacts') return 'bettercontact';
+    return normalized;
+  };
+
+  const needsAccount = !['delay', 'if_else', 'branch', 'filter', 'wait', 'loop', 'merge', 'end_workflow', 'human', 'manual_trigger', 'run_on_schedule', 'webhook', 'campaign_started', 'campaign_completed', 'reply_received', 'email_opened', 'email_clicked', 'meeting_booked', 'deal_created', 'deal_updated'].includes(node.tool || '');
+  const availableAccounts = toolAccounts.filter(a => 
+    normalizeToolName(a.tool_name) === normalizeToolName(node.tool) 
+    && a.status === 'connected' 
+    && a.account_label !== 'Auto (mock-ready)'
+  );
+  const hasAccount = !needsAccount || availableAccounts.length > 0;
+
   return (
     <div className="h-full flex flex-col bg-white">
       {/* Header */}
@@ -143,23 +185,38 @@ export const ConfigPanel = ({
         {node.tool && (
           <div className="space-y-3">
             <label className="text-[13px] font-bold text-[#1a1510]">App <span className="text-red-500">*</span></label>
-            <div className="flex items-center justify-between p-3 border border-brand-gold/30 rounded-lg bg-brand-gold/5">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-md bg-white shadow-sm flex items-center justify-center text-[#1a1510] border border-[#1a1510]/[0.05]">
-                  {getIcon()}
+            
+            {needsAccount && !hasAccount && !isLoadingAccounts ? (
+              <div className="flex flex-col gap-3 p-4 border border-amber-200 rounded-lg bg-amber-50">
+                <div className="flex items-center gap-2 text-amber-800">
+                  <ShieldAlert size={16} />
+                  <span className="text-[13px] font-bold">⚠ No account connected</span>
                 </div>
-                <div>
-                  <div className="text-sm font-bold text-[#1a1510]">{node.tool}</div>
-                  <div className="text-[11px] text-[#1a1510]/60">Connected as {selectedClient?.name || 'Workspace Default'}</div>
+                <p className="text-xs text-amber-700">Please connect a {node.tool} account before configuring this action.</p>
+                <a href="/dashboard/tools" target="_blank" rel="noopener noreferrer" className="self-start px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-800 text-[13px] font-bold rounded-md transition-colors">
+                  Connect Account
+                </a>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between p-3 border border-brand-gold/30 rounded-lg bg-brand-gold/5">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-md bg-white shadow-sm flex items-center justify-center text-[#1a1510] border border-[#1a1510]/[0.05]">
+                    {getIcon()}
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-[#1a1510]">{node.tool}</div>
+                    <div className="text-[11px] text-[#1a1510]/60">
+                      {needsAccount ? 'Connected to workspace' : 'Built-in Feature'}
+                    </div>
+                  </div>
                 </div>
               </div>
-              <button className="text-[11px] font-bold text-brand-gold underline">Change</button>
-            </div>
+            )}
           </div>
         )}
 
         {/* Step 2: Action Dropdown */}
-        {node.tool && (
+        {node.tool && hasAccount && (
           <div className="space-y-3">
             <label className="text-[13px] font-bold text-[#1a1510]">Action event <span className="text-red-500">*</span></label>
             <div className="relative">
@@ -184,150 +241,95 @@ export const ConfigPanel = ({
         )}
 
         {/* Step 3: Dynamic Configuration Fields */}
-        {node.tool && node.action && (
+        {node.tool && node.action && hasAccount && (
           <div className="space-y-4 pt-4 border-t border-[#1a1510]/[0.07]">
-            <label className="text-[13px] font-bold text-[#1a1510]">{node.tool === 'delay' ? 'Configure' : 'Account'} <span className="text-red-500">*</span></label>
+            <label className="text-[13px] font-bold text-[#1a1510]">{node.tool === 'delay' ? 'Configure' : 'Account Selection'} <span className="text-red-500">*</span></label>
 
-            {/* Apollo -> Account Setup */}
-            {node.tool === "Apollo" && (
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 border border-[#1a1510]/[0.07] rounded-lg p-3 bg-white">
-                  <input type="text" className="w-full text-sm outline-none bg-transparent" placeholder="Connect Apollo" readOnly />
-                  <button className="text-[12px] font-bold text-white bg-[#4F46E5] px-4 py-2 rounded-md hover:bg-[#4338CA] transition-colors whitespace-nowrap">Sign In</button>
-                </div>
-                <p className="text-[11px] text-slate-500 leading-relaxed">
-                  Apollo is a secure partner with Zapier. Your credentials are encrypted & can be removed at any time. You can manage all of your connected accounts here.
-                </p>
+            {needsAccount && (
+              <div className="space-y-3 mb-4">
+                {(() => {
+                  const savedAccountId = node.config?.accountId;
+                  const isSavedAccountMissing = savedAccountId && !availableAccounts.find(a => a.id === savedAccountId);
+
+                  if (!savedAccountId && availableAccounts[0]) {
+                    setTimeout(() => handleConfigChange("accountId", availableAccounts[0].id), 0);
+                  }
+                  return (
+                    <>
+                      {isSavedAccountMissing && (
+                        <div className="flex items-center gap-2 p-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg">
+                          <ShieldAlert size={16} />
+                          <span>The previously selected account is no longer connected. Please select another or <a href="/tools" target="_blank" rel="noopener noreferrer" className="underline font-bold">reconnect</a>.</span>
+                        </div>
+                      )}
+                      <select 
+                        value={(isSavedAccountMissing ? "" : savedAccountId) || ""} 
+                        onChange={(e) => handleConfigChange("accountId", e.target.value)}
+                        className={`w-full p-2.5 border ${isSavedAccountMissing ? 'border-red-300' : 'border-[#1a1510]/[0.07]'} rounded-lg text-sm outline-none bg-[#faf9f8] font-medium text-[#1a1510]`}
+                      >
+                        <option value="" disabled>Select {node.tool} Account</option>
+                        {availableAccounts.map(acc => (
+                          <option key={acc.id} value={acc.id}>{acc.account_label}</option>
+                        ))}
+                      </select>
+                    </>
+                  );
+                })()}
               </div>
             )}
 
-            {/* HeyReach -> Send LinkedIn Message */}
-            {node.tool === "HeyReach" && node.action === "send_linkedin_message" && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">Connected Account</label>
-                  <select className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-[#faf9f8]"><option>Default HeyReach Account</option></select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">Campaign</label>
-                  <select className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none"><option>Select Campaign...</option><option>Outbound Q3</option></select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">Message Template</label>
-                  <textarea value={node.config?.message_template || ""} onChange={e => handleConfigChange("message_template", e.target.value)} className="w-full h-24 p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none resize-none" placeholder="Hi {{first_name}}, I saw..." />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-[#1a1510]">Delay (Hours)</label>
-                    <input type="number" value={node.config?.delay || ""} onChange={e => handleConfigChange("delay", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none" placeholder="24" />
+            {/* Dynamic Configuration Renderer */}
+            {(() => {
+              const fields = ACTION_SCHEMAS[node.tool]?.[node.action];
+              if (!fields) {
+                return (
+                  <div className="flex flex-col items-center justify-center p-8 text-center opacity-70 border border-dashed border-slate-300 rounded-lg">
+                    <Settings2 size={24} className="mb-2 text-slate-400" />
+                    <p className="text-sm font-medium text-slate-500">Configuration fields for <br /><b>{node.action}</b><br /> will load dynamically.</p>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-[#1a1510]">Variables</label>
-                    <input type="text" value={node.config?.variables || ""} onChange={e => handleConfigChange("variables", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none" placeholder='{"first_name": "John"}' />
-                  </div>
-                </div>
-              </div>
-            )}
+                );
+              }
 
-            {/* Calendly -> Book Meeting */}
-            {node.tool === "Calendly" && node.action === "book_meeting" && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">Connected Account</label>
-                  <select className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-[#faf9f8]"><option>Default Calendly Account</option></select>
+              return (
+                <div className="space-y-4">
+                  {fields.map((field: FieldSchema) => (
+                    <div key={field.name} className="space-y-2">
+                      <label className="text-[11px] font-bold text-[#1a1510]">
+                        {field.label} {field.required && <span className="text-red-500">*</span>}
+                      </label>
+                      
+                      {field.type === 'textarea' ? (
+                        <textarea
+                          value={node.config?.[field.name] || ""}
+                          onChange={(e) => handleConfigChange(field.name, e.target.value)}
+                          className="w-full h-24 p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none resize-none"
+                          placeholder={field.placeholder || ""}
+                        />
+                      ) : field.type === 'select' ? (
+                        <select
+                          value={node.config?.[field.name] || ""}
+                          onChange={(e) => handleConfigChange(field.name, e.target.value)}
+                          className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white"
+                        >
+                          <option value="" disabled>Select {field.label}...</option>
+                          {field.options?.map((opt) => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type={field.type === 'number' ? 'number' : field.type === 'email' ? 'email' : 'text'}
+                          value={node.config?.[field.name] || ""}
+                          onChange={(e) => handleConfigChange(field.name, e.target.value)}
+                          className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white"
+                          placeholder={field.placeholder || ""}
+                        />
+                      )}
+                    </div>
+                  ))}
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">Event Type</label>
-                  <select className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none"><option>Select Event Type...</option><option>30 Min Discovery</option></select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">Date & Time</label>
-                  <input type="datetime-local" value={node.config?.datetime || ""} onChange={e => handleConfigChange("datetime", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-[#1a1510]">Invitee Email</label>
-                    <input type="email" value={node.config?.invitee || ""} onChange={e => handleConfigChange("invitee", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none" placeholder="{{contact.email}}" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-[#1a1510]">Timezone</label>
-                    <select className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none"><option>UTC</option><option>America/New_York</option></select>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Delay -> Delay For */}
-            {node.tool === "delay" && node.action === "delay_for" && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">Time Delayed For (value) <span className="text-red-500">*</span></label>
-                  <input type="number" value={node.config?.delay_value || ""} onChange={e => handleConfigChange("delay_value", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" placeholder="1.0" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">Time Delayed For (unit) <span className="text-red-500">*</span></label>
-                  <select value={node.config?.delay_unit || ""} onChange={e => handleConfigChange("delay_unit", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
-                    <option value="" disabled>Choose value...</option>
-                    <option value="minutes">Minutes</option>
-                    <option value="hours">Hours</option>
-                    <option value="days">Days</option>
-                    <option value="weeks">Weeks</option>
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {/* Delay -> Delay Until */}
-            {node.tool === "delay" && node.action === "delay_until" && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">Date/Time Delayed Until <span className="text-red-500">*</span></label>
-                  <input type="text" value={node.config?.delay_until_time || ""} onChange={e => handleConfigChange("delay_until_time", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" placeholder="Enter text or insert data..." />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">How should we handle dates in the past?</label>
-                  <select value={node.config?.delay_past_behavior || ""} onChange={e => handleConfigChange("delay_past_behavior", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
-                    <option value="" disabled>Choose value...</option>
-                    <option value="continue_15_min">Continue if it's up to 15 minutes</option>
-                    <option value="continue_1_hour">Continue if it's up to one hour</option>
-                    <option value="continue_1_day">Continue if it's up to one day (default)</option>
-                    <option value="always_continue">Always continue</option>
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {/* Delay -> Delay After Queue */}
-            {node.tool === "delay" && node.action === "delay_after_queue" && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">Queue Title</label>
-                  <input type="text" value={node.config?.queue_title || ""} onChange={e => handleConfigChange("queue_title", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" placeholder="Enter text or insert data..." />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">Time Delayed For (value) <span className="text-red-500">*</span></label>
-                  <input type="number" value={node.config?.delay_value || ""} onChange={e => handleConfigChange("delay_value", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" placeholder="1.0" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">Time Delayed For (unit) <span className="text-red-500">*</span></label>
-                  <select value={node.config?.delay_unit || ""} onChange={e => handleConfigChange("delay_unit", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
-                    <option value="" disabled>Choose value...</option>
-                    <option value="minutes">Minutes</option>
-                    <option value="hours">Hours</option>
-                    <option value="days">Days</option>
-                    <option value="weeks">Weeks</option>
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {/* Generic Configuration fallback if not explicitly designed above */}
-            {(!["Apollo", "HeyReach", "Calendly", "delay"].includes(node.tool) || !["search_people", "send_linkedin_message", "book_meeting", "delay_for", "delay_until", "delay_after_queue"].includes(node.action)) && (
-              <div className="flex flex-col items-center justify-center p-8 text-center opacity-70 border border-dashed border-slate-300 rounded-lg">
-                <Settings2 size={24} className="mb-2 text-slate-400" />
-                <p className="text-sm font-medium text-slate-500">Configuration fields for <br /><b>{node.action}</b><br /> will load dynamically.</p>
-              </div>
-            )}
+              );
+            })()}
           </div>
         )}
       </div>
