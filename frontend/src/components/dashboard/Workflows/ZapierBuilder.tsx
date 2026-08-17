@@ -79,6 +79,7 @@ const BLOCK_LIBRARY_CATEGORIES = [
     ]
   }, 
   */
+  /*
   {
     title: "CRM",
     subtitle: "Deals, contacts, tasks",
@@ -93,6 +94,7 @@ const BLOCK_LIBRARY_CATEGORIES = [
       { id: "create_task", label: "Create Task", icon: Activity, type: "action" },
     ]
   },
+  */
   {
     title: "Apps",
     subtitle: "Third-party integrations",
@@ -437,7 +439,7 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
       {/* Top Header */}
       <div className="h-14 px-4 border-b border-[#1a1510]/[0.07] bg-white flex items-center justify-between shrink-0">
         <div className="flex items-center gap-4">
-          <button onClick={onClose} className="h-8 px-3 text-sm font-semibold text-[#1a1510]/70 hover:text-[#1a1510] flex items-center gap-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+          <button onClick={() => onClose()} className="h-8 px-3 text-sm font-semibold text-[#1a1510]/70 hover:text-[#1a1510] flex items-center gap-1.5 rounded-lg hover:bg-slate-100 transition-colors">
             <ArrowLeft size={16} /> Back
           </button>
           <div className="h-4 w-px bg-slate-200" />
