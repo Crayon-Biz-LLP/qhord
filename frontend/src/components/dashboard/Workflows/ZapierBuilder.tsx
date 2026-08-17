@@ -54,15 +54,15 @@ const BLOCK_LIBRARY_CATEGORIES = [
     title: "Logic",
     subtitle: "Branch, delay, filter, loop",
     items: [
-      { id: "if_else", label: "If / Else", icon: GitBranch, type: "action" },
-      { id: "branch", label: "Branch", icon: GitBranch, type: "action" },
-      { id: "multi_split", label: "Multi Split", icon: GitBranch, type: "action" },
-      { id: "filter", label: "Filter", icon: Settings2, type: "action" },
-      { id: "delay", label: "Delay", icon: Clock, type: "action" },
-      { id: "wait", label: "Wait", icon: Pause, type: "action" },
-      { id: "loop", label: "Loop", icon: Activity, type: "action" },
-      { id: "merge", label: "Merge", icon: GitBranch, type: "action" },
-      { id: "end_workflow", label: "End Workflow", icon: Play, type: "action" },
+      { id: "if_else", label: "If / Else", icon: GitBranch, type: "logic" },
+      { id: "branch", label: "Branch", icon: GitBranch, type: "logic" },
+      { id: "multi_split", label: "Multi Split", icon: GitBranch, type: "logic" },
+      { id: "filter", label: "Filter", icon: Settings2, type: "logic" },
+      { id: "delay", label: "Delay", icon: Clock, type: "logic" },
+      { id: "wait", label: "Wait", icon: Pause, type: "logic" },
+      { id: "loop", label: "Loop", icon: Activity, type: "logic" },
+      { id: "merge", label: "Merge", icon: GitBranch, type: "logic" },
+      { id: "end_workflow", label: "End Workflow", icon: Play, type: "logic" },
     ]
   },
   /* 
@@ -96,7 +96,7 @@ const BLOCK_LIBRARY_CATEGORIES = [
   },
   */
   {
-    title: "Apps",
+    title: "Actions",
     subtitle: "Third-party integrations",
     items: [
       { id: "Apollo", label: "Apollo.io", icon: "/logos/apollo.png", type: "action" },
@@ -106,6 +106,7 @@ const BLOCK_LIBRARY_CATEGORIES = [
       { id: "Smartlead", label: "Smartlead", icon: "/logos/smartleads.webp", type: "action" },
       { id: "Gojiberry", label: "Gojiberry", icon: "/logos/gojiberry.png", type: "action" },
       { id: "Calendly", label: "Calendly", icon: "/logos/calendly.png", type: "action" },
+      { id: "Instantly", label: "Instantly", icon: "/logos/instantly.png", type: "action" },
     ]
   }
 ];
@@ -122,7 +123,7 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
   const dagreGraph = new dagre.graphlib.Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
   
-  dagreGraph.setGraph({ rankdir: 'TB', nodesep: 100, ranksep: 60, align: 'UL' });
+  dagreGraph.setGraph({ rankdir: 'TB', nodesep: 300, ranksep: 60 });
   
   nodes.forEach((node) => {
     dagreGraph.setNode(node.id, { width: 320, height: 120 });
@@ -182,6 +183,24 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
     }
   }, [workflowId]);
 
+  const onConnect = useCallback(
+    (params: Connection | Edge) => {
+      setEdges((eds) => {
+        const newEdge: Edge = {
+          ...params,
+          id: `e-${params.source}-${params.target}-${params.sourceHandle || 'default'}`,
+          type: 'customEdge',
+          markerEnd: { type: MarkerType.ArrowClosed },
+          data: { onAddNode: handleAddNodeClick }
+        };
+        const newEds = addEdge(newEdge, eds);
+        setTimeout(() => applyLayout(nodes, newEds), 0);
+        return newEds;
+      });
+    },
+    [nodes, setEdges]
+  );
+
   const applyLayout = (currentNodes: Node[], currentEdges: Edge[]) => {
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(currentNodes, currentEdges);
     setNodes(layoutedNodes);
@@ -220,8 +239,10 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
         if (data.workflow.edges && data.workflow.edges.length > 0) {
            initialEdges = data.workflow.edges.map((e: any) => ({
              id: e.id,
-             source: e.source_node_id,
-             target: e.target_node_id,
+             source: e.source_node_id || e.source,
+             target: e.target_node_id || e.target,
+             sourceHandle: e.sourceHandle,
+             targetHandle: e.targetHandle,
              type: 'customEdge',
              markerEnd: { type: MarkerType.ArrowClosed },
              data: { branchKey: e.branchKey, conditionJson: e.conditionJson, onAddNode: handleAddNodeClick }
@@ -268,6 +289,11 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
   };
 
   const handleItemClick = (itemData: any) => {
+    if (itemData.type === 'trigger' && nodes.some(n => (n.data.node as any).type === 'trigger')) {
+      toast.error("A workflow can only have one trigger.");
+      return;
+    }
+    
     const newNodeId = crypto.randomUUID();
     const newNode: Node = {
       id: newNodeId,
@@ -346,6 +372,61 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
 
   const handleSave = async (status: string = workflowStatus) => {
     if (!selectedClient?.id) return;
+
+    // Validation
+    const triggerNodes = nodes.filter(n => (n.data.node as any).type === 'trigger');
+    if (triggerNodes.length !== 1) {
+      toast.error(`Workflow must have exactly one trigger node. Found ${triggerNodes.length}.`);
+      return;
+    }
+    
+    const triggerNodeId = triggerNodes[0].id;
+    const incomingEdgesToTrigger = edges.filter(e => e.target === triggerNodeId);
+    if (incomingEdgesToTrigger.length > 0) {
+      toast.error("Trigger node must be the root node and cannot have incoming connections.");
+      return;
+    }
+    
+    if (nodes.length < 2) {
+      toast.error("Workflow must have at least one action or logic node after the trigger.");
+      return;
+    }
+
+    // Reachability Validation
+    const visited = new Set<string>();
+    const queue = [triggerNodeId];
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (!visited.has(current)) {
+        visited.add(current);
+        const outEdges = edges.filter(e => e.source === current);
+        outEdges.forEach(e => queue.push(e.target));
+      }
+    }
+    
+    const unreachedNodes = nodes.filter(n => !visited.has(n.id));
+    if (unreachedNodes.length > 0) {
+      toast.error(`Workflow has ${unreachedNodes.length} orphaned nodes. All nodes must be connected to the trigger.`);
+      return;
+    }
+
+    // Connection Rules Validation
+    for (const node of nodes) {
+      const dataNode = node.data.node as any;
+      const inEdges = edges.filter(e => e.target === node.id);
+      const outEdges = edges.filter(e => e.source === node.id);
+
+      if (dataNode.tool === 'end_workflow' && outEdges.length > 0) {
+        toast.error("End Workflow node cannot have outgoing connections.");
+        return;
+      }
+      
+      if (dataNode.tool === 'merge' && inEdges.length < 2) {
+        toast.error("Merge node must have at least two incoming connections.");
+        return;
+      }
+    }
+
     setIsSaving(true);
     try {
       const payload = {
@@ -367,6 +448,8 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
         edges: edges.map(e => ({
           source: e.source,
           target: e.target,
+          sourceHandle: e.sourceHandle,
+          targetHandle: e.targetHandle,
           branchKey: e.data?.branchKey,
           conditionJson: e.data?.conditionJson
         }))
@@ -520,13 +603,14 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
             edges={edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             onInit={() => console.log('flow loaded')}
             onNodeClick={onNodeClick}
             onPaneClick={onPaneClick}
             nodesDraggable={false}
-            nodesConnectable={false}
+            nodesConnectable={true}
             elementsSelectable={true}
             fitView
             className="custom-scrollbar"

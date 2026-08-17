@@ -124,12 +124,52 @@ export const ZapierNode = ({ data, selected }: NodeProps) => {
         </div>
       </div>
 
-      {/* Source Handle (Outgoing connection) */}
-      <Handle 
-        type="source" 
-        position={Position.Bottom} 
-        className="w-3 h-3 bg-white border-2 border-slate-300 rounded-full opacity-0 pointer-events-none"
-      />
+      {/* Source Handles */}
+      {node.tool === 'end_workflow' ? null : 
+       node.tool === 'if_else' ? (
+         <div className="flex w-full justify-around absolute -bottom-1.5 left-0">
+           <div className="relative group/handle flex flex-col items-center">
+             <Handle type="source" position={Position.Bottom} id="true" className="!relative !transform-none w-3 h-3 bg-white border-2 border-slate-300 rounded-full hover:border-brand-gold hover:bg-brand-gold/20 hover:scale-125 transition-all" />
+             <span className="absolute top-4 text-[9px] font-bold text-slate-400 group-hover/handle:text-[#1a1510] pointer-events-none">TRUE</span>
+           </div>
+           <div className="relative group/handle flex flex-col items-center">
+             <Handle type="source" position={Position.Bottom} id="false" className="!relative !transform-none w-3 h-3 bg-white border-2 border-slate-300 rounded-full hover:border-brand-gold hover:bg-brand-gold/20 hover:scale-125 transition-all" />
+             <span className="absolute top-4 text-[9px] font-bold text-slate-400 group-hover/handle:text-[#1a1510] pointer-events-none">FALSE</span>
+           </div>
+         </div>
+       ) : node.tool === 'branch' ? (
+         <div className="flex w-full justify-around absolute -bottom-1.5 left-0">
+           {node.config?.branches?.map((b: any, i: number) => (
+             <div key={b.id || `branch_${i}`} className="relative group/handle flex flex-col items-center">
+               <Handle type="source" position={Position.Bottom} id={b.id || `branch_${i}`} className="!relative !transform-none w-3 h-3 bg-white border-2 border-slate-300 rounded-full hover:border-brand-gold hover:bg-brand-gold/20 hover:scale-125 transition-all" />
+               <span className="absolute top-4 text-[9px] font-bold text-slate-400 group-hover/handle:text-[#1a1510] pointer-events-none whitespace-nowrap">{b.name || `Branch ${i+1}`}</span>
+             </div>
+           ))}
+           <div className="relative group/handle flex flex-col items-center">
+             <Handle type="source" position={Position.Bottom} id="fallback" className="!relative !transform-none w-3 h-3 bg-white border-2 border-slate-300 rounded-full hover:border-brand-gold hover:bg-brand-gold/20 hover:scale-125 transition-all" />
+             <span className="absolute top-4 text-[9px] font-bold text-slate-400 group-hover/handle:text-[#1a1510] pointer-events-none">FALLBACK</span>
+           </div>
+         </div>
+       ) : node.tool === 'multi_split' ? (
+         <div className="flex w-full justify-around absolute -bottom-1.5 left-0">
+           {node.config?.cases?.map((c: any, i: number) => (
+             <div key={c.id || `case_${i}`} className="relative group/handle flex flex-col items-center">
+               <Handle type="source" position={Position.Bottom} id={c.id || `case_${i}`} className="!relative !transform-none w-3 h-3 bg-white border-2 border-slate-300 rounded-full hover:border-brand-gold hover:bg-brand-gold/20 hover:scale-125 transition-all" />
+               <span className="absolute top-4 text-[9px] font-bold text-slate-400 group-hover/handle:text-[#1a1510] pointer-events-none whitespace-nowrap">{c.label || c.value || `Case ${i+1}`}</span>
+             </div>
+           ))}
+           <div className="relative group/handle flex flex-col items-center">
+             <Handle type="source" position={Position.Bottom} id="fallback" className="!relative !transform-none w-3 h-3 bg-white border-2 border-slate-300 rounded-full hover:border-brand-gold hover:bg-brand-gold/20 hover:scale-125 transition-all" />
+             <span className="absolute top-4 text-[9px] font-bold text-slate-400 group-hover/handle:text-[#1a1510] pointer-events-none">FALLBACK</span>
+           </div>
+         </div>
+       ) : (
+        <Handle 
+          type="source" 
+          position={Position.Bottom} 
+          className="w-3 h-3 bg-white border-2 border-slate-300 rounded-full hover:border-brand-gold hover:bg-brand-gold/20 hover:scale-125 transition-all cursor-crosshair"
+        />
+       )}
     </div>
   );
 };

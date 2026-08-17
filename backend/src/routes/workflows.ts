@@ -57,7 +57,7 @@ router.post('/', async (req: Request, res: Response) => {
             id: e.id,
             source_node_id: e.source,
             target_node_id: e.target,
-            branchKey: e.branchKey,
+            branchKey: e.sourceHandle || e.branchKey,
             conditionJson: e.conditionJson || {}
           })) || []
         }
@@ -125,7 +125,7 @@ router.put('/:id', async (req: Request, res: Response) => {
                 workflow_id: wf.id,
                 source_node_id: e.source,
                 target_node_id: e.target,
-                branchKey: e.branchKey,
+                branchKey: e.sourceHandle || e.branchKey,
                 conditionJson: e.conditionJson || {}
              }))
           });
