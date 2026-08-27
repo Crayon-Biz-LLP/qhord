@@ -62,6 +62,7 @@ export interface AuthTokenPayload {
   id: string;
   email: string;
   role: OperatorRole;
+  sessionId?: string;
 }
 
 declare global {

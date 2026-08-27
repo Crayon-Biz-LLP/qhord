@@ -5,8 +5,31 @@ import { AuthTokenPayload, OperatorRole } from '../types';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 import axios from 'axios';
+import { UAParser } from 'ua-parser-js';
 import crypto from 'crypto';
 import { BrevoService } from '../services/brevo.service';
+
+async function createSession(req: Request, operatorId: string) {
+  const parser = new UAParser(req.headers['user-agent']);
+  const result = parser.getResult();
+  const device = `${result.os.name || 'Unknown OS'} · ${result.browser.name || 'Unknown Browser'}`;
+  const ip = req.ip || 'unknown';
+  
+  const expiresAt = new Date();
+  expiresAt.setHours(expiresAt.getHours() + 12); // match JWT expiry
+
+  const session = await prisma.session.create({
+    data: {
+      operator_id: operatorId,
+      device_info: device,
+      ip_address: ip,
+      location: 'Unknown', // GeoIP can be added later
+      expires_at: expiresAt
+    }
+  });
+
+  return session.id;
+}
 
 async function sendVerificationEmail(email: string, name: string, token: string) {
   const apiKey = process.env.BREVO_API_KEY;
@@ -160,10 +183,12 @@ router.post('/login', rateLimiter(15 * 60 * 1000, 30), async (req: Request, res:
       return;
     }
 
+    const sessionId = await createSession(req, operator.id);
     const payload: AuthTokenPayload = {
       id: operator.id,
       email: operator.email,
       role: operator.role as OperatorRole,
+      sessionId
     };
     const token = generateToken(payload);
 
@@ -400,10 +425,12 @@ router.post('/2fa/login-verify', async (req: Request, res: Response) => {
     });
 
     if (verified) {
+      const sessionId = await createSession(req, operator.id);
       const payload: AuthTokenPayload = {
         id: operator.id,
         email: operator.email,
         role: operator.role as OperatorRole,
+        sessionId
       };
       const authToken = generateToken(payload);
 
@@ -593,10 +620,12 @@ router.get('/google/callback', async (req: Request, res: Response) => {
       }
     });
     
+    const sessionId = await createSession(req, operator.id);
     const payload: AuthTokenPayload = {
       id: operator.id,
       email: operator.email,
-      role: operator.role as OperatorRole
+      role: operator.role as OperatorRole,
+      sessionId
     };
     
     const token = generateToken(payload);
@@ -691,6 +720,121 @@ router.post('/resend-verification', rateLimiter(5 * 60 * 1000, 3), async (req: R
   } catch (err) {
     console.error('Resend verification error', err);
     res.status(500).json({ message: 'Failed to resend verification email' });
+  }
+});
+
+// --- SESSION ENDPOINTS ---
+
+router.get('/sessions', requireAuth, async (req: Request, res: Response) => {
+  if (!req.user) {
+    res.status(401).json({ message: 'Not authenticated' });
+    return;
+  }
+
+  try {
+    const sessions = await prisma.session.findMany({
+      where: {
+        operator_id: req.user.id,
+        is_revoked: false,
+        OR: [
+          { expires_at: null },
+          { expires_at: { gt: new Date() } }
+        ]
+      },
+      orderBy: { last_active_at: 'desc' }
+    });
+
+    const formattedSessions = sessions.map(s => ({
+      id: s.id,
+      deviceInfo: s.device_info,
+      ipAddress: s.ip_address,
+      location: s.location,
+      createdAt: s.created_at,
+      lastActiveAt: s.last_active_at,
+      isCurrent: s.id === req.user?.sessionId
+    }));
+
+    res.json({ sessions: formattedSessions });
+  } catch (err) {
+    console.error('Fetch sessions error', err);
+    res.status(500).json({ message: 'Failed to fetch sessions' });
+  }
+});
+
+router.post('/sessions/:id/revoke', requireAuth, async (req: Request, res: Response) => {
+  if (!req.user) {
+    res.status(401).json({ message: 'Not authenticated' });
+    return;
+  }
+
+  const { id } = req.params;
+
+  if (id === req.user.sessionId) {
+    res.status(400).json({ message: 'Cannot revoke current session. Please use logout instead.' });
+    return;
+  }
+
+  try {
+    const session = await prisma.session.findUnique({
+      where: { id }
+    });
+
+    if (!session || session.operator_id !== req.user.id) {
+      res.status(404).json({ message: 'Session not found' });
+      return;
+    }
+
+    await prisma.session.update({
+      where: { id },
+      data: { is_revoked: true, revoked_at: new Date() }
+    });
+
+    res.json({ message: 'Session revoked successfully' });
+  } catch (err) {
+    console.error('Revoke session error', err);
+    res.status(500).json({ message: 'Failed to revoke session' });
+  }
+});
+
+router.post('/sessions/revoke-all', requireAuth, async (req: Request, res: Response) => {
+  if (!req.user || !req.user.sessionId) {
+    res.status(401).json({ message: 'Not authenticated' });
+    return;
+  }
+
+  try {
+    await prisma.session.updateMany({
+      where: {
+        operator_id: req.user.id,
+        id: { not: req.user.sessionId },
+        is_revoked: false
+      },
+      data: { is_revoked: true, revoked_at: new Date() }
+    });
+
+    res.json({ message: 'All other sessions revoked successfully' });
+  } catch (err) {
+    console.error('Revoke all sessions error', err);
+    res.status(500).json({ message: 'Failed to revoke sessions' });
+  }
+});
+
+router.post('/logout', requireAuth, async (req: Request, res: Response) => {
+  if (!req.user || !req.user.sessionId) {
+    res.status(401).json({ message: 'Not authenticated' });
+    return;
+  }
+
+  try {
+    await prisma.session.update({
+      where: { id: req.user.sessionId },
+      data: { is_revoked: true, revoked_at: new Date() }
+    });
+
+    res.json({ message: 'Logged out successfully' });
+  } catch (err) {
+    console.error('Logout error', err);
+    res.status(500).json({ message: 'Failed to logout' });
   }
 });
 

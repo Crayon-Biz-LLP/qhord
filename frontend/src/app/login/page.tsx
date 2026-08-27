@@ -33,7 +33,7 @@ function LoginContent() {
   }, [token, from, router]);
 
   const handleSuccess = () => {
-    router.replace(from);
+    window.location.href = from;
   };
 
   const handleClose = () => {

@@ -32,6 +32,7 @@ import { campaignWorker } from './workers/campaign-worker';
 import { workflowWorker } from './workers/workflow-worker';
 
 const app = express();
+app.set('trust proxy', 1);
 
 const allowedOrigins = [
   process.env.FRONTEND_URL,

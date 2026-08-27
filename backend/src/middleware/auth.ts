@@ -18,7 +18,9 @@ export function generateToken(payload: AuthTokenPayload): string {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '12h' });
 }
 
-export function requireAuth(req: Request, res: Response, next: NextFunction): void {
+import { prisma } from '../lib/prisma';
+
+export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const header = req.headers.authorization;
   if (!header || !header.startsWith('Bearer ')) {
     res.status(401).json({ message: 'Missing or invalid Authorization header' });
@@ -28,9 +30,27 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   const token = header.substring('Bearer '.length);
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as AuthTokenPayload;
+    
+    if (decoded.sessionId) {
+      const session = await prisma.session.findUnique({
+        where: { id: decoded.sessionId }
+      });
+
+      if (!session || session.is_revoked || session.operator_id !== decoded.id) {
+        res.status(401).json({ message: 'Session expired or revoked' });
+        return;
+      }
+
+      // Optionally check expires_at if it's set
+      if (session.expires_at && new Date() > session.expires_at) {
+        res.status(401).json({ message: 'Session expired' });
+        return;
+      }
+    }
+
     req.user = decoded;
     next();
-  } catch {
+  } catch (err) {
     res.status(401).json({ message: 'Invalid or expired token' });
   }
 }

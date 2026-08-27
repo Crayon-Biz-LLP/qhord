@@ -35,10 +35,7 @@ const NAV_ITEMS: NavItem[] = [
    { id: "usage", label: "Usage", icon: BarChart3 },
 ];
 
-const SESSIONS = [
-   { device: "Chrome on MacOS", location: "San Francisco, CA", current: true, icon: Monitor },
-   { device: "Safari on iPhone", location: "San Francisco, CA", current: false, icon: Smartphone },
-];
+// Dynamic sessions handled in component state
 
 const GoldToggle = ({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) => (
    <button
@@ -138,6 +135,42 @@ export default function SettingsPage() {
       setTimeout(() => setToastMessage(null), 3000);
    };
 
+   const [sessions, setSessions] = useState<any[]>([]);
+   const [loadingSessions, setLoadingSessions] = useState(true);
+
+   const fetchSessions = async () => {
+      try {
+         const res = await api.get('/auth/sessions');
+         setSessions(res.data.sessions || []);
+      } catch (err) {
+         showToast("Failed to load sessions");
+      } finally {
+         setLoadingSessions(false);
+      }
+   };
+
+   const handleRevokeSession = async (id: string) => {
+      if (!confirm("Are you sure you want to revoke this session?")) return;
+      try {
+         await api.post(`/auth/sessions/${id}/revoke`);
+         showToast("Session revoked");
+         fetchSessions();
+      } catch (err) {
+         showToast("Failed to revoke session");
+      }
+   };
+
+   const handleRevokeAllOther = async () => {
+      if (!confirm("Are you sure you want to revoke all other sessions?")) return;
+      try {
+         await api.post('/auth/sessions/revoke-all');
+         showToast("All other sessions revoked");
+         fetchSessions();
+      } catch (err) {
+         showToast("Failed to revoke sessions");
+      }
+   };
+
    useEffect(() => {
       async function fetchData() {
          try {
@@ -193,6 +226,7 @@ export default function SettingsPage() {
          }
       }
       fetchData();
+      fetchSessions();
    }, []);
 
    const handleSave = async () => {
@@ -451,19 +485,41 @@ export default function SettingsPage() {
 
                         {/* Active Sessions */}
                         <div className="space-y-3">
-                           <h3 className="text-[15px] font-semibold tracking-tight text-[#1a1510]">Active Sessions</h3>
+                           <div className="flex items-center justify-between">
+                              <h3 className="text-[15px] font-semibold tracking-tight text-[#1a1510]">Active Sessions</h3>
+                              {sessions.length > 1 && (
+                                 <button 
+                                    onClick={handleRevokeAllOther}
+                                    className="px-4 h-8 bg-red-50 text-red-600 rounded-lg text-[10px] font-bold uppercase tracking-widest border border-red-100 hover:bg-red-100 transition-colors">
+                                    Revoke All Other Sessions
+                                 </button>
+                              )}
+                           </div>
                            <div className="bg-white border border-[#1a1510]/[0.07] rounded-2xl overflow-hidden">
-                              {SESSIONS.map((s, i) => (
-                                 <div key={i} className="p-5 flex items-center justify-between border-b border-[#1a1510]/[0.06] last:border-0 group hover:bg-[#fafafa] transition-colors">
+                              {loadingSessions ? (
+                                 <div className="p-8 flex justify-center">
+                                    <div className="animate-spin text-[#b99b7b]"><RefreshCw size={24} /></div>
+                                 </div>
+                              ) : sessions.length === 0 ? (
+                                 <div className="p-8 text-center text-[13px] text-[#1a1510]/50 font-medium">
+                                    No active sessions found.
+                                 </div>
+                              ) : (
+                                 sessions.map((s, i) => (
+                                 <div key={s.id} className="p-5 flex items-center justify-between border-b border-[#1a1510]/[0.06] last:border-0 group hover:bg-[#fafafa] transition-colors">
                                     <div className="flex items-center gap-3">
-                                       <s.icon size={17} className="text-[#1a1510]/30" />
+                                       {s.deviceInfo.toLowerCase().includes('mac') || s.deviceInfo.toLowerCase().includes('windows') ? <Monitor size={17} className="text-[#1a1510]/30" /> : <Smartphone size={17} className="text-[#1a1510]/30" />}
                                        <div>
-                                          <p className="text-[14px] font-semibold text-[#1a1510]">{s.device}</p>
-                                          <p className="text-[12px] font-medium text-[#1a1510]/40">{s.location}</p>
+                                          <p className="text-[14px] font-semibold text-[#1a1510]">{s.deviceInfo}</p>
+                                          <p className="text-[12px] font-medium text-[#1a1510]/40">
+                                             {s.location} · {s.ipAddress} · <span className={s.isCurrent ? "text-emerald-500 font-bold" : ""}>Signed in: {new Date(s.lastActiveAt).toLocaleString()}</span>
+                                          </p>
                                        </div>
                                     </div>
-                                    {!s.current ? (
-                                       <button className="text-[11px] font-semibold text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    {!s.isCurrent ? (
+                                       <button 
+                                          onClick={() => handleRevokeSession(s.id)}
+                                          className="text-[11px] font-semibold text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
                                           Revoke
                                        </button>
                                     ) : (
@@ -472,7 +528,7 @@ export default function SettingsPage() {
                                        </span>
                                     )}
                                  </div>
-                              ))}
+                              )))}
                            </div>
                         </div>
 

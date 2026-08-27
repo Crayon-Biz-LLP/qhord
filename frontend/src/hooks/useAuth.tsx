@@ -8,7 +8,7 @@ import type { Operator } from "../types";
 interface UseAuthResult {
   user: Operator | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<{ mfaRequired: boolean } | void>;
   loginWithMfa: (userId: string, token: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<any>;
   logout: () => void;
@@ -84,7 +84,7 @@ export function useAuth(redirectUnauthenticated = false): UseAuthResult {
     if (res.data.mfaRequired && res.data.userId) {
       setMfaRequired(true);
       setPendingUserId(res.data.userId);
-      return;
+      return { mfaRequired: true };
     }
 
     localStorage.setItem("auth_token", res.data.token);
@@ -92,7 +92,7 @@ export function useAuth(redirectUnauthenticated = false): UseAuthResult {
     setUser(res.data.operator);
     setMfaRequired(false);
     setPendingUserId(null);
-    router.replace("/dashboard");
+    return { mfaRequired: false };
   };
 
   const loginWithMfa = async (userId: string, token: string) => {
@@ -102,7 +102,6 @@ export function useAuth(redirectUnauthenticated = false): UseAuthResult {
     setUser(res.data.operator);
     setMfaRequired(false);
     setPendingUserId(null);
-    router.replace("/dashboard");
   };
 
   const register = async (name: string, email: string, password: string) => {
@@ -110,7 +109,12 @@ export function useAuth(redirectUnauthenticated = false): UseAuthResult {
     return res.data;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await api.post("/auth/logout");
+    } catch {
+      // ignore
+    }
     localStorage.removeItem("auth_token");
     deleteCookie("auth_token");
     setUser(null);

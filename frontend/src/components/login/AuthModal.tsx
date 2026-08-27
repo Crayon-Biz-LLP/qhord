@@ -17,12 +17,13 @@ interface AuthModalProps {
 }
 
 export const AuthModal = ({ isOpen, onClose, initialState = "signin", onSuccess, initialError }: AuthModalProps) => {
-  const { login, register, loading } = useAuth(false);
+  const { login, register, loading, mfaRequired, loginWithMfa, pendingUserId } = useAuth(false);
   const router = useRouter();
   const [isLogin, setIsLogin] = useState(initialState === "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(initialError || null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -58,8 +59,16 @@ export const AuthModal = ({ isOpen, onClose, initialState = "signin", onSuccess,
     setSuccessMessage(null);
     setSubmitting(true);
     try {
-      if (isLogin) {
-        await login(email, password);
+      if (mfaRequired && pendingUserId) {
+        await loginWithMfa(pendingUserId, mfaCode);
+        if (onSuccess) onSuccess();
+      } else if (isLogin) {
+        const result = await login(email, password);
+        if (result && result.mfaRequired) {
+          // Do nothing, UI will switch to MFA view
+        } else {
+          if (onSuccess) onSuccess();
+        }
       } else {
         if (!name) {
           setError("Name is required");
@@ -70,7 +79,6 @@ export const AuthModal = ({ isOpen, onClose, initialState = "signin", onSuccess,
         setSuccessMessage("Registration successful! A verification link has been sent to your email. Please verify before logging in.");
         setIsLogin(true); // Switch to sign in view
       }
-      if (isLogin && onSuccess) onSuccess();
     } catch (err: any) {
       if (err?.response?.data?.emailUnverified) {
         setError(
@@ -126,8 +134,18 @@ export const AuthModal = ({ isOpen, onClose, initialState = "signin", onSuccess,
               {/* DYNAMIC HIGH-FIDELITY BOT PERSONAS - Responsive Scaling */}
               <div className="hidden">
                 <AnimatePresence mode="wait">
-                  {/* LOGIN BOT (SLOW-MOTION MAJESTIC HIGH JUMP) */}
-                  {isLogin ? (
+                  {/* MFA BOT or LOGIN BOT */}
+                  {mfaRequired ? (
+                    <motion.div
+                      key="mfa-bot"
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      className="relative w-32 h-32 md:w-56 md:h-56 mt-4 md:mt-16 flex items-center justify-center text-[#D4AF37]"
+                    >
+                      <Lock size={64} className="drop-shadow-[0_0_50px_rgba(212,175,55,0.7)]" />
+                    </motion.div>
+                  ) : isLogin ? (
                     <motion.div
                       key="login-bot"
                       initial={{ opacity: 0, y: -200, scale: 0.8 }}
@@ -230,20 +248,22 @@ export const AuthModal = ({ isOpen, onClose, initialState = "signin", onSuccess,
                     className="text-xl md:text-3xl font-black text-white italic tracking-tighter leading-none"
                   >
                     WELCOME <br />
-                    <span className="text-[#D4AF37]">{isLogin ? "BACK !" : "READY TO JOIN ?"}</span>
+                    <span className="text-[#D4AF37]">{mfaRequired ? "BACK (SECURE) !" : isLogin ? "BACK !" : "READY TO JOIN ?"}</span>
                   </motion.h2>
                 </div>
               </div>
 
-              <div className="relative z-10 md:mt-0 mt-2">
-                <button
-                  onClick={() => setIsLogin(!isLogin)}
-                  className="group flex items-center gap-2 md:gap-3 text-white/50 hover:text-[#D4AF37] transition-all text-[9px] md:text-[10px] font-bold uppercase tracking-[0.2em] md:tracking-[0.3em]"
-                >
-                  {isLogin ? <ChevronRight size={12} className="group-hover:translate-x-1" /> : <ChevronLeft size={12} className="group-hover:-translate-x-1" />}
-                  <span>{isLogin ? "Create Account" : "Login"}</span>
-                </button>
-              </div>
+              {!mfaRequired && (
+                <div className="relative z-10 md:mt-0 mt-2">
+                  <button
+                    onClick={() => setIsLogin(!isLogin)}
+                    className="group flex items-center gap-2 md:gap-3 text-white/50 hover:text-[#D4AF37] transition-all text-[9px] md:text-[10px] font-bold uppercase tracking-[0.2em] md:tracking-[0.3em]"
+                  >
+                    {isLogin ? <ChevronRight size={12} className="group-hover:translate-x-1" /> : <ChevronLeft size={12} className="group-hover:-translate-x-1" />}
+                    <span>{isLogin ? "Create Account" : "Login"}</span>
+                  </button>
+                </div>
+              )}
             </motion.div>
 
             {/* THE FORM PANEL - Responsive Padding */}
@@ -262,16 +282,20 @@ export const AuthModal = ({ isOpen, onClose, initialState = "signin", onSuccess,
                 >
                   <div className="space-y-0.5 md:space-y-1">
                     <h1 className="text-3xl md:text-4xl font-black tracking-tighter text-[#1a1510] uppercase">
-                      {isLogin ? "Login" : "Register"}
+                      {mfaRequired ? "Two-Factor Auth" : isLogin ? "Login" : "Register"}
                     </h1>
                     <p className="text-[9px] md:text-[10px] text-[#1a1510]/30 italic font-semibold uppercase tracking-widest pl-0.5 max-w-[280px] md:max-w-none">
-                      {isLogin ? "Please enter your details." : "Access account securely with your registered email."}
+                      {mfaRequired ? "Enter the 6-digit code from your authenticator app." : isLogin ? "Please enter your details." : "Access account securely with your registered email."}
                     </p>
                   </div>
 
                   <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
                     <div className="space-y-2 md:space-y-4">
-                      {isLogin ? (
+                      {mfaRequired ? (
+                        <>
+                          <UnderlineInput label="Authentication Code*" placeholder="123456" type="text" value={mfaCode} onChange={setMfaCode} />
+                        </>
+                      ) : isLogin ? (
                         <>
                           <UnderlineInput label="Email ID*" placeholder="Enter your email" type="email" value={email} onChange={setEmail} />
                           <UnderlineInput label="Password*" placeholder="Enter your password" type="password" value={password} onChange={setPassword} />
@@ -324,34 +348,38 @@ export const AuthModal = ({ isOpen, onClose, initialState = "signin", onSuccess,
                         whileTap={{ scale: 0.98 }}
                         className="w-full group py-3 md:py-3.5 bg-[#1a1510] text-white rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-[0.4em] md:tracking-[0.5em] shadow-xl relative overflow-hidden flex items-center justify-center gap-2 md:gap-3 disabled:opacity-50"
                       >
-                        <span className="relative z-10">{submitting ? "Processing..." : (isLogin ? "Login" : "Register")}</span>
+                        <span className="relative z-10">{submitting ? "Processing..." : (mfaRequired ? "Verify Code" : isLogin ? "Login" : "Register")}</span>
                         <ArrowRight size={14} className="text-[#D4AF37] relative z-10 group-hover:translate-x-1 transition-transform" />
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent skew-x-[45deg] translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000" />
                       </motion.button>
 
-                      <div className="flex items-center gap-3 md:gap-4 justify-center">
-                        <div className="h-px w-6 md:w-8 bg-[#1a1510]/5" />
-                        <span className="text-[9px] md:text-[10px] font-black text-[#1a1510]/20 uppercase tracking-[0.3em] md:tracking-[0.4em]">OR</span>
-                        <div className="h-px w-6 md:w-8 bg-[#1a1510]/5" />
-                      </div>
-
-                      <div className="px-0 md:px-2">
-                        <button
-                          type="button"
-                          onClick={handleGoogleLogin}
-                          className="w-full py-3 md:py-3.5 rounded-xl bg-[#1a1510] text-white flex items-center justify-center gap-3 md:gap-4 hover:brightness-125 transition-all shadow-sm group"
-                        >
-                          <div className="w-5 h-5 flex items-center justify-center">
-                            <svg viewBox="0 0 24 24" className="w-5 h-5">
-                              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-                              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                              <path d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z" fill="#FBBC05" />
-                              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335" />
-                            </svg>
+                      {!mfaRequired && (
+                        <>
+                          <div className="flex items-center gap-3 md:gap-4 justify-center">
+                            <div className="h-px w-6 md:w-8 bg-[#1a1510]/5" />
+                            <span className="text-[9px] md:text-[10px] font-black text-[#1a1510]/20 uppercase tracking-[0.3em] md:tracking-[0.4em]">OR</span>
+                            <div className="h-px w-6 md:w-8 bg-[#1a1510]/5" />
                           </div>
-                          <span className="text-xs md:text-sm font-bold tracking-tight">Sign in with Google</span>
-                        </button>
-                      </div>
+
+                          <div className="px-0 md:px-2">
+                            <button
+                              type="button"
+                              onClick={handleGoogleLogin}
+                              className="w-full py-3 md:py-3.5 rounded-xl bg-[#1a1510] text-white flex items-center justify-center gap-3 md:gap-4 hover:brightness-125 transition-all shadow-sm group"
+                            >
+                              <div className="w-5 h-5 flex items-center justify-center">
+                                <svg viewBox="0 0 24 24" className="w-5 h-5">
+                                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                                  <path d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z" fill="#FBBC05" />
+                                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335" />
+                                </svg>
+                              </div>
+                              <span className="text-xs md:text-sm font-bold tracking-tight">Sign in with Google</span>
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </form>
                 </motion.div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   User, Building2, Users, Plug, Send, Brain, Bell, SlidersHorizontal,
   Database, Workflow, BarChart3, Shield, Lock, Smartphone, Monitor,
@@ -48,32 +48,6 @@ const NAV_ITEMS: NavItem[] = [
   { id: "usage", label: "Usage", icon: BarChart3 },
 ];
 
-const SESSIONS = [
-  {
-    device: "MacBook Pro · Chrome",
-    location: "San Francisco, CA",
-    ip: "192.168.1.42",
-    lastActive: "Active now",
-    current: true,
-    icon: Monitor,
-  },
-  {
-    device: "iPhone 15 Pro · Safari",
-    location: "San Francisco, CA",
-    ip: "192.168.1.87",
-    lastActive: "2 hours ago",
-    current: false,
-    icon: Smartphone,
-  },
-  {
-    device: "Windows 11 · Edge",
-    location: "New York, NY",
-    ip: "74.125.224.72",
-    lastActive: "3 days ago",
-    current: false,
-    icon: Globe,
-  },
-];
 
 /* ─────────────────── REUSABLE: TOGGLE ─────────────────── */
 const GoldToggle = ({
@@ -86,8 +60,8 @@ const GoldToggle = ({
   <button
     onClick={onToggle}
     className={`relative w-12 h-[26px] rounded-full transition-colors duration-300 focus:outline-none ${enabled
-        ? "bg-gradient-to-r from-brand-gold to-[#D4AF37]"
-        : "bg-[#1a1510]/10"
+      ? "bg-gradient-to-r from-brand-gold to-[#D4AF37]"
+      : "bg-[#1a1510]/10"
       }`}
     aria-label="Toggle"
   >
@@ -125,178 +99,243 @@ export const Settings = () => {
   }, [showToast]);
 
   /* ══════════════════ PROFILE PANEL ══════════════════ */
-  const ProfilePanel = () => (
-    <motion.div
-      key="profile"
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -16 }}
-      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-      className="space-y-8"
-    >
-      {/* ── Profile Information ── */}
-      <div className="space-y-5">
-        <div className="space-y-1">
-          <h2 className="text-[18px] font-black text-[#1a1510] tracking-tight">Profile Information</h2>
-          <p className="text-[12px] font-medium text-[#1a1510]/35">Update your personal details and account settings</p>
-        </div>
+  const ProfilePanel = () => {
+    const [sessions, setSessions] = useState<any[]>([]);
+    const [loadingSessions, setLoadingSessions] = useState(true);
 
-        <div className="bg-white border border-[#e5e7eb] rounded-2xl p-6 space-y-5">
-          {/* Avatar row */}
-          <div className="flex items-center gap-5">
-            <div className="w-16 h-16 rounded-2xl bg-brand-gold/15 border border-brand-gold/25 flex items-center justify-center text-brand-gold font-black text-xl shadow-sm">
-              SM
-            </div>
-            <div className="space-y-0.5">
-              <p className="text-[14px] font-bold text-[#1a1510]">Sarah Mitchell</p>
-              <p className="text-[11px] font-medium text-[#1a1510]/30">Growth Team · Admin</p>
-            </div>
-            <button className="ml-auto px-5 h-9 bg-[#f7f8f9] border border-[#e5e7eb] rounded-xl text-[10px] font-black uppercase tracking-widest text-[#1a1510]/50 hover:text-brand-gold hover:border-brand-gold/30 transition-all">
-              Upload Photo
-            </button>
+    const fetchSessions = useCallback(async () => {
+      try {
+        const { api } = await import('../../../lib/api');
+        const res = await api.get('/auth/sessions');
+        setSessions(res.data.sessions || []);
+      } catch (err) {
+        showToast("Failed to load sessions");
+      } finally {
+        setLoadingSessions(false);
+      }
+    }, [showToast]);
+
+    useEffect(() => {
+      fetchSessions();
+    }, [fetchSessions]);
+
+    const handleRevokeSession = async (id: string) => {
+      if (!confirm("Are you sure you want to revoke this session?")) return;
+      try {
+        const { api } = await import('../../../lib/api');
+        await api.post(`/auth/sessions/${id}/revoke`);
+        showToast("Session revoked");
+        fetchSessions();
+      } catch (err) {
+        showToast("Failed to revoke session");
+      }
+    };
+
+    const handleRevokeAllOther = async () => {
+      if (!confirm("Are you sure you want to revoke all other sessions?")) return;
+      try {
+        const { api } = await import('../../../lib/api');
+        await api.post('/auth/sessions/revoke-all');
+        showToast("All other sessions revoked");
+        fetchSessions();
+      } catch (err) {
+        showToast("Failed to revoke sessions");
+      }
+    };
+
+    return (
+      <motion.div
+        key="profile"
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -16 }}
+        transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+        className="space-y-8"
+      >
+        {/* ── Profile Information ── */}
+        <div className="space-y-5">
+          <div className="space-y-1">
+            <h2 className="text-[18px] font-black text-[#1a1510] tracking-tight">Profile Information</h2>
+            <p className="text-[12px] font-medium text-[#1a1510]/35">Update your personal details and account settings</p>
           </div>
 
-          {/* Form Fields */}
-          <div className="grid grid-cols-2 gap-5">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1a1510]/25">Full Name</label>
-              <input
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                className="w-full h-11 bg-[#f7f8f9] border border-[#e5e7eb] focus:border-brand-gold/50 focus:ring-2 focus:ring-brand-gold/10 rounded-xl px-4 text-[13px] font-medium text-[#1a1510] placeholder-[#1a1510]/20 outline-none transition-all"
-                placeholder="Enter your name"
-              />
+          <div className="bg-white border border-[#e5e7eb] rounded-2xl p-6 space-y-5">
+            {/* Avatar row */}
+            <div className="flex items-center gap-5">
+              <div className="w-16 h-16 rounded-2xl bg-brand-gold/15 border border-brand-gold/25 flex items-center justify-center text-brand-gold font-black text-xl shadow-sm">
+                SM
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-[14px] font-bold text-[#1a1510]">Sarah Mitchell</p>
+                <p className="text-[11px] font-medium text-[#1a1510]/30">Growth Team · Admin</p>
+              </div>
+              <button className="ml-auto px-5 h-9 bg-[#f7f8f9] border border-[#e5e7eb] rounded-xl text-[10px] font-black uppercase tracking-widest text-[#1a1510]/50 hover:text-brand-gold hover:border-brand-gold/30 transition-all">
+                Upload Photo
+              </button>
             </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1a1510]/25">Email Address</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full h-11 bg-[#f7f8f9] border border-[#e5e7eb] focus:border-brand-gold/50 focus:ring-2 focus:ring-brand-gold/10 rounded-xl px-4 text-[13px] font-medium text-[#1a1510] placeholder-[#1a1510]/20 outline-none transition-all"
-                placeholder="you@company.com"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {/* ── Security ── */}
-      <div className="space-y-5">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <Shield size={18} className="text-brand-gold" />
-            <h2 className="text-[18px] font-black text-[#1a1510] tracking-tight">Security</h2>
-          </div>
-          <p className="text-[12px] font-medium text-[#1a1510]/35">Manage your authentication methods and session security</p>
-        </div>
-
-        <div className="space-y-3">
-          {/* Password */}
-          <div className="bg-white border border-[#e5e7eb] rounded-2xl p-5 flex items-center justify-between group hover:shadow-md hover:border-brand-gold/20 transition-all">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-brand-gold/10 flex items-center justify-center">
-                <Lock size={18} className="text-brand-gold" />
+            {/* Form Fields */}
+            <div className="grid grid-cols-2 gap-5">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1a1510]/25">Full Name</label>
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="w-full h-11 bg-[#f7f8f9] border border-[#e5e7eb] focus:border-brand-gold/50 focus:ring-2 focus:ring-brand-gold/10 rounded-xl px-4 text-[13px] font-medium text-[#1a1510] placeholder-[#1a1510]/20 outline-none transition-all"
+                  placeholder="Enter your name"
+                />
               </div>
-              <div>
-                <h4 className="text-[13px] font-bold text-[#1a1510]">Password</h4>
-                <p className="text-[11px] font-medium text-[#1a1510]/30">Last changed 30 days ago</p>
-              </div>
-            </div>
-            <button className="px-5 h-10 border border-brand-gold/30 text-brand-gold rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-gold/5 transition-all">
-              Change Password
-            </button>
-          </div>
-
-          {/* 2FA */}
-          <div className="bg-white border border-[#e5e7eb] rounded-2xl p-5 flex items-center justify-between group hover:shadow-md hover:border-brand-gold/20 transition-all">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-brand-gold/10 flex items-center justify-center">
-                <Fingerprint size={18} className="text-brand-gold" />
-              </div>
-              <div>
-                <h4 className="text-[13px] font-bold text-[#1a1510]">Two-Factor Authentication</h4>
-                <p className="text-[11px] font-medium text-[#1a1510]/30">
-                  {twoFA ? "Enabled — adds an extra layer of security" : "Protect your account with 2FA verification"}
-                </p>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1a1510]/25">Email Address</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full h-11 bg-[#f7f8f9] border border-[#e5e7eb] focus:border-brand-gold/50 focus:ring-2 focus:ring-brand-gold/10 rounded-xl px-4 text-[13px] font-medium text-[#1a1510] placeholder-[#1a1510]/20 outline-none transition-all"
+                  placeholder="you@company.com"
+                />
               </div>
             </div>
-            <GoldToggle enabled={twoFA} onToggle={() => setTwoFA(!twoFA)} />
-          </div>
-
-          {/* SSO */}
-          <div className="bg-white border border-[#e5e7eb] rounded-2xl p-5 flex items-center justify-between group hover:shadow-md hover:border-brand-gold/20 transition-all">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-brand-gold/10 flex items-center justify-center">
-                <LogIn size={18} className="text-brand-gold" />
-              </div>
-              <div>
-                <h4 className="text-[13px] font-bold text-[#1a1510] flex items-center gap-2.5">
-                  Single Sign-On (SSO)
-                  <span className="px-2 py-0.5 bg-brand-gold/10 border border-brand-gold/25 text-brand-gold text-[8px] font-black uppercase tracking-widest rounded-md">
-                    Enterprise
-                  </span>
-                </h4>
-                <p className="text-[11px] font-medium text-[#1a1510]/30">Sign in with Google, Okta, or SAML provider</p>
-              </div>
-            </div>
-            <button className="px-5 h-10 border border-[#e5e7eb] text-[#1a1510]/40 rounded-xl text-[10px] font-black uppercase tracking-widest hover:text-brand-gold hover:border-brand-gold/30 transition-all">
-              Configure
-            </button>
           </div>
         </div>
-      </div>
 
-      {/* ── Active Sessions ── */}
-      <div className="space-y-5">
-        <div className="space-y-1">
-          <h2 className="text-[18px] font-black text-[#1a1510] tracking-tight">Active Sessions</h2>
-          <p className="text-[12px] font-medium text-[#1a1510]/35">Devices currently signed in to your account</p>
-        </div>
+        {/* ── Security ── */}
+        <div className="space-y-5">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2.5">
+              <Shield size={18} className="text-brand-gold" />
+              <h2 className="text-[18px] font-black text-[#1a1510] tracking-tight">Security</h2>
+            </div>
+            <p className="text-[12px] font-medium text-[#1a1510]/35">Manage your authentication methods and session security</p>
+          </div>
 
-        <div className="bg-white border border-[#e5e7eb] rounded-2xl overflow-hidden divide-y divide-[#e5e7eb]/60">
-          {SESSIONS.map((session, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.08, duration: 0.3 }}
-              className="flex items-center justify-between p-5 group hover:bg-[#fafbfc] transition-colors"
-            >
+          <div className="space-y-3">
+            {/* Password */}
+            <div className="bg-white border border-[#e5e7eb] rounded-2xl p-5 flex items-center justify-between group hover:shadow-md hover:border-brand-gold/20 transition-all">
               <div className="flex items-center gap-4">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${session.current ? "bg-brand-gold/10 text-brand-gold" : "bg-[#f7f8f9] text-[#1a1510]/25"
-                  }`}>
-                  <session.icon size={18} />
+                <div className="w-10 h-10 rounded-xl bg-brand-gold/10 flex items-center justify-center">
+                  <Lock size={18} className="text-brand-gold" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2.5">
-                    <h4 className="text-[13px] font-bold text-[#1a1510]">{session.device}</h4>
-                    {session.current && (
-                      <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded-md border border-emerald-100">
-                        This Device
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[11px] font-medium text-[#1a1510]/25">
-                    {session.location} · {session.ip} ·{" "}
-                    <span className={session.current ? "text-emerald-500 font-bold" : "text-[#1a1510]/25"}>
-                      {session.lastActive}
-                    </span>
+                  <h4 className="text-[13px] font-bold text-[#1a1510]">Password</h4>
+                  <p className="text-[11px] font-medium text-[#1a1510]/30">Last changed 30 days ago</p>
+                </div>
+              </div>
+              <button className="px-5 h-10 border border-brand-gold/30 text-brand-gold rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-gold/5 transition-all">
+                Change Password
+              </button>
+            </div>
+
+            {/* 2FA */}
+            <div className="bg-white border border-[#e5e7eb] rounded-2xl p-5 flex items-center justify-between group hover:shadow-md hover:border-brand-gold/20 transition-all">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-brand-gold/10 flex items-center justify-center">
+                  <Fingerprint size={18} className="text-brand-gold" />
+                </div>
+                <div>
+                  <h4 className="text-[13px] font-bold text-[#1a1510]">Two-Factor Authentication</h4>
+                  <p className="text-[11px] font-medium text-[#1a1510]/30">
+                    {twoFA ? "Enabled — adds an extra layer of security" : "Protect your account with 2FA verification"}
                   </p>
                 </div>
               </div>
-              {!session.current && (
-                <button className="px-4 h-9 text-[10px] font-black uppercase tracking-widest text-red-500/60 border border-red-200 rounded-xl hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-all">
-                  Revoke
-                </button>
-              )}
-            </motion.div>
-          ))}
+              <GoldToggle enabled={twoFA} onToggle={() => setTwoFA(!twoFA)} />
+            </div>
+
+            {/* SSO */}
+            <div className="bg-white border border-[#e5e7eb] rounded-2xl p-5 flex items-center justify-between group hover:shadow-md hover:border-brand-gold/20 transition-all">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-brand-gold/10 flex items-center justify-center">
+                  <LogIn size={18} className="text-brand-gold" />
+                </div>
+                <div>
+                  <h4 className="text-[13px] font-bold text-[#1a1510] flex items-center gap-2.5">
+                    Single Sign-On (SSO)
+                    <span className="px-2 py-0.5 bg-brand-gold/10 border border-brand-gold/25 text-brand-gold text-[8px] font-black uppercase tracking-widest rounded-md">
+                      Enterprise
+                    </span>
+                  </h4>
+                  <p className="text-[11px] font-medium text-[#1a1510]/30">Sign in with Google, Okta, or SAML provider</p>
+                </div>
+              </div>
+              <button className="px-5 h-10 border border-[#e5e7eb] text-[#1a1510]/40 rounded-xl text-[10px] font-black uppercase tracking-widest hover:text-brand-gold hover:border-brand-gold/30 transition-all">
+                Configure
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-    </motion.div>
-  );
+
+        {/* ── Active Sessions ── */}
+        <div className="space-y-5">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <h2 className="text-[18px] font-black text-[#1a1510] tracking-tight">Active Sessions</h2>
+              <p className="text-[12px] font-medium text-[#1a1510]/35">Devices currently signed in to your account</p>
+            </div>
+            {sessions.length > 1 && (
+              <button
+                onClick={handleRevokeAllOther}
+                className="px-4 h-9 bg-red-50 text-red-600 rounded-lg text-[10px] font-bold uppercase tracking-widest border border-red-100 hover:bg-red-100 transition-colors">
+                Revoke All Other Sessions
+              </button>
+            )}
+          </div>
+
+          <div className="bg-white border border-[#e5e7eb] rounded-2xl overflow-hidden divide-y divide-[#e5e7eb]/60">
+            {loadingSessions ? (
+              <div className="p-8 flex justify-center">
+                <Loader2 className="animate-spin text-brand-gold" />
+              </div>
+            ) : sessions.length === 0 ? (
+              <div className="p-8 text-center text-[13px] text-[#1a1510]/50 font-medium">
+                No active sessions found.
+              </div>
+            ) : (
+              sessions.map((session, i) => (
+                <motion.div
+                  key={session.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.08, duration: 0.3 }}
+                  className="flex items-center justify-between p-5 group hover:bg-[#fafbfc] transition-colors"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${session.isCurrent ? "bg-brand-gold/10 text-brand-gold" : "bg-[#f7f8f9] text-[#1a1510]/25"
+                      }`}>
+                      {session.deviceInfo.toLowerCase().includes('mac') || session.deviceInfo.toLowerCase().includes('windows') ? <Monitor size={18} /> : <Smartphone size={18} />}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2.5">
+                        <h4 className="text-[13px] font-bold text-[#1a1510]">{session.deviceInfo}</h4>
+                        {session.isCurrent && (
+                          <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded-md border border-emerald-100">
+                            This Device
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] font-medium text-[#1a1510]/25">
+                        {session.location} · {session.ipAddress} ·{" "}
+                        <span className={session.isCurrent ? "text-emerald-500 font-bold" : "text-[#1a1510]/25"}>
+                          Signed in: {new Date(session.lastActiveAt).toLocaleString()}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                  {!session.isCurrent && (
+                    <button
+                      onClick={() => handleRevokeSession(session.id)}
+                      className="px-4 h-9 text-[10px] font-black uppercase tracking-widest text-red-500/60 border border-red-200 rounded-xl hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-all">
+                      Revoke
+                    </button>
+                  )}
+                </motion.div>
+              )))}
+          </div>
+        </div>
+      </motion.div>
+    );
+  };
 
   /* ══════════════════ WORKSPACE PANEL ══════════════════ */
   const WorkspacePanel = () => (
@@ -479,8 +518,8 @@ export const Settings = () => {
                     {/* Status Tag */}
                     <td className="px-6 py-4">
                       <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${member.status === "active"
-                          ? "bg-emerald-50 text-emerald-600 border border-emerald-100/60"
-                          : "bg-amber-50 text-amber-600 border border-amber-100/60"
+                        ? "bg-emerald-50 text-emerald-600 border border-emerald-100/60"
+                        : "bg-amber-50 text-amber-600 border border-amber-100/60"
                         }`}>
                         {member.status}
                       </span>
@@ -546,9 +585,8 @@ export const Settings = () => {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
-              className={`group flex items-center gap-5 p-4 bg-white border rounded-2xl transition-all shadow-sm ${
-                int.status === "warning" ? "border-amber-200 bg-amber-50/20" : "border-[#1a1510]/5 hover:border-[#b99b7b]/20"
-              }`}
+              className={`group flex items-center gap-5 p-4 bg-white border rounded-2xl transition-all shadow-sm ${int.status === "warning" ? "border-amber-200 bg-amber-50/20" : "border-[#1a1510]/5 hover:border-[#b99b7b]/20"
+                }`}
             >
               <div className={`w-11 h-11 ${int.bg} rounded-xl flex items-center justify-center ${int.color} shrink-0 shadow-sm border border-black/5`}>
                 <int.icon size={20} />
@@ -557,11 +595,10 @@ export const Settings = () => {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2.5 mb-0.5">
                   <h4 className="text-[14px] font-bold text-[#1a1510] tracking-tight">{int.name}</h4>
-                  <span className={`flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full border ${
-                    int.status === "connected" ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
-                    int.status === "warning" ? "bg-amber-50 text-amber-600 border-amber-100" :
-                    "bg-red-50 text-red-500 border-red-100"
-                  }`}>
+                  <span className={`flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full border ${int.status === "connected" ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
+                      int.status === "warning" ? "bg-amber-50 text-amber-600 border-amber-100" :
+                        "bg-red-50 text-red-500 border-red-100"
+                    }`}>
                     {int.status === "connected" && <span className="w-1 h-1 rounded-full bg-emerald-600" />}
                     {int.status === "warning" && <AlertCircle size={10} />}
                     {int.status}
@@ -1311,8 +1348,8 @@ export const Settings = () => {
                     key={item.id}
                     onClick={() => setActiveTab(item.id)}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[11px] font-bold tracking-tight transition-all relative ${isActive
-                        ? "bg-brand-gold text-[#1a1510] shadow-md shadow-brand-gold/10"
-                        : "text-[#1a1510]/35 hover:text-[#1a1510]/60 hover:bg-[#f7f8f9]"
+                      ? "bg-brand-gold text-[#1a1510] shadow-md shadow-brand-gold/10"
+                      : "text-[#1a1510]/35 hover:text-[#1a1510]/60 hover:bg-[#f7f8f9]"
                       }`}
                   >
                     <IconComp
