@@ -18,6 +18,11 @@ import {
 import { useRouter } from "next/navigation";
 import { ConnectModal } from "../../../../components/dashboard/Tools/ConnectModal";
 import { ZapierBuilder } from "../../../../components/dashboard/Workflows/ZapierBuilder";
+import { Country, State } from 'country-state-city';
+import { useAuth } from "../../../../hooks/useAuth";
+
+const ALL_COUNTRIES = Country.getAllCountries();
+const COUNTRY_OPTIONS = ALL_COUNTRIES.map(c => c.name);
 
 // ── Step definitions ──────────────────────────────────────────────
 const STEPS = [
@@ -299,6 +304,7 @@ const CHANNEL_STRATEGIES = [
 export default function BuildCampaignPage() {
   const router = useRouter();
   const { clients, selectedClient } = useClient();
+  const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [campaignId] = useState(() => typeof window !== 'undefined' && window.crypto?.randomUUID ? window.crypto.randomUUID() : 'c' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15));
   const [campaignWorkflowId, setCampaignWorkflowId] = useState<string | null>(null);
@@ -330,6 +336,8 @@ export default function BuildCampaignPage() {
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [leadSearch, setLeadSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [msgTab, setMsgTab] = useState<"email" | "linkedin">("email");
   const [timingOpenId, setTimingOpenId] = useState<string | null>(null);
   const [stepCounter, setStepCounter] = useState(2);
@@ -913,7 +921,23 @@ export default function BuildCampaignPage() {
     if (!q) return true;
     return [l.name, l.email, l.company, l.title].some((v) => v.toLowerCase().includes(q));
   });
-  const allSelected = filteredLeads.length > 0 && filteredLeads.every((l) => selectedLeads.includes(l.id));
+
+  const totalPages = Math.max(1, Math.ceil(filteredLeads.length / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const paginatedLeads = filteredLeads.slice(startIndex, startIndex + pageSize);
+
+  useEffect(() => {
+    if (currentPage !== safePage) {
+      setCurrentPage(safePage);
+    }
+  }, [currentPage, safePage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [leadSearch]);
+
+  const allSelected = paginatedLeads.length > 0 && paginatedLeads.every((l) => selectedLeads.includes(l.id));
   const unverifiedCount = leads.filter((l) => l.status !== "verified").length;
 
   const loadLeads = (source: string) => {
@@ -924,7 +948,9 @@ export default function BuildCampaignPage() {
   };
   const toggleLead = (id: string) =>
     setSelectedLeads((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  const toggleAll = () => setSelectedLeads(allSelected ? [] : filteredLeads.map((l) => l.id));
+  const toggleAll = () => setSelectedLeads(allSelected 
+    ? selectedLeads.filter(id => !paginatedLeads.find(l => l.id === id)) 
+    : [...new Set([...selectedLeads, ...paginatedLeads.map((l) => l.id)])]);
   const removeLead = (id: string) => {
     setLeads((prev) => prev.filter((l) => l.id !== id));
     setSelectedLeads((prev) => prev.filter((x) => x !== id));
@@ -1690,8 +1716,8 @@ export default function BuildCampaignPage() {
 
                       {/* Table */}
                       <div className="bg-white rounded-2xl border border-[#1a1510]/[0.07] overflow-hidden">
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left border-collapse whitespace-nowrap">
+                        <div className="overflow-x-auto" style={{ transform: "rotateX(180deg)" }}>
+                          <table className="w-full text-left border-collapse whitespace-nowrap" style={{ transform: "rotateX(180deg)" }}>
                             <thead className="bg-[#fafafa] border-b border-[#1a1510]/[0.07]">
                               {form.leadMethod === "csv" && csvHeaders.length > 0 ? (
                                 <tr className="text-[10px] font-semibold text-[#1a1510]/35 uppercase tracking-wider">
@@ -1719,12 +1745,12 @@ export default function BuildCampaignPage() {
                               )}
                             </thead>
                             <tbody className="divide-y divide-[#1a1510]/[0.06]">
-                              {filteredLeads.length === 0 ? (
+                              {paginatedLeads.length === 0 ? (
                                 <tr>
                                   <td colSpan={form.leadMethod === "csv" && csvHeaders.length > 0 ? csvHeaders.length + 2 : 8} className="py-10 text-center text-[13px] text-[#1a1510]/40">No leads match your search.</td>
                                 </tr>
                               ) : form.leadMethod === "csv" && csvHeaders.length > 0 ? (
-                                filteredLeads.map((l) => {
+                                paginatedLeads.map((l) => {
                                   const checked = selectedLeads.includes(l.id);
                                   return (
                                     <tr key={l.id} className={`group transition-colors ${checked ? "bg-brand-gold/[0.04]" : "hover:bg-[#fafafa]"}`}>
@@ -1748,7 +1774,7 @@ export default function BuildCampaignPage() {
                                   );
                                 })
                               ) : (
-                                filteredLeads.map((l) => {
+                                paginatedLeads.map((l) => {
                                   const checked = selectedLeads.includes(l.id);
                                   return (
                                     <tr key={l.id} className={`group transition-colors ${checked ? "bg-brand-gold/[0.04]" : "hover:bg-[#fafafa]"}`}>
@@ -1783,6 +1809,52 @@ export default function BuildCampaignPage() {
                           </table>
                         </div>
                       </div>
+
+                      {/* Pagination Controls */}
+                      {filteredLeads.length > 0 && (
+                        <div className="flex items-center justify-between py-4 border-t border-[#1a1510]/[0.07] px-2">
+                          <div className="flex items-center gap-4">
+                            <span className="text-[12px] font-medium text-[#1a1510]/60">
+                              Showing {startIndex + 1} to {Math.min(startIndex + pageSize, filteredLeads.length)} of {filteredLeads.length} leads
+                            </span>
+                            <div className="flex items-center gap-2 text-[12px]">
+                              <span className="font-medium text-[#1a1510]/60">Show:</span>
+                              <select
+                                value={pageSize}
+                                onChange={(e) => {
+                                  setPageSize(Number(e.target.value));
+                                  setCurrentPage(1);
+                                }}
+                                className="h-8 px-2 rounded-lg bg-white border border-[#1a1510]/[0.07] focus:outline-none focus:border-brand-gold/40 text-[12px] font-medium cursor-pointer"
+                              >
+                                <option value={10}>10</option>
+                                <option value={25}>25</option>
+                                <option value={50}>50</option>
+                              </select>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <button
+                              disabled={safePage === 1}
+                              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                              className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#1a1510]/[0.07] hover:bg-[#f7f8f9] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                              <ChevronRight size={14} className="rotate-180" />
+                            </button>
+                            <span className="text-[12px] font-medium text-[#1a1510]/60 px-2">
+                              Page {safePage} of {totalPages}
+                            </span>
+                            <button
+                              disabled={safePage === totalPages}
+                              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                              className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#1a1510]/[0.07] hover:bg-[#f7f8f9] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                              <ChevronRight size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -1804,11 +1876,11 @@ export default function BuildCampaignPage() {
                       {[
                         { label: 'First Name', key: 'first_name' },
                         { label: 'Last Name', key: 'last_name' },
-                        { label: 'Title', key: 'title' },
+                        { label: 'Title', key: 'title', options: ["CEO", "CTO", "CMO", "VP Sales", "VP Marketing", "Director of Sales", "Manager", "Other"] },
                         { label: 'Company Name', key: 'company_name' },
                         { label: 'Company Name for Emails', key: 'company_name_for_emails' },
                         { label: 'Email', key: 'email' },
-                        { label: 'Email Status', key: 'email_status' },
+                        { label: 'Email Status', key: 'email_status', options: ["Verified", "Catch-All", "Unknown", "Invalid"] },
                         { label: 'Email Confidence', key: 'email_confidence' },
                         { label: 'Seniority', key: 'seniority' },
                         { label: 'Sub Departments', key: 'sub_departments' },
@@ -1823,8 +1895,12 @@ export default function BuildCampaignPage() {
                         { label: 'Person Linkedin Url', key: 'person_linkedin_url' },
                         { label: 'Website', key: 'website' },
                         { label: 'Company Linkedin Url', key: 'company_linkedin_url' },
-                        { label: 'State', key: 'state' },
-                        { label: 'Country', key: 'country' },
+                        { label: 'Country', key: 'country', options: COUNTRY_OPTIONS },
+                        { label: 'State', key: 'state', options: (() => {
+                          const selectedCountry = ALL_COUNTRIES.find(c => c.name === (manualForm as any).country);
+                          const states = selectedCountry ? State.getStatesOfCountry(selectedCountry.isoCode).map(s => s.name) : [];
+                          return states.length > 0 ? states : ["Other"];
+                        })() },
                         { label: 'Company Address', key: 'company_address' },
                         { label: 'Company City', key: 'company_city' },
                         { label: 'Company State', key: 'company_state' },
@@ -1834,14 +1910,30 @@ export default function BuildCampaignPage() {
                         { label: 'Qualify Contact', key: 'qualify_contact' }
                       ].map((field) => (
                         <div key={field.key} className="flex-1 min-w-[150px]">
-                          <input
-                            type="text"
-                            value={(manualForm as any)[field.key]}
-                            onChange={(e) => setManualForm({ ...manualForm, [field.key]: e.target.value })}
-                            onKeyDown={handleKeyDown}
-                            placeholder={field.label}
-                            className="w-full h-11 px-4 rounded-xl bg-white border border-[#1a1510]/[0.07] text-[12px] focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30 shadow-sm"
-                          />
+                          {field.options ? (
+                            <div className="relative">
+                              <select
+                                value={(manualForm as any)[field.key]}
+                                onChange={(e) => setManualForm({ ...manualForm, [field.key]: e.target.value })}
+                                className={`w-full h-11 px-4 pr-10 appearance-none rounded-xl bg-white border border-[#1a1510]/[0.07] text-[12px] focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all shadow-sm cursor-pointer ${(manualForm as any)[field.key] ? 'text-[#1a1510]' : 'text-[#1a1510]/30'}`}
+                              >
+                                <option value="" disabled hidden>{field.label}</option>
+                                {field.options.map(opt => (
+                                  <option key={opt} value={opt}>{opt}</option>
+                                ))}
+                              </select>
+                              <ChevronDown size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#1a1510]/40 pointer-events-none" />
+                            </div>
+                          ) : (
+                            <input
+                              type="text"
+                              value={(manualForm as any)[field.key]}
+                              onChange={(e) => setManualForm({ ...manualForm, [field.key]: e.target.value })}
+                              onKeyDown={handleKeyDown}
+                              placeholder={field.label}
+                              className="w-full h-11 px-4 rounded-xl bg-white border border-[#1a1510]/[0.07] text-[12px] focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30 shadow-sm"
+                            />
+                          )}
                         </div>
                       ))}
                       <div className="flex-1 min-w-[150px] col-span-2 sm:col-span-1">
@@ -2171,7 +2263,26 @@ export default function BuildCampaignPage() {
                         <button onClick={addFollowUp} className="h-10 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-[12px] font-semibold text-[#1a1510]/70 hover:text-[#1a1510] hover:border-[#1a1510]/20 transition-colors flex items-center gap-2">
                           <Plus size={15} className="text-[#1a1510]/40" /> Add Follow-up
                         </button>
-                        <button className="h-10 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-[12px] font-semibold text-[#1a1510]/70 hover:text-[#1a1510] hover:border-[#1a1510]/20 transition-colors flex items-center gap-2">
+                        <button 
+                          type="button"
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            if (!user || !user.email) {
+                              toast.error("No logged-in user email found to send a test.");
+                              return;
+                            }
+                            const promise = api.post('/campaigns/send-test', {
+                              subject: renderTemplate(emailSteps[0]?.subject || ""),
+                              body: renderTemplate(emailSteps[0]?.body || "")
+                            });
+                            toast.promise(promise, {
+                              loading: "Sending preview...",
+                              success: "test mail send to your mail",
+                              error: "Failed to send test mail"
+                            });
+                          }}
+                          className="h-10 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-[12px] font-semibold text-[#1a1510]/70 hover:text-[#1a1510] hover:border-[#1a1510]/20 transition-colors flex items-center gap-2"
+                        >
                           <Send size={14} className="text-[#1a1510]/40" /> Send Test
                         </button>
                       </div>
@@ -2469,79 +2580,28 @@ export default function BuildCampaignPage() {
                     </div>
                   </div>
 
-                  {/* Auto-Fix Plans */}
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <Sparkles size={16} className="text-brand-gold" />
-                      <h3 className="text-[15px] font-bold text-[#1a1510]">Auto-Fix Plans for this campaign</h3>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#1a1510]/60 px-2 py-0.5 rounded bg-brand-gold/15">{FIX_PLANS.length} issues</span>
-                    </div>
-                    <p className="text-[12px] text-[#1a1510]/45 mb-3">Each task has a multi-step fix plan with confidence, impact, and guardrails. Choose how to handle it before launch.</p>
-
-                    <div className="space-y-3">
-                      {FIX_PLANS.map((p) => (
-                        <div key={p.id} className="bg-white rounded-2xl border border-[#1a1510]/[0.07] p-5">
-                          <div className="flex items-start gap-3 mb-3">
-                            <div className="w-9 h-9 rounded-xl bg-brand-gold/15 text-brand-gold flex items-center justify-center shrink-0">
-                              <Wand2 size={17} />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
-                                <h4 className="text-[14px] font-bold text-[#1a1510]">{p.title}</h4>
-                                <span className="text-[9px] font-bold uppercase tracking-wider text-[#1a1510]/55 px-1.5 py-0.5 rounded bg-[#1a1510]/5">{p.risk}</span>
-                              </div>
-                              <p className="text-[12px] text-[#1a1510]/60 mt-1"><b className="text-[#1a1510]/80">Problem:</b> {p.problem}</p>
-                              <p className="text-[12px] text-[#1a1510]/50 mt-0.5"><b className="text-[#1a1510]/70">Diagnosis:</b> {p.diagnosis}</p>
-                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-[11px]">
-                                <span className="text-[#1a1510]/45">Confidence <b className="text-[#1a1510]">{p.confidence}%</b></span>
-                                <span className="text-[#1a1510] font-semibold">{p.impact} pipeline impact</span>
-                                <span className="text-[#1a1510]/45">Expected: <b className="text-[#1a1510]/70">{p.expected}</b></span>
-                              </div>
-                              <span className="inline-block mt-2 text-[11px] font-semibold text-brand-gold px-2 py-1 rounded-md bg-brand-gold/10">{p.steps}-step fix plan</span>
-                            </div>
-                          </div>
-
-                          {/* Mode row */}
-                          <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-[#1a1510]/[0.06]">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#1a1510]/35 mr-1">Mode</span>
-                            {FIX_MODES.map((mode) => {
-                              const active = (fixModes[p.id] ?? "Require Approval") === mode;
-                              return (
-                                <button
-                                  key={mode}
-                                  onClick={() => setFixModes((prev) => ({ ...prev, [p.id]: mode }))}
-                                  className={`text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all ${
-                                    active ? "bg-[#1a1510] text-white" : "bg-[#f7f8f9] text-[#1a1510]/55 hover:text-[#1a1510]"
-                                  }`}
-                                >
-                                  {mode}
-                                </button>
-                              );
-                            })}
-                            <button className="btn-shine ml-auto h-9 px-4 rounded-lg bg-[#1a1510] text-white text-[11px] font-semibold flex items-center gap-2 hover:bg-[#2a2118] transition-colors">
-                              <Clock size={13} className="text-brand-gold" /> Queue for Approval
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
 
                   {/* Predicted Outcomes */}
                   <div className="rounded-2xl border border-[#1a1510]/[0.07] bg-[#fafafa] p-5">
                     <p className="text-[11px] font-bold text-[#1a1510]/40 uppercase tracking-wider mb-3">Predicted Outcomes</p>
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                      {[
-                        { value: "48%", label: "Open Rate" },
-                        { value: `${replyRate}%`, label: "Reply Rate" },
-                        { value: "0", label: "Est. Meetings" },
-                        { value: "$2K", label: "Est. Pipeline" },
-                      ].map((o) => (
-                        <div key={o.label}>
-                          <p className="text-2xl font-bold text-[#1a1510] tabular-nums">{o.value}</p>
-                          <p className="text-[11px] font-medium text-[#1a1510]/45 mt-0.5">{o.label}</p>
-                        </div>
-                      ))}
+                      {(() => {
+                        const effectiveLeads = leads.length > 0 ? leads.length : form.leadCount || 100;
+                        const dynamicOpenRate = Math.min(35 + (emailSteps.length * 5) + (linkedinSteps.length * 2), 85);
+                        const estMeetings = Math.round(effectiveLeads * (dynamicOpenRate / 100) * (replyRate / 100) * 0.15);
+                        const estPipeline = estMeetings > 0 ? `$${(estMeetings * 2.5).toFixed(1)}K` : "$0";
+                        return [
+                          { value: `${dynamicOpenRate}%`, label: "Open Rate" },
+                          { value: `${replyRate}%`, label: "Reply Rate" },
+                          { value: `${estMeetings}`, label: "Est. Meetings" },
+                          { value: estPipeline, label: "Est. Pipeline" },
+                        ].map((o) => (
+                          <div key={o.label}>
+                            <p className="text-2xl font-bold text-[#1a1510] tabular-nums">{o.value}</p>
+                            <p className="text-[11px] font-medium text-[#1a1510]/45 mt-0.5">{o.label}</p>
+                          </div>
+                        ));
+                      })()}
                     </div>
                   </div>
 

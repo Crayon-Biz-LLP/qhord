@@ -355,7 +355,7 @@ router.get('/health-table', async (req: Request, res: Response) => {
         created_at,
         updated_at
       FROM campaigns 
-      WHERE created_by_operator_id = ${operatorId}
+      WHERE created_by_operator_id = ${operatorId}::uuid
       ORDER BY updated_at DESC
       LIMIT 10
     ` as any[];

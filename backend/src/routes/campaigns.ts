@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma';
 import { PlannerMemoryService } from '../services/planner-memory.service';
 import jwt from 'jsonwebtoken';
 import { AuthTokenPayload } from '../types';
+import nodemailer from 'nodemailer';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'development-secret';
 
@@ -28,6 +29,70 @@ router.use((req, res, next) => {
     return next();
   }
   return requireAuth(req, res, next);
+});
+
+router.post('/send-test', async (req: Request, res: Response) => {
+  try {
+    const { subject, body } = req.body;
+    const toEmail = req.user?.email;
+
+    if (!toEmail) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: No logged-in email found.' });
+    }
+
+    const brevoApiKey = process.env.BREVO_API_KEY;
+    const brevoSenderName = process.env.BREVO_SENDER_NAME || "Qhord Demo";
+    const brevoSenderEmail = process.env.BREVO_SENDER_EMAIL || "v.rajendran@crayonbiz.com";
+
+    if (!brevoApiKey) {
+      console.error("BREVO_API_KEY not found, falling back to console log");
+      console.log("=== EMAIL PREVIEW ===");
+      console.log("TO:", toEmail);
+      console.log("SUBJECT:", subject);
+      console.log("BODY:", body);
+      return res.json({ success: true, message: `Test email logged to console` });
+    }
+
+    const brevoPayload = {
+      sender: {
+        name: brevoSenderName,
+        email: brevoSenderEmail
+      },
+      to: [
+        {
+          email: toEmail
+        }
+      ],
+      subject: `[Preview] ${subject || 'No Subject'}`,
+      textContent: body || 'No content'
+    };
+
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "api-key": brevoApiKey,
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify(brevoPayload)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error("Brevo API error:", errorData);
+      throw new Error(`Brevo API responded with status: ${response.status}`);
+    }
+
+    console.log("=== EMAIL SENT VIA BREVO ===");
+    console.log("FROM:", `"${brevoSenderName}" <${brevoSenderEmail}>`);
+    console.log("TO:", toEmail);
+    console.log("SUBJECT:", subject);
+
+    return res.json({ success: true, message: `Test email sent` });
+  } catch (error) {
+    console.error('Test email sending error:', error);
+    return res.status(500).json({ success: false, error: 'Failed to send test email' });
+  }
 });
 
 interface CampaignPlanRequest {
