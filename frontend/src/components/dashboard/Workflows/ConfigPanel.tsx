@@ -133,6 +133,20 @@ export const ConfigPanel = ({
   const { selectedClient } = useClient();
   const [toolAccounts, setToolAccounts] = useState<any[]>([]);
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
+  const [campaignsList, setCampaignsList] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchCampaigns = async () => {
+      try {
+        const res = await api.get('/campaigns');
+        const camps = Array.isArray(res.data) ? res.data : (res.data?.campaigns || []);
+        setCampaignsList(camps);
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    fetchCampaigns();
+  }, []);
 
   useEffect(() => {
     const fetchAccounts = async () => {
@@ -816,6 +830,113 @@ export const ConfigPanel = ({
              </div>
            )}
 
+        </div>
+      </div>
+    );
+  }
+
+  if (node.tool === 'manage_deals') {
+    return (
+      <div className="h-full flex flex-col bg-white">
+        <div className="h-14 px-4 border-b border-[#1a1510]/[0.07] flex items-center justify-between shrink-0 bg-[#faf9f8]">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded bg-white border border-[#1a1510]/[0.07] flex items-center justify-center text-[#1a1510]/70">
+              {getIcon()}
+            </div>
+            <h3 className="font-bold text-[#1a1510] text-[11px] tracking-widest uppercase">
+              ACTION / Manage deals
+            </h3>
+          </div>
+          <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-md transition-colors text-slate-400">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-6 custom-scrollbar">
+          <div className="space-y-3">
+            <label className="text-[13px] font-bold text-[#1a1510]">Action</label>
+            <div className="flex flex-col gap-3 mt-2">
+              <label className="flex items-center gap-3 text-sm text-slate-600 cursor-pointer">
+                <input type="radio" name="deal_action" value="update" checked={node.config?.deal_action === 'update'} onChange={() => handleConfigChange('deal_action', 'update')} className="accent-[#1a1510] w-4 h-4" />
+                Update deal
+              </label>
+              <label className="flex items-center gap-3 text-sm text-[#1a1510] font-medium cursor-pointer">
+                <input type="radio" name="deal_action" value="create" checked={node.config?.deal_action !== 'update'} onChange={() => handleConfigChange('deal_action', 'create')} className="accent-[#1a1510] w-4 h-4" />
+                Create deal
+              </label>
+            </div>
+          </div>
+
+          <div className="p-5 bg-[#faf9f8] border border-slate-200 rounded-xl space-y-4">
+            {node.config?.deal_action === 'update' ? (
+              <>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#1a1510] flex items-center gap-1">Deal field <span className="text-red-500">*</span></label>
+                  <select value={node.config?.deal_field || ""} onChange={e => handleConfigChange("deal_field", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white font-medium text-slate-700">
+                    <option value="" disabled>Select...</option>
+                    <option value="deal_amount">Deal amount</option>
+                    <option value="loss_reason">Loss reason</option>
+                    <option value="estimated_close_date">Estimated close date</option>
+                    <option value="custom_field">Custom field</option>
+                    <option value="next_step">Next step</option>
+                    <option value="closed_lost_reason">Closed lost reason</option>
+                    <option value="closed_won_reason">Closed won reason</option>
+                    <option value="current_solutions">Current solutions</option>
+                    <option value="deal_probability">Deal probability</option>
+                    <option value="forecast_category">Forecast category</option>
+                    <option value="deal_source">Deal source</option>
+                    <option value="deal_stage">Deal stage</option>
+                    <option value="deal_owner">Deal owner</option>
+                  </select>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#1a1510]">Set new value to</label>
+                  <div className="relative">
+                    <input type="text" value={node.config?.new_value || ""} onChange={e => handleConfigChange("new_value", e.target.value)} className="w-full p-2.5 pr-10 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" placeholder="" />
+                    <button className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5 text-xs font-mono">{"{}"}</button>
+                  </div>
+                </div>
+
+
+              </>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#1a1510] flex items-center gap-1">Pipeline <span className="text-red-500">*</span></label>
+                  <select value={node.config?.pipeline || ""} onChange={e => handleConfigChange("pipeline", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white font-medium text-slate-700">
+                    <option value="" disabled>Select a campaign...</option>
+                    {campaignsList.length === 0 && <option value="pipeline1">Pipeline 1</option>}
+                    {campaignsList.map(camp => (
+                      <option key={camp.id} value={camp.id}>{camp.name}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#1a1510]">Stage</label>
+                  <select value={node.config?.stage || ""} onChange={e => handleConfigChange("stage", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white font-medium text-slate-700">
+                    <option value="" disabled>Select...</option>
+                    <option value="lead">Lead</option>
+                    <option value="sales_qualified">Sales Qualified</option>
+                    <option value="meeting_booked">Meeting Booked</option>
+                    <option value="negotiation">Negotiation</option>
+                    <option value="contract_sent">Contract Sent</option>
+                    <option value="closed_won">Closed Won</option>
+                    <option value="closed_lost">Closed Lost</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#1a1510]">Deal owner</label>
+                  <select value={node.config?.owner || "vasantha"} onChange={e => handleConfigChange("owner", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white font-medium text-slate-700">
+                    <option value="vasantha">Vasanthakumar Rajend...</option>
+                    <option value="unassigned">Unassigned</option>
+                  </select>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     );

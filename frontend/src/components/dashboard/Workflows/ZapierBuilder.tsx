@@ -97,6 +97,20 @@ const BLOCK_LIBRARY_CATEGORIES = [
   */
   {
     title: "Actions",
+    subtitle: "Data, communications, and tasks",
+    items: [
+      { id: "manage_sequences", label: "Manage Sequences", icon: Activity, type: "action" },
+      { id: "manage_lists", label: "Manage lists", icon: Database, type: "action" },
+      { id: "manage_deals", label: "Manage deals", icon: Database, type: "action" },
+      { id: "enrich_data", label: "Enrich data", icon: Settings2, type: "action" },
+      { id: "assign_manual_tasks", label: "Assign manual tasks", icon: Activity, type: "action" },
+      { id: "update_contact_account", label: "Update contact/account", icon: Database, type: "action" },
+      { id: "send_notifications", label: "Send Notifications", icon: Send, type: "action" },
+      { id: "send_webhook", label: "Send webhook", icon: Settings2, type: "action" },
+    ]
+  },
+  {
+    title: "Integrations",
     subtitle: "Third-party integrations",
     items: [
       { id: "Apollo", label: "Apollo.io", icon: "/logos/apollo.png", type: "action" },
