@@ -10,11 +10,15 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useClient } from "../../../contexts/ClientContext";
+import { api } from "@/lib/api";
+import { toast } from "sonner";
 
 export default function ClientsPage() {
    const router = useRouter();
-   const { clients, createClient, selectedClient, setSelectedClient } = useClient();
+   const { clients, createClient, selectedClient, setSelectedClient, refreshClients } = useClient();
    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+   const [editingClient, setEditingClient] = useState<any>(null);
+   const [clientToDelete, setClientToDelete] = useState<any>(null);
    const [searchQuery, setSearchQuery] = useState("");
    const [step, setStep] = useState(1);
    const [formData, setFormData] = useState({
@@ -67,11 +71,20 @@ export default function ClientsPage() {
       if (e) e.preventDefault();
       setIsSubmitting(true);
       try {
-         await createClient(formData);
+         if (editingClient) {
+            await api.put(`/clients/${editingClient.id}`, formData);
+            toast.success("Client updated successfully");
+         } else {
+            await createClient(formData);
+            toast.success("Client created successfully");
+         }
+         if (refreshClients) await refreshClients();
          setIsCreateModalOpen(false);
+         setEditingClient(null);
          resetForm();
       } catch (err) {
-         console.error("Create client error", err);
+         console.error("Create/Update client error", err);
+         toast.error("Failed to save client");
       } finally {
          setIsSubmitting(false);
       }
@@ -105,7 +118,11 @@ export default function ClientsPage() {
                </div>
 
                <button
-                  onClick={() => setIsCreateModalOpen(true)}
+                  onClick={() => {
+                     setEditingClient(null);
+                     resetForm();
+                     setIsCreateModalOpen(true);
+                  }}
                   className="btn-shine h-10 px-5 rounded-none bg-[#1a1510] text-white text-xs font-semibold flex items-center gap-2 hover:bg-[#2a2118] transition-colors"
                >
                   <Plus size={15} /> New Client
@@ -134,7 +151,7 @@ export default function ClientsPage() {
                <div className="flex items-center justify-between px-1">
                   <h3 className="text-[13px] font-semibold text-[#1a1510] tracking-tight">Active Client Registry</h3>
                   <div className="flex items-center gap-2 text-[11px] font-medium text-[#1a1510]/40">
-                     <Filter size={13} /> Filtered: {filteredClients.length}
+                     Showing {filteredClients.length} clients
                   </div>
                </div>
 
@@ -171,9 +188,47 @@ export default function ClientsPage() {
                                     </p>
                                  </div>
                               </div>
-                              <button className="p-2 text-[#1a1510]/20 hover:text-[#1a1510] transition-colors rounded-lg hover:bg-[#f7f8f9]">
-                                 <MoreVertical size={18} />
-                              </button>
+                              <div className="flex items-center gap-1">
+                                 <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingClient(client);
+                                      setFormData({
+                                        name: client.name || "",
+                                        region: client.region || "",
+                                        account_owner: client.account_owner || "",
+                                        industry: client.industry || "",
+                                        status: client.status || "Active",
+                                        website: client.website || "",
+                                        priority: client.priority || "Medium",
+                                        description: client.description || "",
+                                        icp_summary: client.icp_summary || "",
+                                        strategy_notes: client.strategy_notes || "",
+                                        channels: client.channels || ["Email"],
+                                        connected_tools: client.connected_tools || [],
+                                        approval_mode: client.approval_mode || "Approval required",
+                                        max_daily_sends: client.max_daily_sends || 150,
+                                        require_crm_approval: client.require_crm_approval !== false
+                                      });
+                                      setStep(1);
+                                      setIsCreateModalOpen(true);
+                                    }}
+                                    className="p-2 text-[#1a1510]/20 hover:text-brand-gold transition-colors rounded-lg hover:bg-[#f7f8f9]"
+                                    title="Edit Client"
+                                 >
+                                    <Edit3 size={16} />
+                                 </button>
+                                 <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setClientToDelete(client);
+                                    }}
+                                    className="p-2 text-[#1a1510]/20 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50"
+                                    title="Delete Client"
+                                 >
+                                    <Trash2 size={16} />
+                                 </button>
+                              </div>
                            </div>
                         </div>
 
@@ -230,7 +285,7 @@ export default function ClientsPage() {
                      initial={{ opacity: 0 }}
                      animate={{ opacity: 1 }}
                      exit={{ opacity: 0 }}
-                     onClick={() => { setIsCreateModalOpen(false); resetForm(); }}
+                     onClick={() => { setIsCreateModalOpen(false); setEditingClient(null); resetForm(); }}
                      className="absolute inset-0 bg-[#1a1510]/40 backdrop-blur-md"
                   />
                   <motion.div
@@ -247,9 +302,9 @@ export default function ClientsPage() {
                                  <div className="w-9 h-9 bg-[#1a1510] rounded-lg text-brand-gold flex items-center justify-center">
                                     <Plus size={18} />
                                  </div>
-                                 <h2 className="text-lg font-bold tracking-tight text-[#1a1510]">New Client</h2>
+                                 <h2 className="text-lg font-bold tracking-tight text-[#1a1510]">{editingClient ? "Edit Client" : "New Client"}</h2>
                               </div>
-                              <button onClick={() => { setIsCreateModalOpen(false); resetForm(); }} className="w-8 h-8 flex items-center justify-center rounded-lg text-[#1a1510]/40 hover:text-[#1a1510] hover:bg-[#f7f8f9] transition-colors">
+                              <button onClick={() => { setIsCreateModalOpen(false); setEditingClient(null); resetForm(); }} className="w-8 h-8 flex items-center justify-center rounded-lg text-[#1a1510]/40 hover:text-[#1a1510] hover:bg-[#f7f8f9] transition-colors">
                                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                               </button>
                            </div>
@@ -645,11 +700,67 @@ export default function ClientsPage() {
                                     onClick={() => handleCreateClient()}
                                     className="btn-shine px-6 h-11 bg-[#1a1510] text-white rounded-none font-semibold text-xs hover:bg-[#2a2118] transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                                  >
-                                    {isSubmitting ? "Creating…" : "Create Client"} <Check size={15} className="stroke-[2.5px]" />
+                                    {isSubmitting ? "Saving…" : (editingClient ? "Save Changes" : "Create Client")} <Check size={15} className="stroke-[2.5px]" />
                                  </button>
                               )}
                            </div>
                         </div>
+                     </div>
+                  </motion.div>
+               </div>
+            )}
+         </AnimatePresence>
+
+         {/* Delete Confirmation Modal */}
+         <AnimatePresence>
+            {clientToDelete && (
+               <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                  <motion.div
+                     initial={{ opacity: 0 }}
+                     animate={{ opacity: 1 }}
+                     exit={{ opacity: 0 }}
+                     onClick={() => setClientToDelete(null)}
+                     className="absolute inset-0 bg-[#1a1510]/40 backdrop-blur-md"
+                  />
+                  <motion.div
+                     initial={{ scale: 0.95, opacity: 0, y: 16 }}
+                     animate={{ scale: 1, opacity: 1, y: 0 }}
+                     exit={{ scale: 0.95, opacity: 0, y: 16 }}
+                     className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-[#1a1510]/[0.06] overflow-hidden p-5 sm:p-6"
+                  >
+                     <div className="flex items-start gap-4">
+                        <div className="w-10 h-10 rounded-full bg-red-50 text-red-500 flex items-center justify-center shrink-0">
+                           <Trash2 size={20} />
+                        </div>
+                        <div>
+                           <h3 className="text-lg font-bold text-[#1a1510] tracking-tight">Delete Client</h3>
+                           <p className="text-sm text-[#1a1510]/60 mt-1">
+                              Are you sure you want to delete <span className="font-semibold text-[#1a1510]">{clientToDelete.name}</span>? This action cannot be undone.
+                           </p>
+                        </div>
+                     </div>
+                     <div className="flex gap-3 mt-6">
+                        <button
+                           onClick={() => setClientToDelete(null)}
+                           className="flex-1 h-10 rounded-lg border border-[#1a1510]/10 text-sm font-semibold text-[#1a1510]/60 hover:text-[#1a1510] hover:bg-[#f7f8f9] transition-colors"
+                        >
+                           Cancel
+                        </button>
+                        <button
+                           onClick={async () => {
+                              try {
+                                 await api.delete(`/clients/${clientToDelete.id}`);
+                                 toast.success("Client deleted successfully");
+                                 if (refreshClients) await refreshClients();
+                                 setClientToDelete(null);
+                              } catch (error) {
+                                 toast.error("Failed to delete client");
+                              }
+                           }}
+                           className="flex-1 h-10 rounded-lg bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors"
+                        >
+                           Delete
+                        </button>
                      </div>
                   </motion.div>
                </div>

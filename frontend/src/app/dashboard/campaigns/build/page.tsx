@@ -272,12 +272,7 @@ const SAMPLE_LEADS: Lead[] = [
   { id: "l8", name: "Robert Zhao", email: "rzhao@nexgen.ai", company: "NexGen AI", title: "CEO", status: "verified", source: "apollo" },
 ];
 
-const LEAD_BULK_ACTIONS = [
-  { label: "Find more leads like this", icon: Wand2 },
-  { label: "Enrich missing data", icon: Sparkles },
-  { label: "Clean & Dedup", icon: Filter },
-  { label: "Add LinkedIn profiles", icon: Linkedin },
-] as const;
+
 
 const STATUS_STYLES: Record<Lead["status"], string> = {
   verified: "bg-[#1a1510] text-white",
@@ -380,13 +375,8 @@ export default function BuildCampaignPage() {
   });
 
   const [manualForm, setManualForm] = useState({
-    first_name: "", last_name: "", title: "", company_name: "", company_name_for_emails: "",
-    email: "", email_status: "", email_confidence: "", seniority: "", sub_departments: "",
-    contact_owner: "", work_direct_phone: "", mobile_phone: "", corporate_phone: "",
-    other_phone: "", stage: "", account_owner: "", industry: "", person_linkedin_url: "",
-    website: "", company_linkedin_url: "", state: "", country: "", company_address: "",
-    company_city: "", company_state: "", company_country: "", company_phone: "",
-    subsidiary_of_organization_id: "", qualify_contact: ""
+    first_name: "", last_name: "", title: "", location: "",
+    person_linkedin_url: "", phone_number: "", email: ""
   });
 
   const [form, setForm] = useState({
@@ -450,20 +440,15 @@ export default function BuildCampaignPage() {
       id: `manual_${Date.now()}`,
       name: (manualForm.first_name + " " + manualForm.last_name).trim() || "Unknown",
       email: manualForm.email || "Unknown",
-      company: manualForm.company_name || "Unknown",
+      company: "Unknown",
       title: manualForm.title || "Unknown",
       status: "verified",
       source: "manual"
     };
     setLeads((prev) => [...prev, newLead as any]);
     setManualForm({
-      first_name: "", last_name: "", title: "", company_name: "", company_name_for_emails: "",
-      email: "", email_status: "", email_confidence: "", seniority: "", sub_departments: "",
-      contact_owner: "", work_direct_phone: "", mobile_phone: "", corporate_phone: "",
-      other_phone: "", stage: "", account_owner: "", industry: "", person_linkedin_url: "",
-      website: "", company_linkedin_url: "", state: "", country: "", company_address: "",
-      company_city: "", company_state: "", company_country: "", company_phone: "",
-      subsidiary_of_organization_id: "", qualify_contact: ""
+      first_name: "", last_name: "", title: "", location: "",
+      person_linkedin_url: "", phone_number: "", email: ""
     });
   };
 
@@ -1649,44 +1634,6 @@ export default function BuildCampaignPage() {
                         </div>
                       )}
 
-                      {/* Bulk actions */}
-                      <div className="flex flex-wrap gap-2.5">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (form.leadSource === "Apollo") {
-                              setApolloConfigModalOpen(true);
-                            } else {
-                              toast.info("Find more leads is currently only supported with Apollo source.");
-                            }
-                          }}
-                          className="h-10 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-[12px] font-semibold text-[#1a1510]/70 hover:text-[#1a1510] hover:border-[#1a1510]/20 transition-colors flex items-center gap-2"
-                        >
-                          <Wand2 size={14} className="text-[#1a1510]/40" /> Find more leads like this
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleEnrichLeads}
-                          className="h-10 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-[12px] font-semibold text-[#1a1510]/70 hover:text-[#1a1510] hover:border-[#1a1510]/20 transition-colors flex items-center gap-2"
-                        >
-                          <Sparkles size={14} className="text-[#1a1510]/40" /> Enrich missing data
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleDedupLeads}
-                          className="h-10 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-[12px] font-semibold text-[#1a1510]/70 hover:text-[#1a1510] hover:border-[#1a1510]/20 transition-colors flex items-center gap-2"
-                        >
-                          <Filter size={14} className="text-[#1a1510]/40" /> Clean & Dedup
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleAddLinkedInProfiles}
-                          className="h-10 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-[12px] font-semibold text-[#1a1510]/70 hover:text-[#1a1510] hover:border-[#1a1510]/20 transition-colors flex items-center gap-2"
-                        >
-                          <Linkedin size={14} className="text-[#1a1510]/40" /> Add LinkedIn profiles
-                        </button>
-                      </div>
-
                       {/* Search + push/remove */}
                       <div className="flex flex-wrap items-center gap-3">
                         <div className="relative flex-1 min-w-[200px]">
@@ -1876,38 +1823,11 @@ export default function BuildCampaignPage() {
                       {[
                         { label: 'First Name', key: 'first_name' },
                         { label: 'Last Name', key: 'last_name' },
+                        { label: 'Location', key: 'location' },
                         { label: 'Title', key: 'title', options: ["CEO", "CTO", "CMO", "VP Sales", "VP Marketing", "Director of Sales", "Manager", "Other"] },
-                        { label: 'Company Name', key: 'company_name' },
-                        { label: 'Company Name for Emails', key: 'company_name_for_emails' },
-                        { label: 'Email', key: 'email' },
-                        { label: 'Email Status', key: 'email_status', options: ["Verified", "Catch-All", "Unknown", "Invalid"] },
-                        { label: 'Email Confidence', key: 'email_confidence' },
-                        { label: 'Seniority', key: 'seniority' },
-                        { label: 'Sub Departments', key: 'sub_departments' },
-                        { label: 'Contact Owner', key: 'contact_owner' },
-                        { label: 'Work Direct Phone', key: 'work_direct_phone' },
-                        { label: 'Mobile Phone', key: 'mobile_phone' },
-                        { label: 'Corporate Phone', key: 'corporate_phone' },
-                        { label: 'Other Phone', key: 'other_phone' },
-                        { label: 'Stage', key: 'stage' },
-                        { label: 'Account Owner', key: 'account_owner' },
-                        { label: 'Industry', key: 'industry' },
-                        { label: 'Person Linkedin Url', key: 'person_linkedin_url' },
-                        { label: 'Website', key: 'website' },
-                        { label: 'Company Linkedin Url', key: 'company_linkedin_url' },
-                        { label: 'Country', key: 'country', options: COUNTRY_OPTIONS },
-                        { label: 'State', key: 'state', options: (() => {
-                          const selectedCountry = ALL_COUNTRIES.find(c => c.name === (manualForm as any).country);
-                          const states = selectedCountry ? State.getStatesOfCountry(selectedCountry.isoCode).map(s => s.name) : [];
-                          return states.length > 0 ? states : ["Other"];
-                        })() },
-                        { label: 'Company Address', key: 'company_address' },
-                        { label: 'Company City', key: 'company_city' },
-                        { label: 'Company State', key: 'company_state' },
-                        { label: 'Company Country', key: 'company_country' },
-                        { label: 'Company Phone', key: 'company_phone' },
-                        { label: 'Subsidiary of (Organization ID)', key: 'subsidiary_of_organization_id' },
-                        { label: 'Qualify Contact', key: 'qualify_contact' }
+                        { label: 'LinkedIn Url', key: 'person_linkedin_url' },
+                        { label: 'Phone Number', key: 'phone_number' },
+                        { label: 'Email', key: 'email' }
                       ].map((field) => (
                         <div key={field.key} className="flex-1 min-w-[150px]">
                           {field.options ? (

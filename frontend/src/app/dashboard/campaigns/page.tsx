@@ -3,11 +3,11 @@
 import React, { useState, useEffect } from "react";
 import {
   Bot, Database, Plus, CheckCircle, Clock, RefreshCw, MoreHorizontal, Target,
-  LayoutDashboard, ArrowUpRight, Sparkles,
+  LayoutDashboard, ArrowUpRight, Sparkles, Pencil, Trash2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Loader } from "@/components/ui/Loader";
-import { api } from "../../../lib/api";
+import { api } from "@/lib/api";
 import { toast } from "sonner";
  
 export default function CampaignsPage() {
@@ -189,8 +189,29 @@ export default function CampaignsPage() {
                               Submit
                             </button>
                           )}
-                          <button className="w-9 h-9 flex items-center justify-center bg-white border border-[#1a1510]/[0.07] rounded-lg hover:bg-[#f7f8f9] transition-colors">
-                            <MoreHorizontal size={16} className="text-[#1a1510]/50" />
+                          <button
+                            onClick={() => router.push(`/dashboard/campaigns/build?id=${campaign.id}`)}
+                            className="w-9 h-9 flex items-center justify-center bg-white border border-[#1a1510]/[0.07] rounded-lg hover:bg-[#f7f8f9] transition-colors"
+                            title="Edit Campaign"
+                          >
+                            <Pencil size={15} className="text-[#1a1510]/50 hover:text-[#1a1510]" />
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (window.confirm("Are you sure you want to delete this campaign?")) {
+                                try {
+                                  await api.delete(`/campaigns/${campaign.id}`);
+                                  toast.success("Campaign deleted");
+                                  fetchCampaigns();
+                                } catch (e) {
+                                  toast.error("Failed to delete campaign");
+                                }
+                              }
+                            }}
+                            className="w-9 h-9 flex items-center justify-center bg-white border border-[#1a1510]/[0.07] rounded-lg hover:bg-red-50 transition-colors"
+                            title="Delete Campaign"
+                          >
+                            <Trash2 size={15} className="text-red-400 hover:text-red-500" />
                           </button>
                         </div>
                       </div>
