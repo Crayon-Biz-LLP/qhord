@@ -455,7 +455,7 @@ export default function BuildCampaignPage() {
   const renderTemplate = (text: string) => {
     if (!text) return "";
     let result = text;
-    
+
     let firstName = "Sarah";
     let lastName = "Chen";
     let company = "Acme Corp";
@@ -464,10 +464,10 @@ export default function BuildCampaignPage() {
     let senderName = form.owner || "Sarah Kim";
     let senderEmail = "sarah.kim@controltower.ai";
     let optOutMessage = "If you'd prefer not to hear from me, just reply and let me know.";
-    
+
     if (leads.length > 0) {
       const firstLead = leads[0];
-      
+
       let rawFirstName = "";
       if (firstLead.raw) {
         const firstNameKey = Object.keys(firstLead.raw).find(k => {
@@ -478,13 +478,13 @@ export default function BuildCampaignPage() {
           rawFirstName = firstLead.raw[firstNameKey];
         }
       }
-      
+
       firstName = rawFirstName || (firstLead.name || "").split(" ")[0] || "Prospect";
       lastName = (firstLead.name || "").split(" ").slice(1).join(" ") || "Chen";
       company = firstLead.company || "Company";
       title = firstLead.title || "Prospect";
       location = firstLead.raw?.location || firstLead.raw?.Location || "San Francisco";
-      
+
       if (firstLead.raw) {
         Object.entries(firstLead.raw).forEach(([k, v]) => {
           result = result.split(`{{${k}}}`).join(v);
@@ -494,43 +494,43 @@ export default function BuildCampaignPage() {
         });
       }
     }
-    
+
     // Fallback/standard replacements
     result = result.split("{{first_name}}").join(firstName);
     result = result.split("{{first name}}").join(firstName);
     result = result.split("{{First Name}}").join(firstName);
-    
+
     result = result.split("{{last_name}}").join(lastName);
     result = result.split("{{last name}}").join(lastName);
     result = result.split("{{Last Name}}").join(lastName);
-    
+
     result = result.split("{{company}}").join(company);
     result = result.split("{{Company}}").join(company);
     result = result.split("{{company_name}}").join(company);
     result = result.split("{{company name}}").join(company);
     result = result.split("{{Company Name}}").join(company);
-    
+
     result = result.split("{{title}}").join(title);
     result = result.split("{{Title}}").join(title);
     result = result.split("{{job_title}}").join(title);
     result = result.split("{{job title}}").join(title);
     result = result.split("{{Job Title}}").join(title);
-    
+
     result = result.split("{{location}}").join(location);
     result = result.split("{{Location}}").join(location);
-    
+
     result = result.split("{{sender_name}}").join(senderName);
     result = result.split("{{sender name}}").join(senderName);
     result = result.split("{{Sender Name}}").join(senderName);
-    
+
     result = result.split("{{sender_email}}").join(senderEmail);
     result = result.split("{{sender email}}").join(senderEmail);
     result = result.split("{{Sender Email}}").join(senderEmail);
-    
+
     result = result.split("{{opt_out_message}}").join(optOutMessage);
     result = result.split("{{opt out message}}").join(optOutMessage);
     result = result.split("{{Opt-out message}}").join(optOutMessage);
-    
+
     return result;
   };
 
@@ -630,9 +630,9 @@ export default function BuildCampaignPage() {
           const rawHeaders = (rows[0] || []).map(h => String(h || "").trim());
           const headers = rawHeaders.map(h => h.toLowerCase());
           console.log("[CSV/Excel Upload] Lowercased headers list:", headers);
-          
+
           setCsvHeaders(rawHeaders);
-          
+
           const findHeaderIndex = (exactTerms: string[], fuzzyTerms: string[] = []) => {
             for (const term of exactTerms) {
               const idx = headers.findIndex(h => h === term);
@@ -933,8 +933,8 @@ export default function BuildCampaignPage() {
   };
   const toggleLead = (id: string) =>
     setSelectedLeads((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  const toggleAll = () => setSelectedLeads(allSelected 
-    ? selectedLeads.filter(id => !paginatedLeads.find(l => l.id === id)) 
+  const toggleAll = () => setSelectedLeads(allSelected
+    ? selectedLeads.filter(id => !paginatedLeads.find(l => l.id === id))
     : [...new Set([...selectedLeads, ...paginatedLeads.map((l) => l.id)])]);
   const removeLead = (id: string) => {
     setLeads((prev) => prev.filter((l) => l.id !== id));
@@ -1037,7 +1037,7 @@ export default function BuildCampaignPage() {
       const dbName = toolId.toLowerCase();
       return !connectedTools.includes(dbName);
     });
-    
+
     if (unconnected.length > 0) {
       const firstMissing = unconnected[0];
       toast.error(`Please connect ${firstMissing} to continue.`, {
@@ -1086,8 +1086,8 @@ export default function BuildCampaignPage() {
     const intent = INTENT_OPTIONS.find((o) => o.id === form.intent)?.title ?? "Outbound";
     const sourceLabel =
       form.leadMethod === "csv" ? "a CSV upload" :
-      form.leadMethod === "manual" ? "a manual list" :
-      form.leadSource;
+        form.leadMethod === "manual" ? "a manual list" :
+          form.leadSource;
 
     const emailStepsDetail = emailSteps.map((s, idx) => {
       const atts = s.attachments && s.attachments.length > 0
@@ -1149,12 +1149,12 @@ export default function BuildCampaignPage() {
   if (isBuilderOpen) {
     return (
       <div className="fixed inset-0 z-50 bg-white">
-        <ZapierBuilder 
-          workflowId={campaignWorkflowId} 
+        <ZapierBuilder
+          workflowId={campaignWorkflowId}
           onClose={(id?: string) => {
-             if (id) setCampaignWorkflowId(id);
-             setIsBuilderOpen(false);
-          }} 
+            if (id) setCampaignWorkflowId(id);
+            setIsBuilderOpen(false);
+          }}
         />
       </div>
     );
@@ -1227,13 +1227,12 @@ export default function BuildCampaignPage() {
                 key={s.key}
                 onClick={() => i <= step && setStep(i)}
                 disabled={i > step}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-semibold whitespace-nowrap transition-all ${
-                  active
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-semibold whitespace-nowrap transition-all ${active
                     ? "bg-[#1a1510] text-white shadow-sm"
                     : done
-                    ? "bg-brand-gold/15 text-[#1a1510] hover:bg-brand-gold/25"
-                    : "bg-[#f7f8f9] text-[#1a1510]/40"
-                } ${i > step ? "cursor-not-allowed" : "cursor-pointer"}`}
+                      ? "bg-brand-gold/15 text-[#1a1510] hover:bg-brand-gold/25"
+                      : "bg-[#f7f8f9] text-[#1a1510]/40"
+                  } ${i > step ? "cursor-not-allowed" : "cursor-pointer"}`}
               >
                 {done ? <Check size={14} className="text-brand-gold" /> : <s.icon size={14} className={active ? "text-brand-gold" : ""} />}
                 {s.label}
@@ -1264,11 +1263,10 @@ export default function BuildCampaignPage() {
                         <button
                           key={opt.id}
                           onClick={() => set({ intent: opt.id, channels: [...opt.tools] })}
-                          className={`text-left p-6 rounded-2xl border bg-white transition-all ${
-                            selected
+                          className={`text-left p-6 rounded-2xl border bg-white transition-all ${selected
                               ? "border-brand-gold ring-2 ring-brand-gold/20 shadow-[0_8px_24px_-12px_rgba(212,175,55,0.4)]"
                               : "border-[#1a1510]/[0.07] hover:border-[#1a1510]/15"
-                          }`}
+                            }`}
                         >
                           <div className="flex items-center gap-3 mb-3">
                             <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${selected ? "bg-[#1a1510] text-brand-gold" : "bg-[#f7f8f9] text-[#1a1510]/50"}`}>
@@ -1293,24 +1291,23 @@ export default function BuildCampaignPage() {
                       <h4 className="text-[13px] font-semibold text-[#1a1510]">Connected Tools</h4>
                     </div>
                     <div className="px-5 py-5 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                            {ALL_TOOLS.map((tool) => {
-                              const on = form.channels.includes(tool);
-                              return (
-                                <button
-                                  key={tool}
-                                  onClick={() => toggleChannel(tool)}
-                                  className={`py-3 rounded-xl text-[13px] font-bold transition-all border ${
-                                    on
-                                      ? "border-brand-gold bg-brand-gold/10 text-[#1a1510] ring-1 ring-brand-gold/30"
-                                      : "border-[#1a1510]/[0.08] bg-white text-[#1a1510]/50 hover:border-[#1a1510]/20"
-                                  }`}
-                                >
-                                  {tool}
-                                </button>
-                              );
-                            })}
-                          </div>
+                      {ALL_TOOLS.map((tool) => {
+                        const on = form.channels.includes(tool);
+                        return (
+                          <button
+                            key={tool}
+                            onClick={() => toggleChannel(tool)}
+                            className={`py-3 rounded-xl text-[13px] font-bold transition-all border ${on
+                                ? "border-brand-gold bg-brand-gold/10 text-[#1a1510] ring-1 ring-brand-gold/30"
+                                : "border-[#1a1510]/[0.08] bg-white text-[#1a1510]/50 hover:border-[#1a1510]/20"
+                              }`}
+                          >
+                            {tool}
+                          </button>
+                        );
+                      })}
                     </div>
+                  </div>
 
                   <div className="h-px bg-[#1a1510]/[0.07]" />
 
@@ -1323,11 +1320,10 @@ export default function BuildCampaignPage() {
                           <button
                             key={g.id}
                             onClick={() => set({ goal: g.id })}
-                            className={`flex flex-col items-center justify-center gap-2 py-5 rounded-2xl border bg-white transition-all ${
-                              selected
+                            className={`flex flex-col items-center justify-center gap-2 py-5 rounded-2xl border bg-white transition-all ${selected
                                 ? "border-brand-gold ring-2 ring-brand-gold/20 text-[#1a1510]"
                                 : "border-[#1a1510]/[0.07] text-[#1a1510]/60 hover:border-[#1a1510]/15"
-                            }`}
+                              }`}
                           >
                             <g.icon size={20} className={selected ? "text-brand-gold" : "text-[#1a1510]/40"} />
                             <span className="text-[13px] font-semibold">{g.id}</span>
@@ -1397,9 +1393,8 @@ export default function BuildCampaignPage() {
                                 toggleChannel(tool.id);
                               }
                             }}
-                            className={`flex items-center gap-3 p-4 rounded-2xl border bg-white text-left transition-all ${
-                              on ? "border-brand-gold ring-2 ring-brand-gold/15" : "border-[#1a1510]/[0.07] hover:border-[#1a1510]/15"
-                            } ${!isConnected ? "opacity-75 hover:opacity-100" : ""}`}
+                            className={`flex items-center gap-3 p-4 rounded-2xl border bg-white text-left transition-all ${on ? "border-brand-gold ring-2 ring-brand-gold/15" : "border-[#1a1510]/[0.07] hover:border-[#1a1510]/15"
+                              } ${!isConnected ? "opacity-75 hover:opacity-100" : ""}`}
                           >
                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${ICON_TILE}`}>
                               <tool.icon size={18} />
@@ -1407,11 +1402,10 @@ export default function BuildCampaignPage() {
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
                                 <p className="text-[14px] font-bold text-[#1a1510] truncate">{tool.id}</p>
-                                <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                                  isConnected 
-                                    ? "bg-green-50 text-green-700 border border-green-200" 
+                                <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${isConnected
+                                    ? "bg-green-50 text-green-700 border border-green-200"
                                     : "bg-amber-50 text-amber-700 border border-amber-200"
-                                }`}>
+                                  }`}>
                                   {isConnected ? "Connected" : "Disconnected"}
                                 </span>
                               </div>
@@ -1448,9 +1442,8 @@ export default function BuildCampaignPage() {
                           <button
                             key={s.id}
                             onClick={() => toggleStrategy(s.id)}
-                            className={`p-5 rounded-2xl border bg-white text-left transition-all ${
-                              on ? "border-brand-gold ring-2 ring-brand-gold/15" : "border-[#1a1510]/[0.07] hover:border-[#1a1510]/15"
-                            }`}
+                            className={`p-5 rounded-2xl border bg-white text-left transition-all ${on ? "border-brand-gold ring-2 ring-brand-gold/15" : "border-[#1a1510]/[0.07] hover:border-[#1a1510]/15"
+                              }`}
                           >
                             <div className="flex items-start gap-3 mb-3">
                               <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${on ? "bg-[#1a1510] text-brand-gold" : "bg-[#f7f8f9] text-[#1a1510]/40"}`}>
@@ -1548,9 +1541,8 @@ export default function BuildCampaignPage() {
                                       setLeads([]);
                                       setSelectedLeads([]);
                                     }}
-                                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium transition-colors text-left ${
-                                      active ? "bg-[#f7f8f9] text-[#1a1510]" : "text-[#1a1510]/70 hover:bg-[#f7f8f9]"
-                                    }`}
+                                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium transition-colors text-left ${active ? "bg-[#f7f8f9] text-[#1a1510]" : "text-[#1a1510]/70 hover:bg-[#f7f8f9]"
+                                      }`}
                                   >
                                     <Check size={15} className={active ? "text-brand-gold" : "opacity-0"} />
                                     <m.icon size={16} className="text-[#1a1510]/50" />
@@ -1581,9 +1573,8 @@ export default function BuildCampaignPage() {
                                 loadLeads(src.id);
                               }
                             }}
-                            className={`text-left p-6 rounded-2xl border bg-white transition-all ${
-                              selected ? "border-brand-gold ring-2 ring-brand-gold/15" : "border-[#1a1510]/[0.07] hover:border-[#1a1510]/15"
-                            } ${checkingConnection && src.id === "Apollo" ? "opacity-75 cursor-not-allowed" : ""}`}
+                            className={`text-left p-6 rounded-2xl border bg-white transition-all ${selected ? "border-brand-gold ring-2 ring-brand-gold/15" : "border-[#1a1510]/[0.07] hover:border-[#1a1510]/15"
+                              } ${checkingConnection && src.id === "Apollo" ? "opacity-75 cursor-not-allowed" : ""}`}
                           >
                             <div className="flex items-center justify-between mb-3">
                               <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${ICON_TILE}`}>
@@ -1780,7 +1771,7 @@ export default function BuildCampaignPage() {
                               </select>
                             </div>
                           </div>
-                          
+
                           <div className="flex items-center gap-2">
                             <button
                               disabled={safePage === 1}
@@ -1889,33 +1880,8 @@ export default function BuildCampaignPage() {
                     </div>
                   }
                 >
-                  {/* Auto-fix banner */}
-                  {replyRate < 15 && (
-                    <div className="flex items-center justify-between gap-4 p-4 rounded-2xl border border-[#1a1510]/[0.07] bg-[#fafafa]">
-                      <div className="flex items-start gap-3 min-w-0">
-                        <div className="w-9 h-9 rounded-xl bg-brand-gold/15 text-brand-gold flex items-center justify-center shrink-0">
-                          <AlertTriangle size={17} />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-[13px] font-bold text-[#1a1510]">Predicted reply rate is low ({replyRate}%) — messaging may be underperforming</span>
-                            <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-[#1a1510]/50 px-2 py-0.5 rounded-md bg-white border border-[#1a1510]/10">
-                              <Sparkles size={11} /> Auto-fix available
-                            </span>
-                          </div>
-                          <p className="text-[12px] text-[#1a1510]/50 mt-0.5">
-                            Fix: Improve personalization · 86% confidence ·
-                            <span className="ml-1 px-1.5 py-0.5 rounded bg-[#1a1510]/5 text-[#1a1510]/60 font-semibold text-[10px] uppercase">Low</span>
-                          </p>
-                        </div>
-                      </div>
-                      <button className="btn-shine h-9 px-4 rounded-lg bg-[#1a1510] text-white text-[12px] font-semibold flex items-center gap-2 hover:bg-[#2a2118] transition-colors shrink-0">
-                        <Clock size={13} className="text-brand-gold" /> Queue Fix
-                      </button>
-                    </div>
-                  )}
 
-                  {/* Active channels pills */}
+                  {/* Active channels pills
                   <div className="flex flex-wrap gap-2">
                     {form.strategies.map((id) => {
                       const s = CHANNEL_STRATEGIES.find((x) => x.id === id);
@@ -1926,457 +1892,273 @@ export default function BuildCampaignPage() {
                         </span>
                       );
                     })}
-                  </div>
+                  </div> */}
 
-                  {/* Tabs */}
-                  <div className="flex items-center gap-6 border-b border-[#1a1510]/[0.07]">
-                    {([
-                      { id: "email", label: "Emails", icon: Mail, count: emailSteps.length },
-                      { id: "linkedin", label: "LinkedIn Messages", icon: Linkedin, count: linkedinSteps.length },
-                    ] as const).map((tab) => (
-                      <button
-                        key={tab.id}
-                        onClick={() => setMsgTab(tab.id)}
-                        className={`flex items-center gap-2 pb-3 -mb-px border-b-2 text-[13px] font-semibold transition-colors ${
-                          msgTab === tab.id ? "border-[#1a1510] text-[#1a1510]" : "border-transparent text-[#1a1510]/40 hover:text-[#1a1510]/70"
-                        }`}
-                      >
-                        <tab.icon size={15} /> {tab.label}
-                        <span className={`text-[11px] px-1.5 py-0.5 rounded-md ${msgTab === tab.id ? "bg-[#1a1510] text-white" : "bg-[#f7f8f9] text-[#1a1510]/50"}`}>{tab.count}</span>
-                      </button>
-                    ))}
-                  </div>
-
-                  {msgTab === "email" ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="text-[15px] font-bold text-[#1a1510]">Email Sequence</h3>
-                          <p className="text-[12px] text-[#1a1510]/45">Build emails and follow-ups with custom timing</p>
-                        </div>
-                        <span className="text-[11px] font-semibold text-[#1a1510]/50 px-2.5 py-1 rounded-md border border-[#1a1510]/10">{emailSteps.length} step{emailSteps.length > 1 ? "s" : ""}</span>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-[15px] font-bold text-[#1a1510]">Email Sequence</h3>
+                        <p className="text-[12px] text-[#1a1510]/45">Build emails and follow-ups with custom timing</p>
                       </div>
+                      <span className="text-[11px] font-semibold text-[#1a1510]/50 px-2.5 py-1 rounded-md border border-[#1a1510]/10">{emailSteps.length} step{emailSteps.length > 1 ? "s" : ""}</span>
+                    </div>
 
-                      {emailSteps.map((s, idx) => (
-                        <div key={s.id} className="rounded-2xl border border-[#1a1510]/[0.07] bg-white p-5 space-y-4">
-                          {/* Step header */}
-                          <div className="flex items-center gap-2.5">
-                            <span className="w-6 h-6 rounded-full bg-[#1a1510] text-white text-[11px] font-bold flex items-center justify-center shrink-0">{idx + 1}</span>
-                            <span className="flex items-center gap-1.5 text-[12px] font-semibold text-[#1a1510]/60 px-2 py-1 rounded-md bg-[#f7f8f9]">
-                              <Mail size={12} /> Email
-                            </span>
-                            <span className="text-[#1a1510]/20">·</span>
-                            {/* Timing dropdown */}
-                            <div className="relative">
-                              <button
-                                onClick={() => setTimingOpenId(timingOpenId === s.id ? null : s.id)}
-                                className="flex items-center gap-1.5 text-[12px] font-semibold text-[#1a1510]/70 px-2.5 py-1 rounded-md border border-[#1a1510]/10 hover:border-[#1a1510]/20 transition-colors"
-                              >
-                                <Clock size={12} className="text-[#1a1510]/40" /> {s.timing}
-                                <ChevronDown size={13} className={`text-[#1a1510]/40 transition-transform ${timingOpenId === s.id ? "rotate-180" : ""}`} />
-                              </button>
-                              <AnimatePresence>
-                                {timingOpenId === s.id && (
-                                  <>
-                                    <div className="fixed inset-0 z-[60]" onClick={() => setTimingOpenId(null)} />
-                                    <motion.div
-                                      initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}
-                                      className="absolute left-0 mt-2 w-48 bg-white border border-[#1a1510]/10 rounded-xl shadow-[0_12px_32px_-8px_rgba(26,21,16,0.18)] overflow-hidden z-[70] py-1.5"
-                                    >
-                                      {TIMING_OPTIONS.map((t) => (
-                                        <button
-                                          key={t}
-                                          onClick={() => { updateStep(s.id, { timing: t }); setTimingOpenId(null); }}
-                                          className={`w-full flex items-center gap-2 px-3.5 py-2 text-[12px] font-medium text-left transition-colors ${t === s.timing ? "bg-[#f7f8f9] text-[#1a1510]" : "text-[#1a1510]/70 hover:bg-[#f7f8f9]"}`}
-                                        >
-                                          <Check size={13} className={t === s.timing ? "text-brand-gold" : "opacity-0"} /> {t}
-                                        </button>
-                                      ))}
-                                    </motion.div>
-                                  </>
-                                )}
-                              </AnimatePresence>
-                            </div>
-                            {emailSteps.length > 1 && (
-                              <button onClick={() => removeStep(s.id)} className="ml-auto text-[#1a1510]/25 hover:text-[#1a1510] transition-colors">
-                                <Trash2 size={15} />
-                              </button>
-                            )}
-                          </div>
-
-                          {/* Subject */}
-                          <input
-                            value={s.subject}
-                            onChange={(e) => updateStep(s.id, { subject: e.target.value })}
-                            placeholder="Subject line…"
-                            className="w-full px-4 py-2.5 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[14px] font-medium text-[#1a1510] focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
-                          />
-
-                          {/* Body */}
-                          <textarea
-                            value={s.body}
-                            onChange={(e) => updateStep(s.id, { body: e.target.value })}
-                            placeholder="Write your message…"
-                            className="w-full h-28 px-4 py-3 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[14px] resize-none focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
-                          />
-
-                          {/* Attachments List */}
-                          {s.attachments && s.attachments.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 py-1">
-                              {s.attachments.map((att, attIdx) => (
-                                <div
-                                  key={attIdx}
-                                  className="flex items-center gap-1.5 px-2.5 py-1 bg-[#1a1510]/5 border border-[#1a1510]/10 rounded-lg text-xs font-medium text-[#1a1510]/80"
-                                >
-                                  {att.type === 'link' ? <LinkIcon size={11} className="text-brand-gold" /> : <Paperclip size={11} className="text-brand-gold" />}
-                                  <span className="truncate max-w-[160px]">{att.name}</span>
-                                  {att.size && <span className="text-[10px] text-[#1a1510]/40">({(att.size / (1024 * 1024)).toFixed(2)} MB)</span>}
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const updated = s.attachments?.filter((_, i) => i !== attIdx);
-                                      updateStep(s.id, { attachments: updated });
-                                    }}
-                                    className="text-[#1a1510]/30 hover:text-red-500 transition-colors ml-1"
-                                  >
-                                    <X size={12} />
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          {/* Email Editor Toolbar */}
-                          <div className="flex flex-wrap items-center gap-3">
-                            {/* Hidden file input */}
-                            <input
-                              type="file"
-                              id={`file-upload-${s.id}`}
-                              className="hidden"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (!file) return;
-                                const maxSize = 10 * 1024 * 1024; // 10MB
-                                if (file.size > maxSize) {
-                                  toast.error("File is too large. Please attach files under 10MB.");
-                                  return;
-                                }
-                                const currentAtts = s.attachments || [];
-                                updateStep(s.id, {
-                                  attachments: [...currentAtts, { name: file.name, size: file.size, type: 'file' }]
-                                });
-                                e.target.value = '';
-                              }}
-                            />
-
-                            {/* Personalization Dropdown */}
-                            <div className="relative">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (openVariablePopover?.stepId === s.id && openVariablePopover?.type === 'email') {
-                                    setOpenVariablePopover(null);
-                                  } else {
-                                    setOpenVariablePopover({ stepId: s.id, type: 'email' });
-                                    setActiveVariableTab('person');
-                                  }
-                                }}
-                                className={`h-9 px-3 rounded-xl flex items-center gap-1.5 transition-colors border text-xs font-semibold ${
-                                  openVariablePopover?.stepId === s.id && openVariablePopover?.type === 'email'
-                                    ? "bg-brand-gold/10 border-brand-gold/40 text-brand-gold"
-                                    : "bg-white border-[#1a1510]/10 text-[#1a1510]/70 hover:bg-[#f7f8f9] hover:text-[#1a1510]"
-                                }`}
-                              >
-                                <Braces size={14} strokeWidth={2.5} />
-                                <span>Dynamic Variables</span>
-                              </button>
-                              {openVariablePopover?.stepId === s.id && openVariablePopover?.type === 'email' && (
+                    {emailSteps.map((s, idx) => (
+                      <div key={s.id} className="rounded-2xl border border-[#1a1510]/[0.07] bg-white p-5 space-y-4">
+                        {/* Step header */}
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-6 h-6 rounded-full bg-[#1a1510] text-white text-[11px] font-bold flex items-center justify-center shrink-0">{idx + 1}</span>
+                          <span className="flex items-center gap-1.5 text-[12px] font-semibold text-[#1a1510]/60 px-2 py-1 rounded-md bg-[#f7f8f9]">
+                            <Mail size={12} /> Email
+                          </span>
+                          <span className="text-[#1a1510]/20">·</span>
+                          {/* Timing dropdown */}
+                          <div className="relative">
+                            <button
+                              onClick={() => setTimingOpenId(timingOpenId === s.id ? null : s.id)}
+                              className="flex items-center gap-1.5 text-[12px] font-semibold text-[#1a1510]/70 px-2.5 py-1 rounded-md border border-[#1a1510]/10 hover:border-[#1a1510]/20 transition-colors"
+                            >
+                              <Clock size={12} className="text-[#1a1510]/40" /> {s.timing}
+                              <ChevronDown size={13} className={`text-[#1a1510]/40 transition-transform ${timingOpenId === s.id ? "rotate-180" : ""}`} />
+                            </button>
+                            <AnimatePresence>
+                              {timingOpenId === s.id && (
                                 <>
-                                  <div className="fixed inset-0 z-30" onClick={() => setOpenVariablePopover(null)} />
-                                  <div className="absolute left-0 bottom-full mb-2 w-[320px] bg-white border border-[#1a1510]/10 rounded-xl shadow-[0_12px_32px_-8px_rgba(26,21,16,0.18)] z-40 p-0 overflow-hidden flex flex-col">
-                                    <div className="p-3 pb-0">
-                                      <div className="relative">
-                                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#1a1510]/40" />
-                                        <input type="text" placeholder="Search" className="w-full h-8 pl-8 pr-3 rounded-lg border border-[#1a1510]/20 text-[13px] focus:outline-none focus:border-brand-gold/50 placeholder:text-[#1a1510]/30" />
-                                      </div>
-                                    </div>
-                                    <div className="flex border-b border-[#1a1510]/10 mt-3 px-3">
-                                      {(['person', 'company', 'sender', 'advanced'] as const).map((tab) => (
-                                        <button
-                                          type="button"
-                                          key={tab}
-                                          onClick={() => { if (tab !== 'advanced') setActiveVariableTab(tab as any); }}
-                                          className={`flex-1 text-[12px] font-semibold capitalize tracking-wide text-center py-2.5 transition-all relative ${
-                                            activeVariableTab === tab
-                                              ? "text-[#1a1510]"
-                                              : "text-[#1a1510]/35 hover:text-[#1a1510]"
-                                          }`}
-                                        >
-                                          {tab}
-                                          {activeVariableTab === tab && (
-                                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1a1510]" />
-                                          )}
-                                        </button>
-                                      ))}
-                                    </div>
-                                    <div className="p-2 space-y-0.5 max-h-[300px] overflow-y-auto">
-                                      <div className="px-2 py-2 text-[11px] font-semibold text-[#1a1510]/40 uppercase tracking-wider mt-1 mb-1">Basic information</div>
-                                      {PERSONALIZATION_VARIABLES[activeVariableTab]?.map((v) => {
-                                        const Icon = v.icon;
-                                        return (
-                                          <button
-                                            type="button"
-                                            key={v.value}
-                                            onClick={() => {
-                                              insertVariable(s.id, v.value);
-                                              setOpenVariablePopover(null);
-                                            }}
-                                            className="w-full text-left px-2 py-2 rounded-lg hover:bg-[#f7f8f9] flex items-center justify-between group transition-colors"
-                                          >
-                                            <div className="flex items-center gap-3">
-                                              <Icon size={15} className="text-[#1a1510]/50 group-hover:text-[#1a1510]" />
-                                              <span className="text-[13px] font-medium text-[#1a1510]">{v.label}</span>
-                                            </div>
-                                            <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                              <span className="text-[10px] font-mono text-[#1a1510]/30">{v.value}</span>
-                                              <ChevronRight size={14} className="text-[#1a1510]/30" />
-                                            </div>
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
+                                  <div className="fixed inset-0 z-[60]" onClick={() => setTimingOpenId(null)} />
+                                  <motion.div
+                                    initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}
+                                    className="absolute left-0 mt-2 w-48 bg-white border border-[#1a1510]/10 rounded-xl shadow-[0_12px_32px_-8px_rgba(26,21,16,0.18)] overflow-hidden z-[70] py-1.5"
+                                  >
+                                    {TIMING_OPTIONS.map((t) => (
+                                      <button
+                                        key={t}
+                                        onClick={() => { updateStep(s.id, { timing: t }); setTimingOpenId(null); }}
+                                        className={`w-full flex items-center gap-2 px-3.5 py-2 text-[12px] font-medium text-left transition-colors ${t === s.timing ? "bg-[#f7f8f9] text-[#1a1510]" : "text-[#1a1510]/70 hover:bg-[#f7f8f9]"}`}
+                                      >
+                                        <Check size={13} className={t === s.timing ? "text-brand-gold" : "opacity-0"} /> {t}
+                                      </button>
+                                    ))}
+                                  </motion.div>
                                 </>
                               )}
-                            </div>
-
-                            {/* Attach File Button */}
-                            <button
-                              type="button"
-                              onClick={() => document.getElementById(`file-upload-${s.id}`)?.click()}
-                              className="h-9 px-3 rounded-xl border border-[#1a1510]/10 text-xs font-semibold text-[#1a1510]/70 flex items-center gap-1.5 hover:bg-[#f7f8f9] transition-colors"
-                            >
-                              <Paperclip size={13} className="text-[#1a1510]/40" /> Attach File
+                            </AnimatePresence>
+                          </div>
+                          {emailSteps.length > 1 && (
+                            <button onClick={() => removeStep(s.id)} className="ml-auto text-[#1a1510]/25 hover:text-[#1a1510] transition-colors">
+                              <Trash2 size={15} />
                             </button>
+                          )}
+                        </div>
 
-                            {/* Add Link Button */}
+                        {/* Subject */}
+                        <input
+                          value={s.subject}
+                          onChange={(e) => updateStep(s.id, { subject: e.target.value })}
+                          placeholder="Subject line…"
+                          className="w-full px-4 py-2.5 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[14px] font-medium text-[#1a1510] focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
+                        />
+
+                        {/* Body */}
+                        <textarea
+                          value={s.body}
+                          onChange={(e) => updateStep(s.id, { body: e.target.value })}
+                          placeholder="Write your message…"
+                          className="w-full h-28 px-4 py-3 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[14px] resize-none focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
+                        />
+
+                        {/* Attachments List */}
+                        {s.attachments && s.attachments.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 py-1">
+                            {s.attachments.map((att, attIdx) => (
+                              <div
+                                key={attIdx}
+                                className="flex items-center gap-1.5 px-2.5 py-1 bg-[#1a1510]/5 border border-[#1a1510]/10 rounded-lg text-xs font-medium text-[#1a1510]/80"
+                              >
+                                {att.type === 'link' ? <LinkIcon size={11} className="text-brand-gold" /> : <Paperclip size={11} className="text-brand-gold" />}
+                                <span className="truncate max-w-[160px]">{att.name}</span>
+                                {att.size && <span className="text-[10px] text-[#1a1510]/40">({(att.size / (1024 * 1024)).toFixed(2)} MB)</span>}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = s.attachments?.filter((_, i) => i !== attIdx);
+                                    updateStep(s.id, { attachments: updated });
+                                  }}
+                                  className="text-[#1a1510]/30 hover:text-red-500 transition-colors ml-1"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Email Editor Toolbar */}
+                        <div className="flex flex-wrap items-center gap-3">
+                          {/* Hidden file input */}
+                          <input
+                            type="file"
+                            id={`file-upload-${s.id}`}
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const maxSize = 10 * 1024 * 1024; // 10MB
+                              if (file.size > maxSize) {
+                                toast.error("File is too large. Please attach files under 10MB.");
+                                return;
+                              }
+                              const currentAtts = s.attachments || [];
+                              updateStep(s.id, {
+                                attachments: [...currentAtts, { name: file.name, size: file.size, type: 'file' }]
+                              });
+                              e.target.value = '';
+                            }}
+                          />
+
+                          {/* Personalization Dropdown */}
+                          <div className="relative">
                             <button
                               type="button"
                               onClick={() => {
-                                const url = window.prompt("Enter link URL (e.g. https://calendly.com/...):");
-                                if (!url) return;
-                                const currentAtts = s.attachments || [];
-                                updateStep(s.id, {
-                                  attachments: [...currentAtts, { name: url, type: 'link', url }]
-                                });
+                                if (openVariablePopover?.stepId === s.id && openVariablePopover?.type === 'email') {
+                                  setOpenVariablePopover(null);
+                                } else {
+                                  setOpenVariablePopover({ stepId: s.id, type: 'email' });
+                                  setActiveVariableTab('person');
+                                }
                               }}
-                              className="h-9 px-3 rounded-xl border border-[#1a1510]/10 text-xs font-semibold text-[#1a1510]/70 flex items-center gap-1.5 hover:bg-[#f7f8f9] transition-colors"
-                            >
-                              <LinkIcon size={13} className="text-[#1a1510]/40" /> Add Link
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-
-                      {/* Add follow-up + Send test */}
-                      <div className="flex flex-wrap gap-2.5">
-                        <button onClick={addFollowUp} className="h-10 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-[12px] font-semibold text-[#1a1510]/70 hover:text-[#1a1510] hover:border-[#1a1510]/20 transition-colors flex items-center gap-2">
-                          <Plus size={15} className="text-[#1a1510]/40" /> Add Follow-up
-                        </button>
-                        <button 
-                          type="button"
-                          onClick={async (e) => {
-                            e.preventDefault();
-                            if (!user || !user.email) {
-                              toast.error("No logged-in user email found to send a test.");
-                              return;
-                            }
-                            const promise = api.post('/campaigns/send-test', {
-                              subject: renderTemplate(emailSteps[0]?.subject || ""),
-                              body: renderTemplate(emailSteps[0]?.body || "")
-                            });
-                            toast.promise(promise, {
-                              loading: "Sending preview...",
-                              success: "test mail send to your mail",
-                              error: "Failed to send test mail"
-                            });
-                          }}
-                          className="h-10 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-[12px] font-semibold text-[#1a1510]/70 hover:text-[#1a1510] hover:border-[#1a1510]/20 transition-colors flex items-center gap-2"
-                        >
-                          <Send size={14} className="text-[#1a1510]/40" /> Send Test
-                        </button>
-                      </div>
-
-                      {/* Preview */}
-                      <div className="rounded-2xl border border-[#1a1510]/[0.07] bg-[#fafafa] p-5">
-                        <p className="text-[10px] font-bold text-[#1a1510]/35 uppercase tracking-wider mb-2">Preview · Email · Step 1</p>
-                        <h4 className="text-[14px] font-bold text-[#1a1510]">{renderTemplate(emailSteps[0]?.subject || "—")}</h4>
-                        <p className="text-[13px] text-[#1a1510]/55 mt-1.5 whitespace-pre-line leading-relaxed">{renderTemplate(emailSteps[0]?.body || "")}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="text-[15px] font-bold text-[#1a1510]">LinkedIn Sequence</h3>
-                          <p className="text-[12px] text-[#1a1510]/45">Write LinkedIn DMs and follow-ups with custom timing</p>
-                        </div>
-                        <span className="text-[11px] font-semibold text-[#1a1510]/50 px-2.5 py-1 rounded-md border border-[#1a1510]/10">{linkedinSteps.length} step{linkedinSteps.length === 1 ? "" : "s"}</span>
-                      </div>
-
-                      {linkedinSteps.length === 0 ? (
-                        <div className="rounded-2xl border border-dashed border-[#1a1510]/15 bg-white py-12 px-6 text-center">
-                          <p className="text-[13px] text-[#1a1510]/40">No LinkedIn messages yet. Add one below to get started.</p>
-                        </div>
-                      ) : (
-                        linkedinSteps.map((s, idx) => (
-                          <div key={s.id} className="rounded-2xl border border-[#1a1510]/[0.07] bg-white p-5 space-y-4">
-                            {/* Step header */}
-                            <div className="flex items-center gap-2.5">
-                              <span className="w-6 h-6 rounded-full bg-[#1a1510] text-white text-[11px] font-bold flex items-center justify-center shrink-0">{idx + 1}</span>
-                              <span className="flex items-center gap-1.5 text-[12px] font-semibold text-[#1a1510]/60 px-2 py-1 rounded-md bg-[#f7f8f9]">
-                                <Linkedin size={12} /> LinkedIn DM
-                              </span>
-                              <span className="text-[#1a1510]/20">·</span>
-                              {/* Timing dropdown */}
-                              <div className="relative">
-                                <button
-                                  onClick={() => setTimingOpenId(timingOpenId === s.id ? null : s.id)}
-                                  className="flex items-center gap-1.5 text-[12px] font-semibold text-[#1a1510]/70 px-2.5 py-1 rounded-md border border-[#1a1510]/10 hover:border-[#1a1510]/20 transition-colors"
-                                >
-                                  <Clock size={12} className="text-[#1a1510]/40" /> {s.timing}
-                                  <ChevronDown size={13} className={`text-[#1a1510]/40 transition-transform ${timingOpenId === s.id ? "rotate-180" : ""}`} />
-                                </button>
-                                <AnimatePresence>
-                                  {timingOpenId === s.id && (
-                                    <>
-                                      <div className="fixed inset-0 z-[60]" onClick={() => setTimingOpenId(null)} />
-                                      <motion.div
-                                        initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}
-                                        className="absolute left-0 mt-2 w-48 bg-white border border-[#1a1510]/10 rounded-xl shadow-[0_12px_32px_-8px_rgba(26,21,16,0.18)] overflow-hidden z-[70] py-1.5"
-                                      >
-                                        {TIMING_OPTIONS.map((t) => (
-                                          <button
-                                            key={t}
-                                            onClick={() => { updateLiStep(s.id, { timing: t }); setTimingOpenId(null); }}
-                                            className={`w-full flex items-center gap-2 px-3.5 py-2 text-[12px] font-medium text-left transition-colors ${t === s.timing ? "bg-[#f7f8f9] text-[#1a1510]" : "text-[#1a1510]/70 hover:bg-[#f7f8f9]"}`}
-                                          >
-                                            <Check size={13} className={t === s.timing ? "text-brand-gold" : "opacity-0"} /> {t}
-                                          </button>
-                                        ))}
-                                      </motion.div>
-                                    </>
-                                  )}
-                                </AnimatePresence>
-                              </div>
-                              <button onClick={() => removeLiStep(s.id)} className="ml-auto text-[#1a1510]/25 hover:text-[#1a1510] transition-colors">
-                                <Trash2 size={15} />
-                              </button>
-                            </div>
-
-                            {/* Body */}
-                            <textarea
-                              value={s.body}
-                              onChange={(e) => updateLiStep(s.id, { body: e.target.value })}
-                              placeholder="Hi {{first_name}}, came across {{company}} — would love to connect."
-                              className="w-full h-24 px-4 py-3 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[14px] resize-none focus:bg-white focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30"
-                            />
-
-                            {/* Personalization Dropdown */}
-                            <div className="relative">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (openVariablePopover?.stepId === s.id && openVariablePopover?.type === 'linkedin') {
-                                    setOpenVariablePopover(null);
-                                  } else {
-                                    setOpenVariablePopover({ stepId: s.id, type: 'linkedin' });
-                                    setActiveVariableTab('person');
-                                  }
-                                }}
-                                className={`h-9 px-3 rounded-xl flex items-center gap-1.5 transition-colors border text-xs font-semibold ${
-                                  openVariablePopover?.stepId === s.id && openVariablePopover?.type === 'linkedin'
-                                    ? "bg-brand-gold/10 border-brand-gold/40 text-brand-gold"
-                                    : "bg-white border-[#1a1510]/10 text-[#1a1510]/70 hover:bg-[#f7f8f9] hover:text-[#1a1510]"
+                              className={`h-9 px-3 rounded-xl flex items-center gap-1.5 transition-colors border text-xs font-semibold ${openVariablePopover?.stepId === s.id && openVariablePopover?.type === 'email'
+                                  ? "bg-brand-gold/10 border-brand-gold/40 text-brand-gold"
+                                  : "bg-white border-[#1a1510]/10 text-[#1a1510]/70 hover:bg-[#f7f8f9] hover:text-[#1a1510]"
                                 }`}
-                              >
-                                <Braces size={14} strokeWidth={2.5} />
-                                <span>Dynamic Variables</span>
-                              </button>
-                              {openVariablePopover?.stepId === s.id && openVariablePopover?.type === 'linkedin' && (
-                                <>
-                                  <div className="fixed inset-0 z-30" onClick={() => setOpenVariablePopover(null)} />
-                                  <div className="absolute left-0 bottom-full mb-2 w-[320px] bg-white border border-[#1a1510]/10 rounded-xl shadow-[0_12px_32px_-8px_rgba(26,21,16,0.18)] z-40 p-0 overflow-hidden flex flex-col">
-                                    <div className="p-3 pb-0">
-                                      <div className="relative">
-                                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#1a1510]/40" />
-                                        <input type="text" placeholder="Search" className="w-full h-8 pl-8 pr-3 rounded-lg border border-[#1a1510]/20 text-[13px] focus:outline-none focus:border-brand-gold/50 placeholder:text-[#1a1510]/30" />
-                                      </div>
-                                    </div>
-                                    <div className="flex border-b border-[#1a1510]/10 mt-3 px-3">
-                                      {(['person', 'company', 'sender', 'advanced'] as const).map((tab) => (
-                                        <button
-                                          type="button"
-                                          key={tab}
-                                          onClick={() => { if (tab !== 'advanced') setActiveVariableTab(tab as any); }}
-                                          className={`flex-1 text-[12px] font-semibold capitalize tracking-wide text-center py-2.5 transition-all relative ${
-                                            activeVariableTab === tab
-                                              ? "text-[#1a1510]"
-                                              : "text-[#1a1510]/35 hover:text-[#1a1510]"
-                                          }`}
-                                        >
-                                          {tab}
-                                          {activeVariableTab === tab && (
-                                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1a1510]" />
-                                          )}
-                                        </button>
-                                      ))}
-                                    </div>
-                                    <div className="p-2 space-y-0.5 max-h-[300px] overflow-y-auto">
-                                      <div className="px-2 py-2 text-[11px] font-semibold text-[#1a1510]/40 uppercase tracking-wider mt-1 mb-1">Basic information</div>
-                                      {PERSONALIZATION_VARIABLES[activeVariableTab]?.map((v) => {
-                                        const Icon = v.icon;
-                                        return (
-                                          <button
-                                            type="button"
-                                            key={v.value}
-                                            onClick={() => {
-                                              insertLiVariable(s.id, v.value);
-                                              setOpenVariablePopover(null);
-                                            }}
-                                            className="w-full text-left px-2 py-2 rounded-lg hover:bg-[#f7f8f9] flex items-center justify-between group transition-colors"
-                                          >
-                                            <div className="flex items-center gap-3">
-                                              <Icon size={15} className="text-[#1a1510]/50 group-hover:text-[#1a1510]" />
-                                              <span className="text-[13px] font-medium text-[#1a1510]">{v.label}</span>
-                                            </div>
-                                            <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                              <span className="text-[10px] font-mono text-[#1a1510]/30">{v.value}</span>
-                                              <ChevronRight size={14} className="text-[#1a1510]/30" />
-                                            </div>
-                                          </button>
-                                        );
-                                      })}
+                            >
+                              <Braces size={14} strokeWidth={2.5} />
+                              <span>Dynamic Variables</span>
+                            </button>
+                            {openVariablePopover?.stepId === s.id && openVariablePopover?.type === 'email' && (
+                              <>
+                                <div className="fixed inset-0 z-30" onClick={() => setOpenVariablePopover(null)} />
+                                <div className="absolute left-0 bottom-full mb-2 w-[320px] bg-white border border-[#1a1510]/10 rounded-xl shadow-[0_12px_32px_-8px_rgba(26,21,16,0.18)] z-40 p-0 overflow-hidden flex flex-col">
+                                  <div className="p-3 pb-0">
+                                    <div className="relative">
+                                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#1a1510]/40" />
+                                      <input type="text" placeholder="Search" className="w-full h-8 pl-8 pr-3 rounded-lg border border-[#1a1510]/20 text-[13px] focus:outline-none focus:border-brand-gold/50 placeholder:text-[#1a1510]/30" />
                                     </div>
                                   </div>
-                                </>
-                              )}
-                            </div>
+                                  <div className="flex border-b border-[#1a1510]/10 mt-3 px-3">
+                                    {(['person', 'company', 'sender', 'advanced'] as const).map((tab) => (
+                                      <button
+                                        type="button"
+                                        key={tab}
+                                        onClick={() => { if (tab !== 'advanced') setActiveVariableTab(tab as any); }}
+                                        className={`flex-1 text-[12px] font-semibold capitalize tracking-wide text-center py-2.5 transition-all relative ${activeVariableTab === tab
+                                            ? "text-[#1a1510]"
+                                            : "text-[#1a1510]/35 hover:text-[#1a1510]"
+                                          }`}
+                                      >
+                                        {tab}
+                                        {activeVariableTab === tab && (
+                                          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1a1510]" />
+                                        )}
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <div className="p-2 space-y-0.5 max-h-[300px] overflow-y-auto">
+                                    <div className="px-2 py-2 text-[11px] font-semibold text-[#1a1510]/40 uppercase tracking-wider mt-1 mb-1">Basic information</div>
+                                    {PERSONALIZATION_VARIABLES[activeVariableTab]?.map((v) => {
+                                      const Icon = v.icon;
+                                      return (
+                                        <button
+                                          type="button"
+                                          key={v.value}
+                                          onClick={() => {
+                                            insertVariable(s.id, v.value);
+                                            setOpenVariablePopover(null);
+                                          }}
+                                          className="w-full text-left px-2 py-2 rounded-lg hover:bg-[#f7f8f9] flex items-center justify-between group transition-colors"
+                                        >
+                                          <div className="flex items-center gap-3">
+                                            <Icon size={15} className="text-[#1a1510]/50 group-hover:text-[#1a1510]" />
+                                            <span className="text-[13px] font-medium text-[#1a1510]">{v.label}</span>
+                                          </div>
+                                          <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <span className="text-[10px] font-mono text-[#1a1510]/30">{v.value}</span>
+                                            <ChevronRight size={14} className="text-[#1a1510]/30" />
+                                          </div>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </>
+                            )}
                           </div>
-                        ))
-                      )}
 
-                      {/* Add message + Send test */}
-                      <div className="flex flex-wrap gap-2.5">
-                        <button onClick={addLinkedinMessage} className="h-10 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-[12px] font-semibold text-[#1a1510]/70 hover:text-[#1a1510] hover:border-[#1a1510]/20 transition-colors flex items-center gap-2">
-                          <Plus size={15} className="text-[#1a1510]/40" /> Add LinkedIn Message
-                        </button>
-                        <button className="h-10 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-[12px] font-semibold text-[#1a1510]/70 hover:text-[#1a1510] hover:border-[#1a1510]/20 transition-colors flex items-center gap-2">
-                          <Send size={14} className="text-[#1a1510]/40" /> Send Test
-                        </button>
+                          {/* Attach File Button */}
+                          <button
+                            type="button"
+                            onClick={() => document.getElementById(`file-upload-${s.id}`)?.click()}
+                            className="h-9 px-3 rounded-xl border border-[#1a1510]/10 text-xs font-semibold text-[#1a1510]/70 flex items-center gap-1.5 hover:bg-[#f7f8f9] transition-colors"
+                          >
+                            <Paperclip size={13} className="text-[#1a1510]/40" /> Attach File
+                          </button>
+
+                          {/* Add Link Button */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const url = window.prompt("Enter link URL (e.g. https://calendly.com/...):");
+                              if (!url) return;
+                              const currentAtts = s.attachments || [];
+                              updateStep(s.id, {
+                                attachments: [...currentAtts, { name: url, type: 'link', url }]
+                              });
+                            }}
+                            className="h-9 px-3 rounded-xl border border-[#1a1510]/10 text-xs font-semibold text-[#1a1510]/70 flex items-center gap-1.5 hover:bg-[#f7f8f9] transition-colors"
+                          >
+                            <LinkIcon size={13} className="text-[#1a1510]/40" /> Add Link
+                          </button>
+                        </div>
                       </div>
+                    ))}
+
+                    {/* Add follow-up + Send test */}
+                    <div className="flex flex-wrap gap-2.5">
+                      <button onClick={addFollowUp} className="h-10 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-[12px] font-semibold text-[#1a1510]/70 hover:text-[#1a1510] hover:border-[#1a1510]/20 transition-colors flex items-center gap-2">
+                        <Plus size={15} className="text-[#1a1510]/40" /> Add Follow-up
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async (e) => {
+                          e.preventDefault();
+                          if (!user || !user.email) {
+                            toast.error("No logged-in user email found to send a test.");
+                            return;
+                          }
+                          const promise = api.post('/campaigns/send-test', {
+                            subject: renderTemplate(emailSteps[0]?.subject || ""),
+                            body: renderTemplate(emailSteps[0]?.body || "")
+                          });
+                          toast.promise(promise, {
+                            loading: "Sending preview...",
+                            success: "test mail send to your mail",
+                            error: "Failed to send test mail"
+                          });
+                        }}
+                        className="h-10 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-[12px] font-semibold text-[#1a1510]/70 hover:text-[#1a1510] hover:border-[#1a1510]/20 transition-colors flex items-center gap-2"
+                      >
+                        <Send size={14} className="text-[#1a1510]/40" /> Send Test
+                      </button>
                     </div>
-                  )}
+
+                    {/* Preview */}
+                    <div className="rounded-2xl border border-[#1a1510]/[0.07] bg-[#fafafa] p-5">
+                      <p className="text-[10px] font-bold text-[#1a1510]/35 uppercase tracking-wider mb-2">Preview · Email · Step 1</p>
+                      <h4 className="text-[14px] font-bold text-[#1a1510]">{renderTemplate(emailSteps[0]?.subject || "—")}</h4>
+                      <p className="text-[13px] text-[#1a1510]/55 mt-1.5 whitespace-pre-line leading-relaxed">{renderTemplate(emailSteps[0]?.body || "")}</p>
+                    </div>
+                  </div>
+
                 </Section>
               )}
 
@@ -2397,29 +2179,29 @@ export default function BuildCampaignPage() {
                   }
                 >
                   {campaignWorkflowId ? (
-                     <div className="rounded-2xl border border-brand-gold/40 bg-brand-gold/[0.06] p-6 flex flex-col items-center text-center">
-                        <div className="w-12 h-12 rounded-xl bg-white border border-brand-gold/20 flex items-center justify-center text-brand-gold mb-3">
-                           <RefreshCw size={20} />
-                        </div>
-                        <h4 className="text-[14px] font-bold text-[#1a1510]">Workflow Attached</h4>
-                        <p className="text-[12px] text-[#1a1510]/60 mt-1 mb-4">Your automation is ready to launch with this campaign.</p>
-                        <div className="flex gap-2">
-                           <button onClick={() => setIsBuilderOpen(true)} className="h-9 px-4 rounded-lg bg-white border border-[#1a1510]/10 text-[12px] font-semibold hover:bg-slate-50 transition-colors">
-                              Edit Workflow
-                           </button>
-                           <button onClick={() => setCampaignWorkflowId(null)} className="h-9 px-4 rounded-lg bg-red-50 text-red-600 border border-red-100 text-[12px] font-semibold hover:bg-red-100 transition-colors">
-                              Remove
-                           </button>
-                        </div>
-                     </div>
+                    <div className="rounded-2xl border border-brand-gold/40 bg-brand-gold/[0.06] p-6 flex flex-col items-center text-center">
+                      <div className="w-12 h-12 rounded-xl bg-white border border-brand-gold/20 flex items-center justify-center text-brand-gold mb-3">
+                        <RefreshCw size={20} />
+                      </div>
+                      <h4 className="text-[14px] font-bold text-[#1a1510]">Workflow Attached</h4>
+                      <p className="text-[12px] text-[#1a1510]/60 mt-1 mb-4">Your automation is ready to launch with this campaign.</p>
+                      <div className="flex gap-2">
+                        <button onClick={() => setIsBuilderOpen(true)} className="h-9 px-4 rounded-lg bg-white border border-[#1a1510]/10 text-[12px] font-semibold hover:bg-slate-50 transition-colors">
+                          Edit Workflow
+                        </button>
+                        <button onClick={() => setCampaignWorkflowId(null)} className="h-9 px-4 rounded-lg bg-red-50 text-red-600 border border-red-100 text-[12px] font-semibold hover:bg-red-100 transition-colors">
+                          Remove
+                        </button>
+                      </div>
+                    </div>
                   ) : (
-                     <div className="rounded-2xl border border-[#1a1510]/[0.07] border-dashed p-10 flex flex-col items-center text-center bg-[#fafafa]">
-                        <div className="w-12 h-12 rounded-xl bg-white border border-[#1a1510]/10 flex items-center justify-center text-[#1a1510]/40 mb-3">
-                           <LayoutGrid size={20} />
-                        </div>
-                        <h4 className="text-[14px] font-bold text-[#1a1510]">No Workflow Created</h4>
-                        <p className="text-[12px] text-[#1a1510]/45 mt-1 max-w-sm">Create a workflow to orchestrate your emails, LinkedIn messages, and CRM actions.</p>
-                     </div>
+                    <div className="rounded-2xl border border-[#1a1510]/[0.07] border-dashed p-10 flex flex-col items-center text-center bg-[#fafafa]">
+                      <div className="w-12 h-12 rounded-xl bg-white border border-[#1a1510]/10 flex items-center justify-center text-[#1a1510]/40 mb-3">
+                        <LayoutGrid size={20} />
+                      </div>
+                      <h4 className="text-[14px] font-bold text-[#1a1510]">No Workflow Created</h4>
+                      <p className="text-[12px] text-[#1a1510]/45 mt-1 max-w-sm">Create a workflow to orchestrate your emails, LinkedIn messages, and CRM actions.</p>
+                    </div>
                   )}
 
                   {/* Daily Send Limit */}
@@ -2702,9 +2484,8 @@ export default function BuildCampaignPage() {
                             <button
                               key={m.id}
                               onClick={() => setTrig({ mode: m.id })}
-                              className={`w-full flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all ${
-                                active ? "border-brand-gold ring-2 ring-brand-gold/15 bg-brand-gold/[0.04]" : "border-[#1a1510]/[0.07] bg-white hover:border-[#1a1510]/15"
-                              }`}
+                              className={`w-full flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all ${active ? "border-brand-gold ring-2 ring-brand-gold/15 bg-brand-gold/[0.04]" : "border-[#1a1510]/[0.07] bg-white hover:border-[#1a1510]/15"
+                                }`}
                             >
                               <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${active ? "border-brand-gold" : "border-[#1a1510]/25"}`}>
                                 {active && <span className="w-2 h-2 rounded-full bg-brand-gold" />}
@@ -2786,9 +2567,8 @@ export default function BuildCampaignPage() {
                             <button
                               key={a.id}
                               onClick={() => setTrig({ app: a.id })}
-                              className={`flex flex-col items-center justify-center gap-2 py-5 rounded-xl border transition-all ${
-                                active ? "border-brand-gold ring-2 ring-brand-gold/15 bg-brand-gold/[0.04]" : "border-[#1a1510]/[0.07] bg-white hover:border-[#1a1510]/15"
-                              }`}
+                              className={`flex flex-col items-center justify-center gap-2 py-5 rounded-xl border transition-all ${active ? "border-brand-gold ring-2 ring-brand-gold/15 bg-brand-gold/[0.04]" : "border-[#1a1510]/[0.07] bg-white hover:border-[#1a1510]/15"
+                                }`}
                             >
                               <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${active ? "bg-brand-gold/15 text-brand-gold" : "bg-[#f7f8f9] text-[#1a1510]/45"}`}>
                                 <a.icon size={18} />
@@ -2808,9 +2588,8 @@ export default function BuildCampaignPage() {
                           <button
                             key={t}
                             onClick={() => setTrig({ target: t })}
-                            className={`flex-1 py-2 rounded-lg text-[12px] font-semibold transition-all ${
-                              trigCfg.target === t ? "bg-white text-[#1a1510] shadow-sm" : "text-[#1a1510]/45 hover:text-[#1a1510]/70"
-                            }`}
+                            className={`flex-1 py-2 rounded-lg text-[12px] font-semibold transition-all ${trigCfg.target === t ? "bg-white text-[#1a1510] shadow-sm" : "text-[#1a1510]/45 hover:text-[#1a1510]/70"
+                              }`}
                           >
                             {t}
                           </button>
