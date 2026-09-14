@@ -10,10 +10,14 @@ router.use(requireAuth);
 router.get('/', async (req: Request, res: Response) => {
   try {
     const clientId = req.query.clientId as string | undefined;
+    const status = req.query.status as string | undefined;
     if (!clientId) return res.status(400).json({ success: false, error: 'clientId query parameter is required' });
 
     const workflows = await prisma.workflow.findMany({
-      where: { client_id: clientId },
+      where: { 
+        client_id: clientId,
+        ...(status ? { status } : {})
+      },
       orderBy: { created_at: 'desc' },
       take: 100
     });

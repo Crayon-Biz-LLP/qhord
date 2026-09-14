@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { WfNode } from "./ZapierBuilder";
-import { X, Search, Wand2, Mail, Send, Activity, Clock, GitBranch, ShieldAlert, Settings2 } from "lucide-react";
+import { X, Search, Wand2, Mail, Send, Activity, Clock, GitBranch, ShieldAlert, Settings2, ChevronDown } from "lucide-react";
 import { useClient } from "../../../contexts/ClientContext";
 import { api } from "../../../lib/api";
 
@@ -216,220 +216,239 @@ export const ConfigPanel = ({
   const hasAccount = !needsAccount || availableAccounts.length > 0;
 
   if (node.type === 'trigger') {
+    const triggerType = node.config?.triggerType || 'schedule';
+    const scheduleConfig = node.config?.scheduleConfig || { startType: 'immediate', frequencyType: 'once', intervalValue: 1, intervalUnit: 'weeks', activeDays: [], hasEndDate: false };
+    const eventConfig = node.config?.eventConfig || { eventId: '' };
+
+    const EVENT_OPTIONS = [
+      { id: 'contact_added', label: 'Contact added' },
+      { id: 'contact_updated', label: 'Contact updated' },
+      { id: 'email_sent', label: 'Email sent' },
+      { id: 'email_opened', label: 'Email opened' },
+      { id: 'email_clicked', label: 'Email clicked' },
+      { id: 'email_replied', label: 'Email replied' },
+      { id: 'email_bounced', label: 'Email bounced' },
+      { id: 'contact_enrolled_sequence', label: 'Contact enrolled/added to sequence' },
+      { id: 'deal_created', label: 'Deal created' },
+      { id: 'deal_updated', label: 'Deal updated' }
+    ];
+
     return (
-      <div className="h-full flex flex-col bg-white">
-        <div className="h-14 px-4 border-b border-[#1a1510]/[0.07] flex items-center justify-between shrink-0 bg-[#faf9f8]">
+      <div className="h-full flex flex-col bg-[#fcfcfc]">
+        <div className="h-14 px-4 border-b border-[#1a1510]/[0.07] flex items-center justify-between shrink-0 bg-white">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-white border border-[#1a1510]/[0.07] flex items-center justify-center text-[#1a1510]/70">
-              {getIcon()}
-            </div>
-            <h3 className="font-bold text-[#1a1510] text-[11px] tracking-widest uppercase">
-              TRIGGERS / {node.tool?.replace(/_/g, ' ') || "Trigger"}
-            </h3>
+            <h3 className="font-bold text-[#1a1510] text-[13px]">Trigger</h3>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-md transition-colors text-slate-400">
+          <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-md transition-colors text-slate-400">
             <X size={16} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-8 custom-scrollbar">
-           {node.tool === 'manual_trigger' && (
-             <div className="text-center p-8 bg-slate-50 rounded-lg">
-               <h4 className="font-bold mb-2">Manual Trigger</h4>
-               <p className="text-sm text-slate-500">Start this workflow manually. No configuration required.</p>
-             </div>
-           )}
-           
-           {node.tool === 'run_on_schedule' && (
-             <div className="space-y-4">
-               <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">Frequency <span className="text-red-500">*</span></label>
-                  <select value={node.config?.frequency || "daily"} onChange={(e) => handleConfigChange("frequency", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
-                    <option value="once">Once</option>
-                    <option value="hourly">Hourly</option>
-                    <option value="daily">Daily</option>
-                    <option value="weekly">Weekly</option>
-                    <option value="monthly">Monthly</option>
-                  </select>
-               </div>
-               {node.config?.frequency === 'weekly' && (
-                 <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-[#1a1510]">Recurrence Days <span className="text-red-500">*</span></label>
-                    <div className="flex gap-2 flex-wrap">
-                      {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map(day => (
-                        <label key={day} className="flex items-center gap-1 text-sm bg-slate-50 px-2 py-1 rounded border border-slate-200">
-                          <input type="checkbox" checked={node.config?.days?.includes(day) || false} onChange={(e) => {
-                            const days = node.config?.days || [];
-                            handleConfigChange("days", e.target.checked ? [...days, day] : days.filter((d: string) => d !== day));
-                          }} /> {day}
-                        </label>
-                      ))}
-                    </div>
-                 </div>
-               )}
-               <div className="flex gap-4">
-                 <div className="space-y-2 flex-1">
-                    <label className="text-[11px] font-bold text-[#1a1510]">Time <span className="text-red-500">*</span></label>
-                    <input type="time" value={node.config?.time || "09:00"} onChange={e => handleConfigChange("time", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
-                 </div>
-                 <div className="space-y-2 flex-1">
-                    <label className="text-[11px] font-bold text-[#1a1510]">Timezone <span className="text-red-500">*</span></label>
-                    <input type="text" placeholder="e.g. UTC" value={node.config?.timezone || "UTC"} onChange={e => handleConfigChange("timezone", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
-                 </div>
-               </div>
-               <div className="flex gap-4">
-                 <div className="space-y-2 flex-1">
-                    <label className="text-[11px] font-bold text-[#1a1510]">Start Date</label>
-                    <input type="date" value={node.config?.startDate || ""} onChange={e => handleConfigChange("startDate", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
-                 </div>
-                 <div className="space-y-2 flex-1">
-                    <label className="text-[11px] font-bold text-[#1a1510]">End Date</label>
-                    <input type="date" value={node.config?.endDate || ""} onChange={e => handleConfigChange("endDate", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
-                 </div>
-               </div>
-               <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-100">
-                 <input type="checkbox" id="schedule-active" checked={node.config?.enabled ?? true} onChange={e => handleConfigChange("enabled", e.target.checked)} className="w-4 h-4 accent-brand-gold" />
-                 <label htmlFor="schedule-active" className="text-sm font-semibold text-[#1a1510]">Schedule Active</label>
-               </div>
-             </div>
-           )}
-
-           {node.tool === 'webhook' && (
-             <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">Webhook URL</label>
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono text-slate-600 break-all">
-                    https://api.qhord.com/webhooks/catch/generate_on_save
-                  </div>
-                  <p className="text-[10px] text-slate-400">Save the workflow to generate the unique URL.</p>
+        <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
+          <div className="space-y-4">
+            <h4 className="text-[13px] font-bold text-[#1a1510]">Run this workflow</h4>
+            
+            <div className={`space-y-3 p-4 rounded-xl border transition-colors shadow-sm ${triggerType === 'schedule' ? 'bg-brand-gold/[0.04] border-brand-gold/30' : 'bg-white border-[#1a1510]/[0.08]'}`}>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input 
+                  type="radio" 
+                  name="triggerType" 
+                  value="schedule" 
+                  checked={triggerType === 'schedule'} 
+                  onChange={() => handleConfigChange('triggerType', 'schedule')} 
+                  className="mt-1 w-4 h-4 accent-brand-gold cursor-pointer" 
+                />
+                <div className="flex-1">
+                  <div className="text-[13px] font-semibold text-[#1a1510]">Based on a date or schedule</div>
+                  <div className="text-[11px] text-[#1a1510]/50 mt-0.5">Example: On a specific date, or weekly on Mondays and Wednesdays.</div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">HTTP Method</label>
-                  <select value={node.config?.method || "POST"} onChange={(e) => handleConfigChange("method", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
-                    <option value="POST">POST</option>
-                    <option value="GET">GET</option>
-                    <option value="PUT">PUT</option>
-                  </select>
-               </div>
-               <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">Authentication Type</label>
-                  <select value={node.config?.authType || "none"} onChange={(e) => handleConfigChange("authType", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
-                    <option value="none">None</option>
-                    <option value="bearer">Bearer Token</option>
-                    <option value="basic">Basic Auth</option>
-                  </select>
-               </div>
-               {node.config?.authType && node.config.authType !== 'none' && (
-                 <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-[#1a1510]">Secret / Token</label>
-                    <input type="password" placeholder="Enter secret to validate incoming requests" value={node.config?.secret || ""} onChange={e => handleConfigChange("secret", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
-                 </div>
-               )}
-             </div>
-           )}
+                <div className="w-8 h-8 rounded-lg bg-pink-50 text-pink-500 flex items-center justify-center shrink-0">
+                  <Clock size={16} />
+                </div>
+              </label>
+            </div>
 
-           {(node.tool === 'campaign_started' || node.tool === 'campaign_completed') && (
-             <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">Campaign Selection <span className="text-red-500">*</span></label>
-                  <select value={node.config?.campaignId || ""} onChange={e => handleConfigChange("campaignId", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
-                    <option value="" disabled>Select a campaign...</option>
-                    <option value="any">Any Campaign (Global)</option>
-                    <option value="camp_1">Q4 Outbound Campaign</option>
-                    <option value="camp_2">Webinar Follow-up</option>
-                  </select>
-               </div>
-               <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">Optional Filters</label>
-                  <input type="text" placeholder="e.g. Lead Score > 50" value={node.config?.filters || ""} onChange={e => handleConfigChange("filters", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
-               </div>
-             </div>
-           )}
+            <div className={`space-y-3 p-4 rounded-xl border transition-colors shadow-sm ${triggerType === 'event' ? 'bg-brand-gold/[0.04] border-brand-gold/30' : 'bg-white border-[#1a1510]/[0.08]'}`}>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input 
+                  type="radio" 
+                  name="triggerType" 
+                  value="event" 
+                  checked={triggerType === 'event'} 
+                  onChange={() => handleConfigChange('triggerType', 'event')} 
+                  className="mt-1 w-4 h-4 accent-brand-gold cursor-pointer" 
+                />
+                <div className="flex-1">
+                  <div className="text-[13px] font-semibold text-[#1a1510]">Based on a trigger event</div>
+                  <div className="text-[11px] text-[#1a1510]/50 mt-0.5">Example: When a person opens your email, or a deal is created.</div>
+                </div>
+                <div className="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center shrink-0">
+                  <Activity size={16} />
+                </div>
+              </label>
+            </div>
+          </div>
 
-           {node.tool === 'reply_received' && (
-             <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">Campaign</label>
-                  <select value={node.config?.campaignId || "any"} onChange={e => handleConfigChange("campaignId", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
-                    <option value="any">Any Campaign</option>
-                    <option value="camp_1">Q4 Outbound Campaign</option>
-                  </select>
-               </div>
-               <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">Reply Classification</label>
-                  <select value={node.config?.classification || "any"} onChange={e => handleConfigChange("classification", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
-                    <option value="any">Any Reply</option>
-                    <option value="positive">Positive / Interested Only</option>
-                    <option value="negative">Negative / Uninterested</option>
-                    <option value="ooo">Out of Office</option>
-                  </select>
-               </div>
-             </div>
-           )}
+          <div className="h-px bg-[#1a1510]/[0.06]" />
 
-           {(node.tool === 'email_opened' || node.tool === 'email_clicked') && (
-             <div className="space-y-4">
+          {triggerType === 'schedule' && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="space-y-3">
+                <h4 className="text-[12px] font-semibold text-[#1a1510]/50 uppercase tracking-wider">Start</h4>
                 <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">Campaign</label>
-                  <select value={node.config?.campaignId || "any"} onChange={e => handleConfigChange("campaignId", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
-                    <option value="any">Any Campaign</option>
-                  </select>
-               </div>
-               {node.tool === 'email_opened' && (
-                 <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-[#1a1510]">Minimum Open Count</label>
-                    <input type="number" min="1" value={node.config?.minCount || "1"} onChange={e => handleConfigChange("minCount", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
-                 </div>
-               )}
-               {node.tool === 'email_clicked' && (
-                 <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-[#1a1510]">Specific Link URL (Optional)</label>
-                    <input type="url" placeholder="https://..." value={node.config?.linkUrl || ""} onChange={e => handleConfigChange("linkUrl", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
-                 </div>
-               )}
-             </div>
-           )}
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="startType" 
+                      checked={scheduleConfig.startType === 'immediate'} 
+                      onChange={() => handleConfigChange('scheduleConfig', { ...scheduleConfig, startType: 'immediate' })} 
+                      className="w-4 h-4 accent-brand-gold cursor-pointer" 
+                    />
+                    <span className="text-[13px] text-[#1a1510]">Immediately after activation</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="startType" 
+                      checked={scheduleConfig.startType === 'scheduled'} 
+                      onChange={() => handleConfigChange('scheduleConfig', { ...scheduleConfig, startType: 'scheduled' })} 
+                      className="w-4 h-4 accent-brand-gold cursor-pointer" 
+                    />
+                    <span className="text-[13px] text-[#1a1510]">On</span>
+                    {scheduleConfig.startType === 'scheduled' && (
+                      <input 
+                        type="datetime-local" 
+                        value={scheduleConfig.startDateTime || ""} 
+                        onChange={(e) => handleConfigChange('scheduleConfig', { ...scheduleConfig, startDateTime: e.target.value })} 
+                        className="ml-2 p-1.5 border border-[#1a1510]/[0.08] rounded-md text-[12px] outline-none" 
+                      />
+                    )}
+                  </label>
+                </div>
+              </div>
 
-           {node.tool === 'meeting_booked' && (
-             <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">Calendar Provider</label>
-                  <select value={node.config?.provider || "calendly"} onChange={e => handleConfigChange("provider", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
-                    <option value="calendly">Calendly</option>
-                    <option value="google">Google Calendar</option>
-                    <option value="outlook">Outlook</option>
-                  </select>
-               </div>
-               <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">Event Type (Optional)</label>
-                  <input type="text" placeholder="e.g. 30 Minute Discovery Call" value={node.config?.eventType || ""} onChange={e => handleConfigChange("eventType", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
-               </div>
-             </div>
-           )}
+              <div className="space-y-3">
+                <h4 className="text-[12px] font-semibold text-[#1a1510]/50 uppercase tracking-wider">Frequency</h4>
+                <div className="space-y-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="frequencyType" 
+                      checked={scheduleConfig.frequencyType === 'once'} 
+                      onChange={() => handleConfigChange('scheduleConfig', { ...scheduleConfig, frequencyType: 'once' })} 
+                      className="w-4 h-4 accent-brand-gold cursor-pointer" 
+                    />
+                    <span className="text-[13px] text-[#1a1510]">Run only once</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="frequencyType" 
+                      checked={scheduleConfig.frequencyType === 'recurring'} 
+                      onChange={() => handleConfigChange('scheduleConfig', { ...scheduleConfig, frequencyType: 'recurring' })} 
+                      className="w-4 h-4 accent-brand-gold cursor-pointer" 
+                    />
+                    <span className="text-[13px] text-[#1a1510]">Run every</span>
+                    {scheduleConfig.frequencyType === 'recurring' && (
+                      <div className="flex items-center gap-2 ml-2">
+                        <input 
+                          type="number" 
+                          min="1" 
+                          value={scheduleConfig.intervalValue} 
+                          onChange={(e) => handleConfigChange('scheduleConfig', { ...scheduleConfig, intervalValue: parseInt(e.target.value) || 1 })} 
+                          className="w-16 p-1.5 border border-[#1a1510]/[0.08] rounded-md text-[12px] outline-none" 
+                        />
+                        <select 
+                          value={scheduleConfig.intervalUnit} 
+                          onChange={(e) => handleConfigChange('scheduleConfig', { ...scheduleConfig, intervalUnit: e.target.value })} 
+                          className="p-1.5 border border-[#1a1510]/[0.08] rounded-md text-[12px] outline-none bg-white"
+                        >
+                          <option value="days">days</option>
+                          <option value="weeks">weeks</option>
+                        </select>
+                      </div>
+                    )}
+                  </label>
 
-           {(node.tool === 'deal_created' || node.tool === 'deal_updated') && (
-             <div className="space-y-4">
+                  {scheduleConfig.frequencyType === 'recurring' && scheduleConfig.intervalUnit === 'weeks' && (
+                    <div className="ml-6 mt-3 flex items-center gap-3">
+                      <span className="text-[12px] text-[#1a1510]/60">On</span>
+                      <div className="flex gap-1.5">
+                        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => {
+                          const fullDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                          const dayName = fullDays[idx];
+                          const isActive = scheduleConfig.activeDays.includes(dayName);
+                          return (
+                            <button
+                              key={idx}
+                              onClick={() => {
+                                const newDays = isActive 
+                                  ? scheduleConfig.activeDays.filter((d: string) => d !== dayName)
+                                  : [...scheduleConfig.activeDays, dayName];
+                                handleConfigChange('scheduleConfig', { ...scheduleConfig, activeDays: newDays });
+                              }}
+                              className={`w-7 h-7 rounded-md text-[11px] font-bold transition-colors ${isActive ? 'bg-[#1a1510] text-white' : 'bg-white border border-[#1a1510]/10 text-[#1a1510]/50 hover:bg-slate-50'}`}
+                            >
+                              {day}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    checked={scheduleConfig.hasEndDate} 
+                    onChange={(e) => handleConfigChange('scheduleConfig', { ...scheduleConfig, hasEndDate: e.target.checked })} 
+                    className="w-4 h-4 accent-brand-gold cursor-pointer rounded" 
+                  />
+                  <span className="text-[13px] text-[#1a1510]">Set end date</span>
+                </label>
+                {scheduleConfig.hasEndDate && (
+                  <div className="mt-3 ml-6">
+                    <input 
+                      type="datetime-local" 
+                      value={scheduleConfig.endDateTime || ""} 
+                      onChange={(e) => handleConfigChange('scheduleConfig', { ...scheduleConfig, endDateTime: e.target.value })} 
+                      className="p-1.5 border border-[#1a1510]/[0.08] rounded-md text-[12px] outline-none w-full" 
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {triggerType === 'event' && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="space-y-3">
+                <h4 className="text-[12px] font-semibold text-[#1a1510]/50 uppercase tracking-wider">Trigger when</h4>
                 <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">CRM</label>
-                  <select value={node.config?.crm || "hubspot"} onChange={e => handleConfigChange("crm", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
-                    <option value="hubspot">HubSpot</option>
-                    <option value="salesforce">Salesforce</option>
-                    <option value="pipedrive">Pipedrive</option>
-                    <option value="apollo">Apollo</option>
-                  </select>
-               </div>
-               <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">Pipeline (Optional)</label>
-                  <input type="text" placeholder="e.g. Sales Pipeline" value={node.config?.pipeline || ""} onChange={e => handleConfigChange("pipeline", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
-               </div>
-               {node.tool === 'deal_updated' && (
-                 <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-[#1a1510]">Stage (Optional)</label>
-                    <input type="text" placeholder="e.g. Closed Won" value={node.config?.stage || ""} onChange={e => handleConfigChange("stage", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
-                 </div>
-               )}
-             </div>
-           )}
+                  <label className="text-[11px] font-bold text-[#1a1510]">Event <span className="text-red-500">*</span></label>
+                  <div className="relative">
+                    <select 
+                      value={eventConfig.eventId} 
+                      onChange={(e) => handleConfigChange('eventConfig', { eventId: e.target.value })} 
+                      className="w-full p-2.5 border border-[#1a1510]/[0.08] rounded-lg text-[13px] outline-none bg-white appearance-none pr-8"
+                    >
+                      <option value="" disabled>Select event...</option>
+                      {EVENT_OPTIONS.map(opt => (
+                        <option key={opt.id} value={opt.id}>{opt.label}</option>
+                      ))}
+                    </select>
+                    <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">
+                      <ChevronDown size={14} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
     );

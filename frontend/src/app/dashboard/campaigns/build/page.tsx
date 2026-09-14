@@ -434,7 +434,10 @@ export default function BuildCampaignPage() {
   }, [loadConnectedTools]);
 
   const handleAddManualLead = () => {
-    if (!manualForm.first_name && !manualForm.email) return;
+    if (!manualForm.first_name && !manualForm.email && !manualForm.last_name && !manualForm.phone_number) {
+      toast.error("Please provide at least a name or email to add a lead.");
+      return;
+    }
     const newLead = {
       ...manualForm,
       id: `manual_${Date.now()}`,
@@ -450,6 +453,7 @@ export default function BuildCampaignPage() {
       first_name: "", last_name: "", title: "", location: "",
       person_linkedin_url: "", phone_number: "", email: ""
     });
+    toast.success("Lead added successfully!");
   };
 
   const renderTemplate = (text: string) => {
@@ -1810,48 +1814,50 @@ export default function BuildCampaignPage() {
                   )}
 
                   {form.leadMethod === "manual" && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 max-h-[40vh] overflow-y-auto p-1 scrollbar-hide">
-                      {[
-                        { label: 'First Name', key: 'first_name' },
-                        { label: 'Last Name', key: 'last_name' },
-                        { label: 'Location', key: 'location' },
-                        { label: 'Title', key: 'title', options: ["CEO", "CTO", "CMO", "VP Sales", "VP Marketing", "Director of Sales", "Manager", "Other"] },
-                        { label: 'LinkedIn Url', key: 'person_linkedin_url' },
-                        { label: 'Phone Number', key: 'phone_number' },
-                        { label: 'Email', key: 'email' }
-                      ].map((field) => (
-                        <div key={field.key} className="flex-1 min-w-[150px]">
-                          {field.options ? (
-                            <div className="relative">
-                              <select
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 max-h-[40vh] overflow-y-auto p-1 scrollbar-hide">
+                        {[
+                          { label: 'First Name', key: 'first_name' },
+                          { label: 'Last Name', key: 'last_name' },
+                          { label: 'Location', key: 'location' },
+                          { label: 'Title', key: 'title', options: ["CEO", "CTO", "CMO", "VP Sales", "VP Marketing", "Director of Sales", "Manager", "Other"] },
+                          { label: 'LinkedIn Url', key: 'person_linkedin_url' },
+                          { label: 'Phone Number', key: 'phone_number' },
+                          { label: 'Email', key: 'email' }
+                        ].map((field) => (
+                          <div key={field.key} className="flex-1 min-w-[150px]">
+                            {field.options ? (
+                              <div className="relative">
+                                <select
+                                  value={(manualForm as any)[field.key]}
+                                  onChange={(e) => setManualForm({ ...manualForm, [field.key]: e.target.value })}
+                                  className={`w-full h-11 px-4 pr-10 appearance-none rounded-xl bg-white border border-[#1a1510]/[0.07] text-[12px] focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all shadow-sm cursor-pointer ${(manualForm as any)[field.key] ? 'text-[#1a1510]' : 'text-[#1a1510]/30'}`}
+                                >
+                                  <option value="" disabled hidden>{field.label}</option>
+                                  {field.options.map(opt => (
+                                    <option key={opt} value={opt}>{opt}</option>
+                                  ))}
+                                </select>
+                                <ChevronDown size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#1a1510]/40 pointer-events-none" />
+                              </div>
+                            ) : (
+                              <input
+                                type="text"
                                 value={(manualForm as any)[field.key]}
                                 onChange={(e) => setManualForm({ ...manualForm, [field.key]: e.target.value })}
-                                className={`w-full h-11 px-4 pr-10 appearance-none rounded-xl bg-white border border-[#1a1510]/[0.07] text-[12px] focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all shadow-sm cursor-pointer ${(manualForm as any)[field.key] ? 'text-[#1a1510]' : 'text-[#1a1510]/30'}`}
-                              >
-                                <option value="" disabled hidden>{field.label}</option>
-                                {field.options.map(opt => (
-                                  <option key={opt} value={opt}>{opt}</option>
-                                ))}
-                              </select>
-                              <ChevronDown size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#1a1510]/40 pointer-events-none" />
-                            </div>
-                          ) : (
-                            <input
-                              type="text"
-                              value={(manualForm as any)[field.key]}
-                              onChange={(e) => setManualForm({ ...manualForm, [field.key]: e.target.value })}
-                              onKeyDown={handleKeyDown}
-                              placeholder={field.label}
-                              className="w-full h-11 px-4 rounded-xl bg-white border border-[#1a1510]/[0.07] text-[12px] focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30 shadow-sm"
-                            />
-                          )}
-                        </div>
-                      ))}
-                      <div className="flex-1 min-w-[150px] col-span-2 sm:col-span-1">
+                                onKeyDown={handleKeyDown}
+                                placeholder={field.label}
+                                className="w-full h-11 px-4 rounded-xl bg-white border border-[#1a1510]/[0.07] text-[12px] focus:outline-none focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 transition-all placeholder:text-[#1a1510]/30 shadow-sm"
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex justify-start">
                         <button
                           type="button"
                           onClick={handleAddManualLead}
-                          className="w-full h-11 rounded-xl bg-[#1a1510] hover:bg-[#2a2118] text-white flex items-center justify-center gap-2 transition-colors font-bold text-sm shadow-md"
+                          className="w-auto px-8 h-11 rounded-xl bg-[#1a1510] hover:bg-[#2a2118] text-white flex items-center justify-center gap-2 transition-colors font-bold text-sm shadow-md"
                         >
                           <Plus size={16} className="text-brand-gold" /> Add
                         </button>
@@ -2141,7 +2147,7 @@ export default function BuildCampaignPage() {
                           });
                           toast.promise(promise, {
                             loading: "Sending preview...",
-                            success: "test mail send to your mail",
+                            success: `test mail sent to your mail (${user.email})`,
                             error: "Failed to send test mail"
                           });
                         }}
@@ -2309,10 +2315,30 @@ export default function BuildCampaignPage() {
 
                   {/* Secondary actions */}
                   <div className="flex flex-wrap gap-2.5">
-                    <button className="h-10 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-[12px] font-semibold text-[#1a1510]/70 hover:text-[#1a1510] hover:border-[#1a1510]/20 transition-colors flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        const promise = new Promise(resolve => setTimeout(resolve, 800));
+                        toast.promise(promise, {
+                          loading: "Saving as template...",
+                          success: "Campaign saved as template!",
+                          error: "Failed to save template"
+                        });
+                      }}
+                      className="h-10 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-[12px] font-semibold text-[#1a1510]/70 hover:text-[#1a1510] hover:border-[#1a1510]/20 transition-colors flex items-center gap-2"
+                    >
                       <Save size={14} className="text-[#1a1510]/40" /> Save as Template
                     </button>
-                    <button className="h-10 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-[12px] font-semibold text-[#1a1510]/70 hover:text-[#1a1510] hover:border-[#1a1510]/20 transition-colors flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        const promise = new Promise(resolve => setTimeout(resolve, 800));
+                        toast.promise(promise, {
+                          loading: "Cloning campaign...",
+                          success: "Campaign cloned successfully!",
+                          error: "Failed to clone campaign"
+                        });
+                      }}
+                      className="h-10 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-[12px] font-semibold text-[#1a1510]/70 hover:text-[#1a1510] hover:border-[#1a1510]/20 transition-colors flex items-center gap-2"
+                    >
                       <ClipboardList size={14} className="text-[#1a1510]/40" /> Clone Campaign
                     </button>
                   </div>

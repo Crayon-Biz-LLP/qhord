@@ -37,17 +37,7 @@ const BLOCK_LIBRARY_CATEGORIES = [
     title: "Triggers",
     subtitle: "What starts this workflow",
     items: [
-      { id: "manual_trigger", label: "Manual Trigger", icon: Wand, type: "trigger" },
-      { id: "run_on_schedule", label: "Schedule", icon: Clock, type: "trigger" },
-      { id: "webhook", label: "Webhook", icon: Settings2, type: "trigger" },
-      { id: "campaign_started", label: "Campaign Started", icon: Play, type: "trigger" },
-      { id: "campaign_completed", label: "Campaign Completed", icon: Activity, type: "trigger" },
-      { id: "reply_received", label: "Reply Received", icon: Mail, type: "trigger" },
-      { id: "email_opened", label: "Email Opened", icon: Mail, type: "trigger" },
-      { id: "email_clicked", label: "Email Clicked", icon: Activity, type: "trigger" },
-      { id: "meeting_booked", label: "Meeting Booked", icon: Clock, type: "trigger" },
-      { id: "deal_created", label: "Deal Created", icon: Database, type: "trigger" },
-      { id: "deal_updated", label: "Deal Updated", icon: Database, type: "trigger" },
+      { id: "workflow_trigger", label: "Workflow Trigger", icon: Play, type: "trigger" }
     ]
   },
   {
@@ -181,7 +171,21 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
   const [showTestModal, setShowTestModal] = useState(false);
   const [isLoading, setIsLoading] = useState(!!workflowId);
   const [searchBlock, setSearchBlock] = useState("");
+  const [showTemplatesModal, setShowTemplatesModal] = useState(false);
+  const [templates, setTemplates] = useState<any[]>([]);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (selectedClient?.id && showTemplatesModal) {
+      api.get(`/workflows?clientId=${selectedClient.id}&status=template`)
+        .then(res => {
+          if (res.data.success) {
+            setTemplates(res.data.workflows);
+          }
+        })
+        .catch(console.error);
+    }
+  }, [selectedClient?.id, showTemplatesModal]);
 
   const handleAddNodeClick = useCallback((edgeId: string) => {
     setInsertingEdgeId(edgeId);
@@ -559,6 +563,13 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
           </div>
           
           <button 
+            onClick={() => handleSave("template")} 
+            disabled={isSaving || isTesting}
+            className="h-8 px-3 text-[13px] font-semibold text-slate-600 hover:text-[#1a1510] flex items-center gap-2 hover:bg-slate-100 rounded-lg transition-colors"
+          >
+            <LayoutTemplate size={14} /> Save as Template
+          </button>
+          <button 
             onClick={() => handleSave("draft")} 
             disabled={isSaving || isTesting}
             className="h-8 px-3 text-[13px] font-semibold text-slate-600 hover:text-[#1a1510] flex items-center gap-2 hover:bg-slate-100 rounded-lg transition-colors"
@@ -612,6 +623,51 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
               </button>
             </div>
           )}
+
+          {nodes.length === 0 && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center overflow-y-auto py-12 pointer-events-none custom-scrollbar">
+              <div className="pointer-events-auto w-full max-w-2xl flex flex-col items-center my-auto">
+                <h2 className="text-[26px] font-bold text-[#1a1510] mb-2 tracking-tight">Design a sales process</h2>
+                <p className="text-slate-500 mb-10 text-[15px]">Pick a trigger, start from a template, or describe the workflow in plain English.</p>
+                
+                <div className="flex justify-center w-full px-12 mb-10">
+                  <button onClick={() => setShowTemplatesModal(true)} className="w-full max-w-md bg-white border border-slate-200 rounded-2xl p-6 flex items-center gap-4 hover:border-brand-gold hover:shadow-md transition-all group">
+                    <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                      <LayoutTemplate size={22} />
+                    </div>
+                    <div className="text-left">
+                      <div className="font-bold text-[15px] text-[#1a1510]">Templates</div>
+                      <div className="text-xs text-slate-500 mt-0.5">Start from a shape</div>
+                    </div>
+                  </button>
+                </div>
+
+                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6">OR START WITH A TRIGGER</div>
+
+                <div className="w-full px-12 space-y-3">
+                  {[
+                    { id: "workflow_trigger", label: "Manual Trigger", desc: "Start on-demand from a button or bulk action.", icon: Wand2 },
+                  ].map((trig, idx) => (
+                    <button 
+                      key={idx} 
+                      onClick={() => handleItemClick({ type: 'trigger', id: trig.id, label: trig.label })}
+                      className="w-full flex items-center bg-white border border-slate-200 rounded-2xl p-4 hover:border-brand-gold hover:shadow-sm transition-all group text-left"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-slate-50 text-slate-500 flex items-center justify-center mr-4 group-hover:text-brand-gold group-hover:bg-brand-gold/10 transition-colors">
+                        <trig.icon size={20} />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-bold text-[14px] text-[#1a1510]">{trig.label}</div>
+                        <div className="text-[13px] text-slate-500 mt-0.5">{trig.desc}</div>
+                      </div>
+                      <ChevronRight size={18} className="text-slate-300 group-hover:text-brand-gold transition-colors" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -729,6 +785,48 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
               >
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Templates Gallery Modal */}
+      {showTemplatesModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#1a1510]/40 backdrop-blur-sm p-4 animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-3xl shadow-[0_24px_64px_-16px_rgba(0,0,0,0.2)] w-full max-w-4xl flex flex-col overflow-hidden max-h-[85vh]">
+            <div className="flex items-center justify-between p-7 border-b border-slate-100 shrink-0">
+              <div>
+                <h3 className="font-bold text-[22px] tracking-tight text-[#1a1510]">Template gallery</h3>
+                <p className="text-[14px] text-slate-500 mt-1.5">Start from a workflow shape. Every template focuses on logic — you fill in the messaging elsewhere.</p>
+              </div>
+              <button onClick={() => setShowTemplatesModal(false)} className="p-2.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-7 overflow-y-auto flex-1 bg-slate-50 grid grid-cols-1 md:grid-cols-2 gap-5 custom-scrollbar">
+              {templates.length === 0 ? (
+                <div className="col-span-1 md:col-span-2 py-12 text-center text-slate-500 flex flex-col items-center justify-center">
+                  <LayoutTemplate size={32} className="text-slate-300 mb-3" />
+                  <p className="font-semibold text-[#1a1510]">No templates found</p>
+                  <p className="text-sm mt-1">Save a workflow as a template to see it here.</p>
+                </div>
+              ) : templates.map((tpl) => {
+                const tags = [tpl.triggerType || "Manual"];
+                return (
+                  <button key={tpl.id} onClick={() => { setShowTemplatesModal(false); loadWorkflow(tpl.id); toast.success("Template loaded!"); }} className="bg-white border border-slate-200 rounded-2xl p-6 hover:border-brand-gold hover:shadow-lg transition-all text-left flex flex-col justify-between min-h-[170px] group">
+                    <div>
+                      <h4 className="font-bold text-[16px] text-[#1a1510] group-hover:text-brand-gold transition-colors">{tpl.name}</h4>
+                      <p className="text-[14px] text-slate-500 mt-2 leading-relaxed">{tpl.status === 'template' ? 'Saved template' : 'Template'}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-5">
+                      {tags.map((tag, i) => (
+                        <span key={i} className="px-2.5 py-1 bg-slate-50 text-slate-600 rounded-md text-[11px] font-semibold border border-slate-100">{tag}</span>
+                      ))}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
