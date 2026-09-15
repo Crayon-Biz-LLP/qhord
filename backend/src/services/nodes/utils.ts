@@ -18,6 +18,12 @@ export function interpolateString(value: string, previousOutputs: Record<string,
   });
 }
 
+export function splitCsv(value: any): string[] {
+  if (Array.isArray(value)) return value.map((v) => String(v).trim()).filter(Boolean);
+  if (typeof value !== 'string') return [];
+  return value.split(',').map((v) => v.trim()).filter(Boolean);
+}
+
 export function interpolateConfig(config: any, previousOutputs: Record<string, any>): any {
   if (config === null || config === undefined) {
     return config;

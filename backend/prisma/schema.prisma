@@ -34,6 +34,7 @@ model Operator {
   notifications         Notification[]
   workflows             Workflow[]
   sessions              Session[]
+  owned_deals           Deal[]               @relation("deal_owner")
 
   @@map("operators")
 }
@@ -375,6 +376,9 @@ model Deal {
   amount     String
   health     Int      @default(80)
   stage      String   // "New Lead", "Engaged", "Meeting", "Proposal", "Closed"
+  pipeline   String   @default("Pipeline 1")
+  owner_operator_id String?   @db.Uuid
+  owner      Operator? @relation("deal_owner", fields: [owner_operator_id], references: [id], onDelete: SetNull)
   auto       Boolean  @default(true)
   avatar     String   @default("D")
   created_at DateTime @default(now()) @db.Timestamptz(6)

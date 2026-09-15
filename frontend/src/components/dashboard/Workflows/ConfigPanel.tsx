@@ -8,21 +8,14 @@ import { ACTION_SCHEMAS, FieldSchema } from "./actionSchemas";
 
 export const ACTIONS: Record<string, { id: string, label: string }[]> = {
   Apollo: [
-    { id: "create_account", label: "Create Account" },
-    { id: "create_contact", label: "Create Contact" },
-    { id: "create_deal", label: "Create Deal" },
-    { id: "create_task", label: "Create Task" },
-    { id: "update_account", label: "Update Account" },
-    { id: "update_contact", label: "Update Contact" },
-    { id: "update_deal", label: "Update Deal" }
+    { id: "search_people", label: "Search People" },
+    { id: "enrich_contact", label: "Enrich Contact" },
+    { id: "create_contact", label: "Create Contact" }
   ],
   Clay: [
     { id: "import_table", label: "Import Table" },
-    { id: "find_person", label: "Find Person" },
     { id: "company_enrichment", label: "Company Enrichment" },
-    { id: "email_enrichment", label: "Email Enrichment" },
-    { id: "ai_research", label: "AI Research" },
-    { id: "update_row", label: "Update Row" }
+    { id: "email_enrichment", label: "Email Enrichment" }
   ],
   HeyReach: [
     { id: "send_connection_request", label: "Send Connection Request" },
@@ -42,9 +35,6 @@ export const ACTIONS: Record<string, { id: string, label: string }[]> = {
   ],
   BetterContact: [
     { id: "find_email", label: "Find Email" },
-    { id: "find_phone", label: "Find Phone" },
-    { id: "verify_email", label: "Verify Email" },
-    { id: "verify_phone", label: "Verify Phone" },
     { id: "enrich_contact", label: "Enrich Contact" }
   ],
   Calendly: [
@@ -133,19 +123,16 @@ export const ConfigPanel = ({
   const { selectedClient } = useClient();
   const [toolAccounts, setToolAccounts] = useState<any[]>([]);
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
-  const [campaignsList, setCampaignsList] = useState<any[]>([]);
+  const [teamMembers, setTeamMembers] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [campaignsList, setCampaignsList] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
-    const fetchCampaigns = async () => {
-      try {
-        const res = await api.get('/campaigns');
-        const camps = Array.isArray(res.data) ? res.data : (res.data?.campaigns || []);
-        setCampaignsList(camps);
-      } catch (e) {
-        console.error(e);
-      }
-    };
-    fetchCampaigns();
+    api.get('/settings')
+      .then(res => setTeamMembers(res.data?.team || []))
+      .catch(() => setTeamMembers([]));
+    api.get('/campaigns')
+      .then(res => setCampaignsList(res.data?.campaigns || []))
+      .catch(() => setCampaignsList([]));
   }, []);
 
   useEffect(() => {
@@ -215,6 +202,216 @@ export const ConfigPanel = ({
   );
   const hasAccount = !needsAccount || availableAccounts.length > 0;
 
+  // Apollo-backed generic Actions (Manage Lists/Sequences/Tasks, Enrich Data) always need
+  // an Apollo account regardless of which block-library item they were added as.
+  const apolloAccounts = toolAccounts.filter(a =>
+    normalizeToolName(a.tool_name) === 'apollo'
+    && a.status === 'connected'
+    && a.account_label !== 'Auto (mock-ready)'
+  );
+
+  const renderApolloAccountPicker = () => {
+    if (isLoadingAccounts) return null;
+    if (apolloAccounts.length === 0) {
+      return (
+        <div className="flex flex-col gap-3 p-4 border border-amber-200 rounded-lg bg-amber-50">
+          <div className="flex items-center gap-2 text-amber-800">
+            <ShieldAlert size={16} />
+            <span className="text-[13px] font-bold">⚠ No Apollo account connected</span>
+          </div>
+          <p className="text-xs text-amber-700">This action calls Apollo's API. Please connect an Apollo account before configuring it.</p>
+          <a href="/dashboard/tools" target="_blank" rel="noopener noreferrer" className="self-start px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-800 text-[13px] font-bold rounded-md transition-colors">
+            Connect Account
+          </a>
+        </div>
+      );
+    }
+    const savedAccountId = node.config?.accountId;
+    const isSavedAccountMissing = savedAccountId && !apolloAccounts.find(a => a.id === savedAccountId);
+    if (!savedAccountId) {
+      setTimeout(() => handleConfigChange("accountId", apolloAccounts[0].id), 0);
+    }
+    return (
+      <div className="space-y-2">
+        <label className="text-[11px] font-bold text-[#1a1510]">Apollo Account <span className="text-red-500">*</span></label>
+        {isSavedAccountMissing && (
+          <div className="flex items-center gap-2 p-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg">
+            <ShieldAlert size={16} />
+            <span>The previously selected account is no longer connected. Please select another.</span>
+          </div>
+        )}
+        <select
+          value={(isSavedAccountMissing ? "" : savedAccountId) || ""}
+          onChange={(e) => handleConfigChange("accountId", e.target.value)}
+          className={`w-full p-2.5 border ${isSavedAccountMissing ? 'border-red-300' : 'border-[#1a1510]/[0.07]'} rounded-lg text-sm outline-none bg-[#faf9f8] font-medium text-[#1a1510]`}
+        >
+          <option value="" disabled>Select Apollo Account</option>
+          {apolloAccounts.map(acc => (
+            <option key={acc.id} value={acc.id}>{acc.account_label}</option>
+          ))}
+        </select>
+      </div>
+    );
+  };
+
+  if (node.tool === 'manage_lists') {
+    return (
+      <div className="h-full flex flex-col bg-white">
+        <div className="h-14 px-4 border-b border-[#1a1510]/[0.07] flex items-center justify-between shrink-0 bg-[#faf9f8]">
+          <h3 className="font-bold text-[#1a1510] text-[11px] tracking-widest uppercase">ACTION / Manage Lists</h3>
+          <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-md transition-colors text-slate-400"><X size={16} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
+          <p className="text-xs text-slate-500">Adds records to an Apollo list, creating the list automatically if it doesn't exist yet.</p>
+          {renderApolloAccountPicker()}
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">Record Type</label>
+            <select value={node.config?.modality || "contacts"} onChange={e => handleConfigChange("modality", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
+              <option value="contacts">Contacts</option>
+              <option value="accounts">Accounts</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">Apollo Record IDs <span className="text-red-500">*</span></label>
+            <input type="text" placeholder="e.g., 60f1a..., 60f1b... (comma separated)" value={node.config?.entityIds || ""} onChange={e => handleConfigChange("entityIds", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">List Name(s) <span className="text-red-500">*</span></label>
+            <input type="text" placeholder="e.g., Q4 Outreach (comma separated)" value={node.config?.labelNames || ""} onChange={e => handleConfigChange("labelNames", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (node.tool === 'manage_sequences') {
+    return (
+      <div className="h-full flex flex-col bg-white">
+        <div className="h-14 px-4 border-b border-[#1a1510]/[0.07] flex items-center justify-between shrink-0 bg-[#faf9f8]">
+          <h3 className="font-bold text-[#1a1510] text-[11px] tracking-widest uppercase">ACTION / Manage Sequences</h3>
+          <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-md transition-colors text-slate-400"><X size={16} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
+          <p className="text-xs text-slate-500">Adds contacts to an existing Apollo outreach sequence.</p>
+          {renderApolloAccountPicker()}
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">Sequence ID <span className="text-red-500">*</span></label>
+            <input type="text" placeholder="{{trigger.sequence_id}}" value={node.config?.sequenceId || ""} onChange={e => handleConfigChange("sequenceId", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">Contact IDs <span className="text-red-500">*</span></label>
+            <input type="text" placeholder="Comma separated Apollo contact IDs" value={node.config?.contactIds || ""} onChange={e => handleConfigChange("contactIds", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">Send From (Email Account ID) <span className="text-red-500">*</span></label>
+            <input type="text" placeholder="Apollo email sending account ID" value={node.config?.sendEmailFromAccountId || ""} onChange={e => handleConfigChange("sendEmailFromAccountId", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">Status</label>
+            <select value={node.config?.status || "active"} onChange={e => handleConfigChange("status", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
+              <option value="active">Active</option>
+              <option value="paused">Paused</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (node.tool === 'assign_manual_tasks') {
+    const TASK_TYPES = ['call', 'outreach_manual_email', 'linkedin_step_connect', 'linkedin_step_message', 'linkedin_step_view_profile', 'linkedin_step_interact_post', 'action_item'];
+    return (
+      <div className="h-full flex flex-col bg-white">
+        <div className="h-14 px-4 border-b border-[#1a1510]/[0.07] flex items-center justify-between shrink-0 bg-[#faf9f8]">
+          <h3 className="font-bold text-[#1a1510] text-[11px] tracking-widest uppercase">ACTION / Assign Manual Tasks</h3>
+          <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-md transition-colors text-slate-400"><X size={16} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
+          <p className="text-xs text-slate-500">Creates a task in Apollo assigned to a specific user.</p>
+          {renderApolloAccountPicker()}
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">Apollo User ID (owner) <span className="text-red-500">*</span></label>
+            <input type="text" value={node.config?.userId || ""} onChange={e => handleConfigChange("userId", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">Contact ID <span className="text-red-500">*</span></label>
+            <input type="text" placeholder="{{trigger.contact.id}}" value={node.config?.contactId || ""} onChange={e => handleConfigChange("contactId", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">Task Type</label>
+            <select value={node.config?.type || "action_item"} onChange={e => handleConfigChange("type", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
+              {TASK_TYPES.map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">Due At <span className="text-red-500">*</span></label>
+            <input type="text" placeholder="2026-10-15T10:00:00Z" value={node.config?.dueAt || ""} onChange={e => handleConfigChange("dueAt", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">Priority</label>
+            <select value={node.config?.priority || "medium"} onChange={e => handleConfigChange("priority", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">Note</label>
+            <textarea value={node.config?.note || ""} onChange={e => handleConfigChange("note", e.target.value)} className="w-full h-20 p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none resize-none bg-white" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (node.tool === 'enrich_data') {
+    const mode = node.config?.mode || 'people';
+    return (
+      <div className="h-full flex flex-col bg-white">
+        <div className="h-14 px-4 border-b border-[#1a1510]/[0.07] flex items-center justify-between shrink-0 bg-[#faf9f8]">
+          <h3 className="font-bold text-[#1a1510] text-[11px] tracking-widest uppercase">ACTION / Enrich Data</h3>
+          <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-md transition-colors text-slate-400"><X size={16} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
+          <p className="text-xs text-slate-500">Enriches people or company data via Apollo.</p>
+          {renderApolloAccountPicker()}
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">Enrich</label>
+            <select value={mode} onChange={e => handleConfigChange("mode", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
+              <option value="people">People (bulk, up to 10)</option>
+              <option value="organization">Organization</option>
+            </select>
+          </div>
+          {mode === 'people' ? (
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold text-[#1a1510]">People (JSON array) <span className="text-red-500">*</span></label>
+              <textarea placeholder='[{"email":"jane@acme.com"},{"first_name":"John","last_name":"Doe","organization_name":"Acme"}]' value={node.config?.details || ""} onChange={e => handleConfigChange("details", e.target.value)} className="w-full h-28 p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none resize-none bg-white font-mono" />
+            </div>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <label className="text-[11px] font-bold text-[#1a1510]">Company Domain</label>
+                <input type="text" placeholder="apollo.io" value={node.config?.domain || ""} onChange={e => handleConfigChange("domain", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[11px] font-bold text-[#1a1510]">Website</label>
+                <input type="text" placeholder="http://www.apollo.io" value={node.config?.website || ""} onChange={e => handleConfigChange("website", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[11px] font-bold text-[#1a1510]">LinkedIn URL</label>
+                <input type="text" value={node.config?.linkedinUrl || ""} onChange={e => handleConfigChange("linkedinUrl", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[11px] font-bold text-[#1a1510]">Company Name</label>
+                <input type="text" value={node.config?.name || ""} onChange={e => handleConfigChange("name", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (node.type === 'trigger') {
     const triggerType = node.config?.triggerType || 'schedule';
     const scheduleConfig = node.config?.scheduleConfig || { startType: 'immediate', frequencyType: 'once', intervalValue: 1, intervalUnit: 'weeks', activeDays: [], hasEndDate: false };
@@ -232,6 +429,10 @@ export const ConfigPanel = ({
       { id: 'deal_created', label: 'Deal created' },
       { id: 'deal_updated', label: 'Deal updated' }
     ];
+
+    // Apollo's reference scopes these events by "Sequence" + "Email sender" — we don't have
+    // Sequences, so this maps to our real Campaign model instead.
+    const EVENTS_WITH_CAMPAIGN_CONTEXT = ['email_sent', 'email_opened', 'email_clicked', 'email_replied', 'email_bounced', 'contact_enrolled_sequence'];
 
     return (
       <div className="h-full flex flex-col bg-[#fcfcfc]">
@@ -445,6 +646,49 @@ export const ConfigPanel = ({
                     </div>
                   </div>
                 </div>
+
+                {EVENTS_WITH_CAMPAIGN_CONTEXT.includes(eventConfig.eventId) && (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-bold text-[#1a1510]">Campaigns</label>
+                      <div className="border border-[#1a1510]/[0.08] rounded-lg bg-white max-h-40 overflow-y-auto">
+                        {campaignsList.length === 0 ? (
+                          <div className="p-3 text-[12px] text-slate-400">No campaigns found.</div>
+                        ) : campaignsList.map(camp => {
+                          const selectedIds: string[] = eventConfig.campaignIds || [];
+                          const isSelected = selectedIds.includes(camp.id);
+                          return (
+                            <label key={camp.id} className="flex items-center gap-2 px-3 py-2 text-[13px] text-[#1a1510] hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => {
+                                  const next = isSelected ? selectedIds.filter(id => id !== camp.id) : [...selectedIds, camp.id];
+                                  handleConfigChange('eventConfig', { ...eventConfig, campaignIds: next });
+                                }}
+                                className="w-4 h-4 accent-brand-gold"
+                              />
+                              {camp.name}
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <p className="text-[11px] text-slate-400">Leave empty to trigger from any campaign.</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-bold text-[#1a1510]">Email sender</label>
+                      <select
+                        value={eventConfig.senderOperatorId || ""}
+                        onChange={(e) => handleConfigChange('eventConfig', { ...eventConfig, senderOperatorId: e.target.value })}
+                        className="w-full p-2.5 border border-[#1a1510]/[0.08] rounded-lg text-[13px] outline-none bg-white"
+                      >
+                        <option value="">Any sender</option>
+                        {teamMembers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                      </select>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -721,36 +965,94 @@ export const ConfigPanel = ({
              </div>
            )}
 
-           {node.tool === 'delay' && (
-             <div className="space-y-4">
-               <div className="text-[13px] font-bold text-[#1a1510]">Delay Configuration</div>
-               
-               <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">Delay Mode</label>
-                  <select value={node.config?.mode || "for"} onChange={(e) => handleConfigChange("mode", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
-                    <option value="for">Delay For (Duration)</option>
-                    <option value="until">Delay Until (Specific Date/Time)</option>
-                  </select>
-               </div>
+           {node.tool === 'delay' && (() => {
+             const mode = node.config?.mode || 'duration';
+             const DELAY_MODES = [
+               { id: 'duration', title: 'Wait for a set amount of time', example: 'Example: Wait 3 days' },
+               { id: 'date_variable', title: 'Wait based on a date variable', example: 'Example: Wait 30 days after contact created date' },
+               { id: 'recurring_day', title: 'Wait until a specific day each month or week', example: 'Example: Wait until the 15th of every month' },
+               { id: 'specific_date', title: 'Wait until a specific date', example: 'Example: Wait until June 20, 2026' },
+             ];
+             return (
+               <div className="space-y-4">
+                 <div className="text-[13px] font-bold text-[#1a1510]">Timing</div>
 
-               {(!node.config?.mode || node.config.mode === 'for') ? (
-                 <div className="flex gap-2">
-                   <input type="number" min="1" placeholder="Amount" value={node.config?.amount || ""} onChange={e => handleConfigChange("amount", parseInt(e.target.value) || 0)} className="w-24 p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
-                   <select value={node.config?.unit || "minutes"} onChange={(e) => handleConfigChange("unit", e.target.value)} className="flex-1 p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
-                     <option value="minutes">Minutes</option>
-                     <option value="hours">Hours</option>
-                     <option value="days">Days</option>
-                     <option value="weeks">Weeks</option>
-                   </select>
-                 </div>
-               ) : (
                  <div className="space-y-2">
-                   <input type="datetime-local" value={node.config?.datetime || ""} onChange={e => handleConfigChange("datetime", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
-                   <input type="text" placeholder="Timezone (e.g. UTC)" value={node.config?.timezone || "UTC"} onChange={e => handleConfigChange("timezone", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+                   {DELAY_MODES.map(m => (
+                     <label key={m.id} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${mode === m.id ? 'bg-brand-gold/[0.06] border-brand-gold/40' : 'bg-white border-slate-200 hover:bg-slate-50'}`}>
+                       <input type="radio" name="delay_mode" value={m.id} checked={mode === m.id} onChange={() => handleConfigChange('mode', m.id)} className="mt-1 w-4 h-4 accent-brand-gold cursor-pointer" />
+                       <div>
+                         <div className="text-[13px] font-semibold text-[#1a1510]">{m.title}</div>
+                         <div className="text-[11px] text-slate-500 mt-0.5">{m.example}</div>
+                       </div>
+                     </label>
+                   ))}
                  </div>
-               )}
-             </div>
-           )}
+
+                 <div className="h-px bg-[#1a1510]/[0.06]" />
+
+                 {mode === 'duration' && (
+                   <div className="flex gap-2">
+                     <input type="number" min="1" placeholder="Amount" value={node.config?.amount || ""} onChange={e => handleConfigChange("amount", parseInt(e.target.value) || 0)} className="w-24 p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+                     <select value={node.config?.unit || "days"} onChange={(e) => handleConfigChange("unit", e.target.value)} className="flex-1 p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
+                       <option value="minutes">Minutes</option>
+                       <option value="hours">Hours</option>
+                       <option value="days">Days</option>
+                       <option value="weeks">Weeks</option>
+                     </select>
+                   </div>
+                 )}
+
+                 {mode === 'date_variable' && (
+                   <div className="space-y-2">
+                     <label className="text-[11px] font-bold text-[#1a1510]">Date Variable</label>
+                     <input type="text" placeholder="{{trigger.contact.created_at}}" value={node.config?.dateVariable || ""} onChange={e => handleConfigChange("dateVariable", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+                     <label className="text-[11px] font-bold text-[#1a1510]">Offset (days after that date, can be negative)</label>
+                     <input type="number" placeholder="30" value={node.config?.offsetDays ?? ""} onChange={e => handleConfigChange("offsetDays", parseInt(e.target.value) || 0)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+                   </div>
+                 )}
+
+                 {mode === 'recurring_day' && (
+                   <div className="space-y-3">
+                     <div className="flex gap-2">
+                       <label className="flex items-center gap-2 text-[13px] cursor-pointer">
+                         <input type="radio" name="delay_recurrence" checked={(node.config?.recurrence || 'weekly') === 'weekly'} onChange={() => handleConfigChange('recurrence', 'weekly')} className="accent-brand-gold" /> Weekly
+                       </label>
+                       <label className="flex items-center gap-2 text-[13px] cursor-pointer">
+                         <input type="radio" name="delay_recurrence" checked={node.config?.recurrence === 'monthly'} onChange={() => handleConfigChange('recurrence', 'monthly')} className="accent-brand-gold" /> Monthly
+                       </label>
+                     </div>
+                     {node.config?.recurrence === 'monthly' ? (
+                       <div className="space-y-2">
+                         <label className="text-[11px] font-bold text-[#1a1510]">Day of Month (1-28)</label>
+                         <input type="number" min={1} max={28} placeholder="15" value={node.config?.dayOfMonth || ""} onChange={e => handleConfigChange("dayOfMonth", parseInt(e.target.value) || 1)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+                       </div>
+                     ) : (
+                       <div className="space-y-2">
+                         <label className="text-[11px] font-bold text-[#1a1510]">Day of Week</label>
+                         <select value={node.config?.dayOfWeek || "Mon"} onChange={(e) => handleConfigChange("dayOfWeek", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
+                           {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => <option key={d} value={d}>{d}</option>)}
+                         </select>
+                       </div>
+                     )}
+                   </div>
+                 )}
+
+                 {mode === 'specific_date' && (
+                   <div className="flex gap-2">
+                     <div className="flex-1 space-y-1">
+                       <label className="text-[11px] font-bold text-[#1a1510]">Date</label>
+                       <input type="date" value={node.config?.date || ""} onChange={e => handleConfigChange("date", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+                     </div>
+                     <div className="flex-1 space-y-1">
+                       <label className="text-[11px] font-bold text-[#1a1510]">Time</label>
+                       <input type="time" value={node.config?.time || ""} onChange={e => handleConfigChange("time", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+                     </div>
+                   </div>
+                 )}
+               </div>
+             );
+           })()}
 
            {node.tool === 'wait' && (
              <div className="space-y-4">
@@ -854,7 +1156,158 @@ export const ConfigPanel = ({
     );
   }
 
+  if (node.tool === 'send_webhook') {
+    return (
+      <div className="h-full flex flex-col bg-white">
+        <div className="h-14 px-4 border-b border-[#1a1510]/[0.07] flex items-center justify-between shrink-0 bg-[#faf9f8]">
+          <h3 className="font-bold text-[#1a1510] text-[11px] tracking-widest uppercase">ACTION / Send Webhook</h3>
+          <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-md transition-colors text-slate-400"><X size={16} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
+          <p className="text-xs text-slate-500">Sends an outbound HTTP request to a URL you control — no account connection needed.</p>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">URL <span className="text-red-500">*</span></label>
+            <input type="text" placeholder="https://example.com/webhook" value={node.config?.url || ""} onChange={e => handleConfigChange("url", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">Method</label>
+            <select value={node.config?.method || "POST"} onChange={e => handleConfigChange("method", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
+              <option value="POST">POST</option>
+              <option value="GET">GET</option>
+              <option value="PUT">PUT</option>
+              <option value="PATCH">PATCH</option>
+              <option value="DELETE">DELETE</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">Headers (JSON, optional)</label>
+            <textarea placeholder='{"Authorization": "Bearer ..."}' value={node.config?.headers || ""} onChange={e => handleConfigChange("headers", e.target.value)} className="w-full h-20 p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none resize-none bg-white font-mono" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">Body (JSON or text, optional)</label>
+            <textarea placeholder='{"email": "{{trigger.contact.email}}"}' value={node.config?.body || ""} onChange={e => handleConfigChange("body", e.target.value)} className="w-full h-24 p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none resize-none bg-white font-mono" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (node.tool === 'send_notifications') {
+    return (
+      <div className="h-full flex flex-col bg-white">
+        <div className="h-14 px-4 border-b border-[#1a1510]/[0.07] flex items-center justify-between shrink-0 bg-[#faf9f8]">
+          <h3 className="font-bold text-[#1a1510] text-[11px] tracking-widest uppercase">ACTION / Send Notifications</h3>
+          <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-md transition-colors text-slate-400"><X size={16} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
+          <p className="text-xs text-slate-500">Creates an in-app notification for the operator who owns this workflow.</p>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">Title <span className="text-red-500">*</span></label>
+            <input type="text" placeholder="New lead replied" value={node.config?.title || ""} onChange={e => handleConfigChange("title", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">Message <span className="text-red-500">*</span></label>
+            <textarea placeholder="{{trigger.contact.email}} replied to your outreach." value={node.config?.message || ""} onChange={e => handleConfigChange("message", e.target.value)} className="w-full h-24 p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none resize-none bg-white" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">Type</label>
+            <input type="text" placeholder="workflow" value={node.config?.type || ""} onChange={e => handleConfigChange("type", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">Related Entity ID (optional)</label>
+            <input type="text" placeholder="{{trigger.lead.id}}" value={node.config?.entity_id || ""} onChange={e => handleConfigChange("entity_id", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">Related Entity Type (optional)</label>
+            <input type="text" placeholder="lead" value={node.config?.entity_type || ""} onChange={e => handleConfigChange("entity_type", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (node.tool === 'update_contact_account') {
+    return (
+      <div className="h-full flex flex-col bg-white">
+        <div className="h-14 px-4 border-b border-[#1a1510]/[0.07] flex items-center justify-between shrink-0 bg-[#faf9f8]">
+          <h3 className="font-bold text-[#1a1510] text-[11px] tracking-widest uppercase">ACTION / Update Contact/Account</h3>
+          <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-md transition-colors text-slate-400"><X size={16} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
+          <p className="text-xs text-slate-500">Updates a lead record in your CRM. Leave a field blank to keep its current value.</p>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">Lead ID <span className="text-red-500">*</span></label>
+            <input type="text" placeholder="{{trigger.contact.id}}" value={node.config?.leadId || ""} onChange={e => handleConfigChange("leadId", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">Email</label>
+            <input type="email" value={node.config?.email || ""} onChange={e => handleConfigChange("email", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold text-[#1a1510]">First Name</label>
+              <input type="text" value={node.config?.first_name || ""} onChange={e => handleConfigChange("first_name", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold text-[#1a1510]">Last Name</label>
+              <input type="text" value={node.config?.last_name || ""} onChange={e => handleConfigChange("last_name", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">Title</label>
+            <input type="text" value={node.config?.title || ""} onChange={e => handleConfigChange("title", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">Company Name</label>
+            <input type="text" value={node.config?.company_name || ""} onChange={e => handleConfigChange("company_name", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">Industry</label>
+            <input type="text" value={node.config?.industry || ""} onChange={e => handleConfigChange("industry", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-[#1a1510]">Status</label>
+            <select value={node.config?.status || ""} onChange={e => handleConfigChange("status", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
+              <option value="">Leave unchanged</option>
+              <option value="new">New</option>
+              <option value="contacted">Contacted</option>
+              <option value="qualified">Qualified</option>
+              <option value="unqualified">Unqualified</option>
+              <option value="converted">Converted</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (node.tool === 'manage_deals') {
+    const DEAL_STAGES = ['New Lead', 'Engaged', 'Meeting', 'Proposal', 'Closed'];
+    const DEAL_FIELDS = [
+      { id: 'amount', label: 'Deal amount' },
+      { id: 'stage', label: 'Deal stage' },
+      { id: 'health', label: 'Health score' },
+      { id: 'pipeline', label: 'Pipeline' },
+      { id: 'owner_operator_id', label: 'Deal owner' },
+      { id: 'contact', label: 'Contact' },
+      { id: 'name', label: 'Deal name' },
+    ];
+    const dealField = node.config?.deal_field || 'amount';
+
+    const renderOwnerSelect = (fieldKey: string) => (
+      <select value={node.config?.[fieldKey] || ""} onChange={e => handleConfigChange(fieldKey, e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white font-medium text-slate-700">
+        <option value="">Unassigned</option>
+        {teamMembers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+      </select>
+    );
+
+    const renderStageSelect = (fieldKey: string, includeUnchanged: boolean) => (
+      <select value={node.config?.[fieldKey] || ""} onChange={e => handleConfigChange(fieldKey, e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white font-medium text-slate-700">
+        {includeUnchanged ? <option value="">Leave unchanged</option> : <option value="" disabled>Select...</option>}
+        {DEAL_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+      </select>
+    );
+
     return (
       <div className="h-full flex flex-col bg-white">
         <div className="h-14 px-4 border-b border-[#1a1510]/[0.07] flex items-center justify-between shrink-0 bg-[#faf9f8]">
@@ -890,69 +1343,65 @@ export const ConfigPanel = ({
             {node.config?.deal_action === 'update' ? (
               <>
                 <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#1a1510] flex items-center gap-1">Deal ID <span className="text-red-500">*</span></label>
+                  <input type="text" placeholder="{{trigger.deal.id}}" value={node.config?.dealId || ""} onChange={e => handleConfigChange("dealId", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+                </div>
+
+                <div className="space-y-2">
                   <label className="text-[11px] font-bold text-[#1a1510] flex items-center gap-1">Deal field <span className="text-red-500">*</span></label>
-                  <select value={node.config?.deal_field || ""} onChange={e => handleConfigChange("deal_field", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white font-medium text-slate-700">
-                    <option value="" disabled>Select...</option>
-                    <option value="deal_amount">Deal amount</option>
-                    <option value="loss_reason">Loss reason</option>
-                    <option value="estimated_close_date">Estimated close date</option>
-                    <option value="custom_field">Custom field</option>
-                    <option value="next_step">Next step</option>
-                    <option value="closed_lost_reason">Closed lost reason</option>
-                    <option value="closed_won_reason">Closed won reason</option>
-                    <option value="current_solutions">Current solutions</option>
-                    <option value="deal_probability">Deal probability</option>
-                    <option value="forecast_category">Forecast category</option>
-                    <option value="deal_source">Deal source</option>
-                    <option value="deal_stage">Deal stage</option>
-                    <option value="deal_owner">Deal owner</option>
+                  <select value={dealField} onChange={e => handleConfigChange("deal_field", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white font-medium text-slate-700">
+                    {DEAL_FIELDS.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
                   </select>
                 </div>
-                
+
                 <div className="space-y-2">
                   <label className="text-[11px] font-bold text-[#1a1510]">Set new value to</label>
-                  <div className="relative">
-                    <input type="text" value={node.config?.new_value || ""} onChange={e => handleConfigChange("new_value", e.target.value)} className="w-full p-2.5 pr-10 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" placeholder="" />
-                    <button className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5 text-xs font-mono">{"{}"}</button>
-                  </div>
+                  {dealField === 'stage' ? renderStageSelect('stage', true)
+                    : dealField === 'owner_operator_id' ? renderOwnerSelect('owner_operator_id')
+                    : dealField === 'health' ? (
+                      <input type="number" min={0} max={100} placeholder="Leave blank to keep unchanged" value={node.config?.health || ""} onChange={e => handleConfigChange("health", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+                    ) : (
+                      <input type="text" placeholder="Leave blank to keep unchanged" value={node.config?.[dealField] || ""} onChange={e => handleConfigChange(dealField, e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+                    )}
                 </div>
-
-
               </>
             ) : (
               <>
                 <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510] flex items-center gap-1">Pipeline <span className="text-red-500">*</span></label>
-                  <select value={node.config?.pipeline || ""} onChange={e => handleConfigChange("pipeline", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white font-medium text-slate-700">
-                    <option value="" disabled>Select a campaign...</option>
-                    {campaignsList.length === 0 && <option value="pipeline1">Pipeline 1</option>}
-                    {campaignsList.map(camp => (
-                      <option key={camp.id} value={camp.id}>{camp.name}</option>
-                    ))}
-                  </select>
+                  <label className="text-[11px] font-bold text-[#1a1510] flex items-center gap-1">Deal Name <span className="text-red-500">*</span></label>
+                  <input type="text" value={node.config?.name || ""} onChange={e => handleConfigChange("name", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
                 </div>
-                
                 <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510]">Stage</label>
-                  <select value={node.config?.stage || ""} onChange={e => handleConfigChange("stage", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white font-medium text-slate-700">
-                    <option value="" disabled>Select...</option>
-                    <option value="lead">Lead</option>
-                    <option value="sales_qualified">Sales Qualified</option>
-                    <option value="meeting_booked">Meeting Booked</option>
-                    <option value="negotiation">Negotiation</option>
-                    <option value="contract_sent">Contract Sent</option>
-                    <option value="closed_won">Closed Won</option>
-                    <option value="closed_lost">Closed Lost</option>
-                  </select>
+                  <label className="text-[11px] font-bold text-[#1a1510] flex items-center gap-1">Contact <span className="text-red-500">*</span></label>
+                  <input type="text" placeholder="{{trigger.contact.name}}" value={node.config?.contact || ""} onChange={e => handleConfigChange("contact", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
                 </div>
-
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#1a1510] flex items-center gap-1">Amount <span className="text-red-500">*</span></label>
+                  <input type="text" placeholder="e.g. $18.5K" value={node.config?.amount || ""} onChange={e => handleConfigChange("amount", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#1a1510] flex items-center gap-1">Pipeline <span className="text-red-500">*</span></label>
+                  <input type="text" placeholder="Pipeline 1" value={node.config?.pipeline || ""} onChange={e => handleConfigChange("pipeline", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#1a1510] flex items-center gap-1">Deal Stage <span className="text-red-500">*</span></label>
+                  {renderStageSelect('stage', false)}
+                </div>
                 <div className="space-y-2">
                   <label className="text-[11px] font-bold text-[#1a1510]">Deal owner</label>
-                  <select value={node.config?.owner || "vasantha"} onChange={e => handleConfigChange("owner", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white font-medium text-slate-700">
-                    <option value="vasantha">Vasanthakumar Rajend...</option>
-                    <option value="unassigned">Unassigned</option>
-                  </select>
+                  {renderOwnerSelect('owner_operator_id')}
                 </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#1a1510]">Health Score (0-100)</label>
+                  <input type="number" min={0} max={100} placeholder="80" value={node.config?.health || ""} onChange={e => handleConfigChange("health", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+                </div>
+                <label className="flex items-center gap-2 text-[13px] text-slate-600 cursor-pointer pt-1">
+                  <input type="checkbox" checked={!!node.config?.allowDuplicates} onChange={e => handleConfigChange("allowDuplicates", e.target.checked)} className="accent-[#1a1510] w-4 h-4" />
+                  Allow duplicates
+                </label>
+                {!node.config?.allowDuplicates && (
+                  <p className="text-[11px] text-slate-400 -mt-2">If a deal with this Name and Contact already exists for this client, it won't be created again.</p>
+                )}
               </>
             )}
           </div>
@@ -1044,6 +1493,15 @@ export const ConfigPanel = ({
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Unverified endpoint notice: these tools' actions call our best-guess mapping
+            of their API, not one confirmed against official docs. */}
+        {node.tool && node.action && ['Clay', 'BetterContact'].includes(node.tool) && (
+          <div className="flex items-start gap-2 p-3 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg">
+            <ShieldAlert size={14} className="mt-0.5 shrink-0" />
+            <span>This action calls an unverified placeholder endpoint for {node.tool} — it hasn't been confirmed against official API documentation yet. Verify the response shape before relying on it in production.</span>
           </div>
         )}
 

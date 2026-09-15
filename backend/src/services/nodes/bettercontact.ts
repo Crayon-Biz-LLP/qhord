@@ -24,13 +24,14 @@ export class BetterContactProcessor extends BaseProcessor implements NodeProcess
       });
 
       if (context.isTestMode) {
-        context.testTrace?.push(`⚠ [Test Mode] Skipping actual BetterContact ${node.action} execution.`);
+        context.testTrace?.push(`⚠ [Test Mode] Skipping actual BetterContact ${node.action} execution. Note: this action calls an unverified placeholder endpoint (/enrich is not confirmed against official BetterContact API docs).`);
         return { status: 'completed', output: { success: true, enriched: true } };
       }
 
       switch (node.action) {
         case 'find_email':
         case 'enrich_contact': {
+          // Placeholder endpoint — not yet confirmed against BetterContact's official API docs.
           const response = await betterContactClient.post('/enrich', config);
           return { status: 'completed', output: response.data };
         }

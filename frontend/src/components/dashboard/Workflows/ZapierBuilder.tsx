@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { ZapierNode } from "./ZapierNode";
 import { ConfigPanel, ACTIONS } from "./ConfigPanel";
 import { ZapierEdge } from "./ZapierEdge";
+import { BranchConnectionContext } from "./branchConnectionContext";
 import dagre from "dagre";
 import { 
   ReactFlow, 
@@ -123,14 +124,51 @@ const edgeTypes = {
   customEdge: ZapierEdge,
 };
 
+const NODE_WIDTH = 320;
+const NODE_HEIGHT = 120;
+
+// Branch/If-Else/Multi-Split render their named handles spread across the node's
+// bottom edge (via flex `justify-around`), not at the node's center. Dagre only knows
+// about one center point per node, so it centers a single child directly under the whole
+// node — which then has to curve sideways to actually reach the offset handle. This
+// computes that handle's real x-offset so we can straighten the connector out afterward.
+const getHandleOffsetX = (dataNode: any, handle: string | null | undefined): number => {
+  if (!dataNode) return 0;
+
+  if (dataNode.tool === 'if_else') {
+    const items = ['true', 'false'];
+    const idx = items.indexOf(handle || 'true');
+    if (idx < 0) return 0;
+    return NODE_WIDTH * ((idx + 0.5) / items.length - 0.5);
+  }
+
+  if (dataNode.tool === 'branch') {
+    const branches = dataNode.config?.branches || [];
+    const items = [...branches.map((b: any, i: number) => b.id || `branch_${i}`), 'fallback'];
+    const idx = items.indexOf(handle || 'fallback');
+    if (idx < 0) return 0;
+    return NODE_WIDTH * ((idx + 0.5) / items.length - 0.5);
+  }
+
+  if (dataNode.tool === 'multi_split') {
+    const cases = dataNode.config?.cases || [];
+    const items = [...cases.map((c: any, i: number) => c.id || `case_${i}`), 'fallback'];
+    const idx = items.indexOf(handle || 'fallback');
+    if (idx < 0) return 0;
+    return NODE_WIDTH * ((idx + 0.5) / items.length - 0.5);
+  }
+
+  return 0;
+};
+
 const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
   const dagreGraph = new dagre.graphlib.Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
-  
+
   dagreGraph.setGraph({ rankdir: 'TB', nodesep: 300, ranksep: 60 });
-  
+
   nodes.forEach((node) => {
-    dagreGraph.setNode(node.id, { width: 320, height: 120 });
+    dagreGraph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
   });
 
   edges.forEach((edge) => {
@@ -139,18 +177,91 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
 
   dagre.layout(dagreGraph);
 
-  const layoutedNodes = nodes.map((node) => {
+  const positioned = new Map<string, { x: number; y: number }>();
+  nodes.forEach((node) => {
     const nodeWithPosition = dagreGraph.node(node.id);
-    return {
-      ...node,
-      targetPosition: 'top' as any,
-      sourcePosition: 'bottom' as any,
-      position: {
-        x: nodeWithPosition.x - 320 / 2,
-        y: nodeWithPosition.y - 120 / 2,
-      }
-    };
+    positioned.set(node.id, {
+      x: nodeWithPosition.x - NODE_WIDTH / 2,
+      y: nodeWithPosition.y - NODE_HEIGHT / 2,
+    });
   });
+
+  // Align each branching node's direct children with the handles they actually connect
+  // from, instead of dagre's generic "centered under the parent" placement. Skipped for
+  // nodes with more than one incoming edge (e.g. a Merge node) so we don't fight dagre's
+  // own collision-avoidance placement for convergence points.
+  const nodeById = new Map(nodes.map(n => [n.id, n]));
+  const incomingCount = new Map<string, number>();
+  edges.forEach(e => incomingCount.set(e.target, (incomingCount.get(e.target) || 0) + 1));
+
+  const bySource = new Map<string, Edge[]>();
+  edges.forEach((edge) => {
+    if ((incomingCount.get(edge.target) || 0) > 1) return;
+    const sourceNode = nodeById.get(edge.source);
+    const dataNode = (sourceNode?.data as any)?.node;
+    if (!dataNode || !['if_else', 'branch', 'multi_split'].includes(dataNode.tool)) return;
+    const list = bySource.get(edge.source) || [];
+    list.push(edge);
+    bySource.set(edge.source, list);
+  });
+
+  // Shifting a child alone (without whatever hangs below it) would just push the same
+  // kink one hop deeper the moment that branch grows past its first node — the edge from
+  // the (moved) child to its own (unmoved) grandchild would develop the exact same offset.
+  // So any x change to a child is propagated down its whole downstream chain.
+  const shiftSubtree = (startId: string, deltaX: number, visited: Set<string>) => {
+    if (!deltaX || visited.has(startId)) return;
+    visited.add(startId);
+    const pos = positioned.get(startId);
+    if (pos) pos.x += deltaX;
+    edges.filter(e => e.source === startId).forEach(e => shiftSubtree(e.target, deltaX, visited));
+  };
+
+  bySource.forEach((outEdges, sourceId) => {
+    const sourceNode = nodeById.get(sourceId)!;
+    const dataNode = (sourceNode.data as any).node;
+    const sourcePos = positioned.get(sourceId);
+    if (!sourcePos) return;
+    const sourceCenterX = sourcePos.x + NODE_WIDTH / 2;
+
+    const children = outEdges
+      .map(e => ({ edge: e, pos: positioned.get(e.target) }))
+      .filter((c): c is { edge: Edge; pos: { x: number; y: number } } => !!c.pos);
+    if (children.length === 0) return;
+
+    // Only touch children dagre placed directly below on the same row — mixed rows
+    // (e.g. one branch's chain is longer than another's) are left to dagre as-is.
+    const rowY = children[0].pos.y;
+    if (!children.every(c => c.pos.y === rowY)) return;
+
+    const visited = new Set<string>();
+
+    if (children.length === 1) {
+      // A lone active branch can safely sit exactly under its real handle — nothing
+      // else from this parent occupies this row to collide with.
+      const child = children[0];
+      const newX = sourceCenterX + getHandleOffsetX(dataNode, child.edge.sourceHandle) - NODE_WIDTH / 2;
+      shiftSubtree(child.edge.target, newX - child.pos.x, visited);
+    } else {
+      // Multiple branches: handles sit closer together than a node is wide, so aligning
+      // each child exactly under its handle would make them overlap. Instead, reuse
+      // dagre's own already-spaced x positions, just reordered so left-to-right
+      // matches the handles' left-to-right rank (TRUE left of FALSE, branch/case order,
+      // fallback last) — correct order, no overlap.
+      const xs = children.map(c => c.pos.x).sort((a, b) => a - b);
+      const ranked = [...children].sort(
+        (a, b) => getHandleOffsetX(dataNode, a.edge.sourceHandle) - getHandleOffsetX(dataNode, b.edge.sourceHandle)
+      );
+      ranked.forEach((c, i) => { shiftSubtree(c.edge.target, xs[i] - c.pos.x, visited); });
+    }
+  });
+
+  const layoutedNodes = nodes.map((node) => ({
+    ...node,
+    targetPosition: 'top' as any,
+    sourcePosition: 'bottom' as any,
+    position: positioned.get(node.id)!,
+  }));
 
   return { nodes: layoutedNodes, edges };
 };
@@ -159,17 +270,23 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
   const { selectedClient } = useClient();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  
+
+  // Tracks the persisted workflow's id. Starts from the prop (editing an existing
+  // workflow) but is updated in place the first time a brand-new workflow is saved,
+  // so the builder never has to close/reopen just to obtain an id.
+  const [activeWorkflowId, setActiveWorkflowId] = useState<string | null>(workflowId);
+
   const [workflowName, setWorkflowName] = useState("Untitled workflow");
   const [workflowStatus, setWorkflowStatus] = useState("draft");
   
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [insertingEdgeId, setInsertingEdgeId] = useState<string | null>(null);
+  const [pendingHandleConnection, setPendingHandleConnection] = useState<{ nodeId: string; handle: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testTrace, setTestTrace] = useState<string[] | null>(null);
   const [showTestModal, setShowTestModal] = useState(false);
-  const [isLoading, setIsLoading] = useState(!!workflowId);
+  const [isLoading, setIsLoading] = useState(!!activeWorkflowId);
   const [searchBlock, setSearchBlock] = useState("");
   const [showTemplatesModal, setShowTemplatesModal] = useState(false);
   const [templates, setTemplates] = useState<any[]>([]);
@@ -192,14 +309,19 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
     toast("Select a block from the library to insert");
   }, []);
 
+  const handleAddFromHandle = useCallback((nodeId: string, handle: string) => {
+    setPendingHandleConnection({ nodeId, handle });
+    toast("Select a block from the library to start this branch");
+  }, []);
+
   useEffect(() => {
-    if (workflowId) {
-      loadWorkflow(workflowId);
+    if (activeWorkflowId) {
+      loadWorkflow(activeWorkflowId);
     } else {
       setNodes([]);
       setEdges([]);
     }
-  }, [workflowId]);
+  }, [activeWorkflowId]);
 
   const onConnect = useCallback(
     (params: Connection | Edge) => {
@@ -287,10 +409,14 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
         let remainingEdges = eds.filter((e) => e.source !== id && e.target !== id);
 
         if (incomingEdges.length === 1 && outgoingEdges.length === 1) {
+          // Preserve the incoming edge's sourceHandle (e.g. "true"/"false"/a branch or case id) —
+          // without it, the bypass edge silently defaults to no branch and the engine will
+          // never route down what used to be e.g. the TRUE path of an If/Else.
           remainingEdges.push({
             id: `e-${incomingEdges[0].source}-${outgoingEdges[0].target}`,
             source: incomingEdges[0].source,
             target: outgoingEdges[0].target,
+            sourceHandle: incomingEdges[0].sourceHandle,
             type: 'customEdge',
             markerEnd: { type: MarkerType.ArrowClosed },
             data: { onAddNode: handleAddNodeClick }
@@ -337,10 +463,14 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
       const edgeToSplit = edges.find(e => e.id === insertingEdgeId);
       if (edgeToSplit) {
         newEdges = newEdges.filter(e => e.id !== insertingEdgeId);
+        // Preserve the split edge's sourceHandle on the first half — clicking "+" on a
+        // TRUE/FALSE/branch/case edge must keep routing down that same branch after the
+        // new node is spliced in, otherwise the branch silently stops executing.
         newEdges.push({
           id: `e-${edgeToSplit.source}-${newNodeId}`,
           source: edgeToSplit.source,
           target: newNodeId,
+          sourceHandle: edgeToSplit.sourceHandle,
           type: 'customEdge',
           markerEnd: { type: MarkerType.ArrowClosed },
           data: { onAddNode: handleAddNodeClick }
@@ -355,6 +485,21 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
         });
       }
       setInsertingEdgeId(null);
+    } else if (pendingHandleConnection) {
+      // Wire the new node directly from the specific named handle (TRUE/FALSE, a branch/case
+      // id, fallback) the user clicked "+" on, rather than the generic "append to every leaf"
+      // behavior below — that handle had no edge yet, so there's nothing to preserve/split.
+      const { nodeId, handle } = pendingHandleConnection;
+      newEdges.push({
+        id: `e-${nodeId}-${newNodeId}-${handle}`,
+        source: nodeId,
+        target: newNodeId,
+        sourceHandle: handle,
+        type: 'customEdge',
+        markerEnd: { type: MarkerType.ArrowClosed },
+        data: { onAddNode: handleAddNodeClick }
+      });
+      setPendingHandleConnection(null);
     } else {
       const leafNodes = nodes.filter(n => !edges.some(e => e.source === n.id));
       if (leafNodes.length > 0) {
@@ -388,26 +533,30 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
     );
   };
 
-  const handleSave = async (status: string = workflowStatus) => {
-    if (!selectedClient?.id) return;
+  // Returns the persisted workflow id on success (existing or newly created), or
+  // null if validation/save failed. Callers that need the id (e.g. Test Run) should
+  // use the return value rather than reading activeWorkflowId immediately after,
+  // since the state update from a fresh create hasn't flushed yet.
+  const handleSave = async (status: string = workflowStatus): Promise<string | null> => {
+    if (!selectedClient?.id) return null;
 
     // Validation
     const triggerNodes = nodes.filter(n => (n.data.node as any).type === 'trigger');
     if (triggerNodes.length !== 1) {
       toast.error(`Workflow must have exactly one trigger node. Found ${triggerNodes.length}.`);
-      return;
+      return null;
     }
-    
+
     const triggerNodeId = triggerNodes[0].id;
     const incomingEdgesToTrigger = edges.filter(e => e.target === triggerNodeId);
     if (incomingEdgesToTrigger.length > 0) {
       toast.error("Trigger node must be the root node and cannot have incoming connections.");
-      return;
+      return null;
     }
-    
+
     if (nodes.length < 2) {
       toast.error("Workflow must have at least one action or logic node after the trigger.");
-      return;
+      return null;
     }
 
     // Reachability Validation
@@ -421,11 +570,11 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
         outEdges.forEach(e => queue.push(e.target));
       }
     }
-    
+
     const unreachedNodes = nodes.filter(n => !visited.has(n.id));
     if (unreachedNodes.length > 0) {
       toast.error(`Workflow has ${unreachedNodes.length} orphaned nodes. All nodes must be connected to the trigger.`);
-      return;
+      return null;
     }
 
     // Connection Rules Validation
@@ -436,12 +585,12 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
 
       if (dataNode.tool === 'end_workflow' && outEdges.length > 0) {
         toast.error("End Workflow node cannot have outgoing connections.");
-        return;
+        return null;
       }
-      
+
       if (dataNode.tool === 'merge' && inEdges.length < 2) {
         toast.error("Merge node must have at least two incoming connections.");
-        return;
+        return null;
       }
     }
 
@@ -473,38 +622,43 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
         }))
       };
 
-      if (workflowId) {
-        await api.put(`/workflows/${workflowId}`, payload);
+      if (activeWorkflowId) {
+        await api.put(`/workflows/${activeWorkflowId}`, payload);
         setWorkflowStatus(status);
         toast.success("Workflow updated");
+        return activeWorkflowId;
       } else {
         const { data } = await api.post("/workflows", payload);
-        if (data.success) {
+        if (data.success && data.workflow?.id) {
            toast.success("Workflow created");
-           onClose(data.workflow?.id);
+           setWorkflowStatus(status);
+           setActiveWorkflowId(data.workflow.id);
+           return data.workflow.id;
         }
+        toast.error(data.error || "Failed to save workflow");
+        return null;
       }
     } catch (error) {
       console.error(error);
       toast.error("Failed to save workflow");
+      return null;
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleTestRun = async () => {
-    if (!workflowId) {
-      toast.error("Please save the workflow first before testing.");
-      return;
-    }
-    await handleSave(workflowStatus);
-    
+    // Auto-saves (creating the workflow if it doesn't have an id yet) so Test Run
+    // never has to bounce the user out to save manually first.
+    const idToTest = await handleSave(workflowStatus);
+    if (!idToTest) return;
+
     setIsTesting(true);
     setTestTrace(null);
     setShowTestModal(true);
-    
+
     try {
-      const { data } = await api.post(`/workflows/${workflowId}/test`, {});
+      const { data } = await api.post(`/workflows/${idToTest}/test`, {});
       if (data.success) {
         setTestTrace(data.trace || []);
         toast.success("Test run completed");
@@ -554,9 +708,12 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
 
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 mr-2">
-            <span className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold bg-slate-100 text-slate-600 rounded-md">
+            <button
+              onClick={() => applyLayout(nodes, edges)}
+              className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-md transition-colors"
+            >
               <Wand size={12} /> Auto Layout
-            </span>
+            </button>
             <span className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold bg-emerald-50 text-emerald-600 rounded-md border border-emerald-100">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Healthy
             </span>
@@ -624,6 +781,15 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
             </div>
           )}
 
+          {pendingHandleConnection && (
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10 bg-brand-gold text-[#1a1510] px-4 py-2 rounded-full shadow-lg font-semibold text-sm flex items-center gap-2 animate-in fade-in slide-in-from-top-4">
+              <Plus size={16} /> Select a block to start this branch...
+              <button onClick={() => setPendingHandleConnection(null)} className="ml-2 hover:bg-[#1a1510]/10 rounded-full p-0.5">
+                <X size={14} />
+              </button>
+            </div>
+          )}
+
           {nodes.length === 0 && (
             <div className="absolute inset-0 z-10 flex flex-col items-center overflow-y-auto py-12 pointer-events-none custom-scrollbar">
               <div className="pointer-events-auto w-full max-w-2xl flex flex-col items-center my-auto">
@@ -668,26 +834,33 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
             </div>
           )}
 
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            onInit={() => console.log('flow loaded')}
-            onNodeClick={onNodeClick}
-            onPaneClick={onPaneClick}
-            nodesDraggable={false}
-            nodesConnectable={true}
-            elementsSelectable={true}
-            fitView
-            className="custom-scrollbar"
+          <BranchConnectionContext.Provider
+            value={{
+              hasOutgoingEdge: (nodeId, handle) => edges.some(e => e.source === nodeId && (e.sourceHandle || 'default') === handle),
+              onAddFromHandle: handleAddFromHandle,
+            }}
           >
-            <Background color="#1a1510" gap={16} size={1} style={{ opacity: 0.05 }} />
-            <Controls className="bg-white border border-slate-200 rounded-lg shadow-sm" showInteractive={false} />
-          </ReactFlow>
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
+              onInit={() => console.log('flow loaded')}
+              onNodeClick={onNodeClick}
+              onPaneClick={onPaneClick}
+              nodesDraggable={false}
+              nodesConnectable={true}
+              elementsSelectable={true}
+              fitView
+              className="custom-scrollbar"
+            >
+              <Background color="#1a1510" gap={16} size={1} style={{ opacity: 0.05 }} />
+              <Controls className="bg-white border border-slate-200 rounded-lg shadow-sm" showInteractive={false} />
+            </ReactFlow>
+          </BranchConnectionContext.Provider>
         </div>
 
         {/* Right Block Library Panel */}
@@ -707,6 +880,8 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
             <div className="text-[10px] text-slate-400 mt-2">
               {insertingEdgeId ? (
                 <span className="text-brand-gold font-bold">Inserting block...</span>
+              ) : pendingHandleConnection ? (
+                <span className="text-brand-gold font-bold">Starting new branch...</span>
               ) : (
                 "Click a block to add it to the workflow."
               )}
