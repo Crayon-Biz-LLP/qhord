@@ -69,22 +69,7 @@ export class WorkflowEngine {
 
       await this.processNode(triggerNode.id, nodes, edges, runId, run.workflow.client_id, previousOutputs, isTestMode, testTrace);
 
-      // Check if any step is waiting
-      const waitingSteps = await prisma.workflowRunStep.count({
-        where: { run_id: runId, status: 'waiting_event' }
-      });
-      
-      if (waitingSteps > 0) {
-        await prisma.workflowRun.update({
-          where: { id: runId },
-          data: { status: 'held', completedAt: new Date() }
-        });
-      } else {
-        await prisma.workflowRun.update({
-          where: { id: runId },
-          data: { status: 'completed', completedAt: new Date() }
-        });
-      }
+      await this.finalizeRun(runId);
 
       return { success: true, trace: testTrace };
     } catch (error: any) {
@@ -94,6 +79,135 @@ export class WorkflowEngine {
         data: { status: 'failed', completedAt: new Date(), error_message: error.message }
       });
       return { success: false, error: error.message, trace: testTrace };
+    }
+  }
+
+  private async finalizeRun(runId: string): Promise<void> {
+    const waitingSteps = await prisma.workflowRunStep.count({
+      where: { run_id: runId, status: 'waiting_event' }
+    });
+
+    if (waitingSteps > 0) {
+      await prisma.workflowRun.update({
+        where: { id: runId },
+        data: { status: 'held', completedAt: new Date() }
+      });
+    } else {
+      await prisma.workflowRun.update({
+        where: { id: runId },
+        data: { status: 'completed', completedAt: new Date() }
+      });
+    }
+  }
+
+  // Computes the absolute time a Delay node should resume at, based on its configured mode.
+  // Returns null if the config can't produce a valid time (caller should fail the run clearly
+  // rather than silently parking it forever).
+  private computeDelayResumeAt(config: any, previousOutputs: Record<string, any>): Date | null {
+    const mode = config.mode || 'duration';
+    const now = new Date();
+
+    if (mode === 'duration') {
+      const amount = Number(config.amount);
+      if (!amount || amount <= 0) return null;
+      const msPerUnit: Record<string, number> = { minutes: 60_000, hours: 3_600_000, days: 86_400_000, weeks: 604_800_000 };
+      return new Date(now.getTime() + amount * (msPerUnit[config.unit] || msPerUnit.days));
+    }
+
+    if (mode === 'date_variable') {
+      const raw = this.resolveVariable(config.dateVariable, previousOutputs);
+      if (!raw) return null;
+      const base = new Date(raw);
+      if (isNaN(base.getTime())) return null;
+      const offsetDays = Number(config.offsetDays) || 0;
+      return new Date(base.getTime() + offsetDays * 86_400_000);
+    }
+
+    if (mode === 'recurring_day') {
+      if (config.recurrence === 'monthly') {
+        const dayOfMonth = Math.min(Math.max(parseInt(config.dayOfMonth, 10) || 1, 1), 28);
+        let target = new Date(now.getFullYear(), now.getMonth(), dayOfMonth, 0, 0, 0, 0);
+        if (target <= now) target = new Date(now.getFullYear(), now.getMonth() + 1, dayOfMonth, 0, 0, 0, 0);
+        return target;
+      }
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const targetDow = days.indexOf(config.dayOfWeek || 'Mon');
+      if (targetDow < 0) return null;
+      const target = new Date(now);
+      target.setHours(0, 0, 0, 0);
+      let diff = (targetDow - target.getDay() + 7) % 7;
+      if (diff === 0) diff = 7; // next occurrence, not "today" again
+      target.setDate(target.getDate() + diff);
+      return target;
+    }
+
+    if (mode === 'specific_date') {
+      if (!config.date) return null;
+      const d = new Date(`${config.date}T${config.time || '00:00'}:00`);
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    return null;
+  }
+
+  // Scans for parked Delay steps whose resume time has arrived and continues their run.
+  // Intended to be called on a recurring schedule (see queue/workflow-queue.ts).
+  async resumeDueDelays(): Promise<void> {
+    const now = new Date();
+    const dueSteps = await prisma.workflowRunStep.findMany({
+      where: { status: 'waiting_event', node: { tool: 'delay' } },
+      include: { run: { include: { workflow: true } } }
+    });
+
+    for (const step of dueSteps) {
+      const resumeAtRaw = (step.input_json as any)?.resumeAt;
+      if (!resumeAtRaw) continue;
+      const resumeAt = new Date(resumeAtRaw);
+      if (isNaN(resumeAt.getTime()) || resumeAt > now) continue;
+
+      const runId = step.run_id;
+      try {
+        const nodes = await prisma.workflowNode.findMany({ where: { workflow_id: step.run.workflow_id } });
+        const edges = await prisma.workflowEdge.findMany({ where: { workflow_id: step.run.workflow_id } });
+
+        // Rebuild context from every step that has already completed in this run —
+        // the in-memory previousOutputs from the original executeRun call is long gone.
+        const completedSteps = await prisma.workflowRunStep.findMany({
+          where: { run_id: runId, status: 'completed' }
+        });
+        const previousOutputs: Record<string, any> = {};
+        for (const s of completedSteps) {
+          previousOutputs[s.node_id] = s.output_json;
+        }
+        const triggerNode = nodes.find(n => n.node_type === 'trigger');
+        if (triggerNode) {
+          previousOutputs['trigger'] = previousOutputs[triggerNode.id] || step.run.triggerPayload || {};
+        }
+
+        await prisma.workflowRunStep.update({
+          where: { id: step.id },
+          data: { status: 'completed', completed_at: new Date() }
+        });
+        await prisma.workflowRun.update({ where: { id: runId }, data: { status: 'running' } });
+
+        const testTrace: string[] = [];
+        const outgoingEdges = edges.filter(e => e.source_node_id === step.node_id);
+        for (const edge of outgoingEdges) {
+          await this.processNode(edge.target_node_id, nodes, edges, runId, step.run.workflow.client_id, previousOutputs, false, testTrace);
+        }
+
+        await this.finalizeRun(runId);
+      } catch (error: any) {
+        console.error(`[WorkflowEngine] Failed to resume delayed step ${step.id}:`, error);
+        await prisma.workflowRunStep.update({
+          where: { id: step.id },
+          data: { status: 'failed', error_message: error.message, completed_at: new Date() }
+        });
+        await prisma.workflowRun.update({
+          where: { id: runId },
+          data: { status: 'failed', completedAt: new Date(), error_message: error.message }
+        });
+      }
     }
   }
 
@@ -268,8 +382,26 @@ export class WorkflowEngine {
        if (node.tool === 'delay' || node.tool === 'wait') {
          if (isTestMode) {
            testTrace.push(`✓ Simulated wait/delay for test mode.`);
+         } else if (node.tool === 'delay') {
+           // Delay nodes resume automatically once resumeAt has passed (see resumeDueDelays,
+           // polled by a recurring queue job in queue/workflow-queue.ts).
+           const resumeAt = this.computeDelayResumeAt(config, previousOutputs);
+           if (!resumeAt) {
+             throw new Error('Could not compute a valid resume time for this Delay node — check its configuration.');
+           }
+           await prisma.workflowRunStep.create({
+              data: {
+                run_id: runId,
+                node_id: node.id,
+                status: 'waiting_event',
+                started_at: new Date(),
+                input_json: { ...config, resumeAt: resumeAt.toISOString() }
+              }
+           });
+           return;
          } else {
-           // Persist waiting state and halt execution
+           // 'wait' (wait for condition / external event): resumption is not implemented yet —
+           // the run parks in 'held' status until that's built.
            await prisma.workflowRunStep.create({
               data: {
                 run_id: runId,
@@ -279,25 +411,35 @@ export class WorkflowEngine {
                 input_json: config
               }
            });
-           return; 
+           return;
          }
        }
 
        if (node.tool === 'merge') {
-         // Check completed paths
-         const inEdges = edges.filter(e => e.target_node_id === node.id);
-         const completedSteps = await prisma.workflowRunStep.count({
-           where: {
-             run_id: runId,
-             node_id: { in: inEdges.map(e => e.source_node_id) },
-             status: 'completed'
-           }
-         });
-         
          const isAny = config.mode === 'any';
          if (isTestMode) {
            testTrace.push(`✓ Merge node continuing in test mode.`);
          } else {
+           // Guard against firing downstream more than once for this run: with "any" mode,
+           // every branch that completes would otherwise re-satisfy the >=1 check and
+           // re-trigger everything after the merge. Recording a completed step for the
+           // merge node itself makes each branch's arrival idempotent.
+           const alreadyMerged = await prisma.workflowRunStep.findFirst({
+             where: { run_id: runId, node_id: node.id, status: 'completed' }
+           });
+           if (alreadyMerged) {
+             return;
+           }
+
+           const inEdges = edges.filter(e => e.target_node_id === node.id);
+           const completedSteps = await prisma.workflowRunStep.count({
+             where: {
+               run_id: runId,
+               node_id: { in: inEdges.map(e => e.source_node_id) },
+               status: 'completed'
+             }
+           });
+
            if (isAny && completedSteps < 1) {
              return;
            }
@@ -305,8 +447,10 @@ export class WorkflowEngine {
              // Not all paths have arrived yet
              return;
            }
-           // Record merge completion so downstream doesn't fire multiple times if "all" 
-           // In a real robust engine we'd check if this merge already ran for this execution pass.
+
+           await prisma.workflowRunStep.create({
+             data: { run_id: runId, node_id: node.id, status: 'completed', started_at: new Date(), completed_at: new Date() }
+           });
          }
        }
 

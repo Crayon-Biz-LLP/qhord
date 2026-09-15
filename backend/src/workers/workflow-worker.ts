@@ -1,6 +1,7 @@
 import { Worker, Job } from 'bullmq';
 import { redisConnection } from '../queue/bullmq-setup';
 import { automationEngine } from '../services/automation.engine';
+import { workflowEngine } from '../services/workflowEngine';
 
 export class WorkflowWorker {
   private worker: Worker<any, any, string>;
@@ -36,6 +37,8 @@ export class WorkflowWorker {
     try {
       if (job.name.startsWith('run-')) {
         await automationEngine.processStep(job.data);
+      } else if (job.name === 'check-delays') {
+        await workflowEngine.resumeDueDelays();
       } else {
         console.warn(`[WorkflowWorker] Unknown job type: ${job.name}`);
       }

@@ -47,6 +47,28 @@ export class CalendlyProcessor extends BaseProcessor implements NodeProcessor {
           return { status: 'completed', output: response.data };
         }
 
+        case 'check_availability': {
+          if (!config.event_type) {
+            return { status: 'failed', error: 'Missing event_type for Calendly check_availability action.' };
+          }
+          // Calendly caps the available-times window at 7 days per request.
+          const startTime = config.start_time || new Date().toISOString();
+          const endTime = config.end_time || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+          if (context.isTestMode) {
+            context.testTrace?.push(`⚠ [Test Mode] Skipping actual Calendly check_availability execution.`);
+            return {
+              status: 'completed',
+              output: { collection: [{ status: 'available', start_time: startTime, scheduling_url: 'https://calendly.com/test/30min' }] }
+            };
+          }
+
+          const response = await calendlyClient.get('/event_type_available_times', {
+            params: { event_type: config.event_type, start_time: startTime, end_time: endTime }
+          });
+          return { status: 'completed', output: response.data };
+        }
+
         case 'cancel_meeting': {
           if (context.isTestMode) {
             context.testTrace?.push(`⚠ [Test Mode] Skipping actual Calendly cancel_meeting execution.`);

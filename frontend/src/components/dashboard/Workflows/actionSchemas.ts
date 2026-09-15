@@ -14,10 +14,10 @@ export type ActionSchemas = Record<string, Record<string, FieldSchema[]>>;
 export const ACTION_SCHEMAS: ActionSchemas = {
   Apollo: {
     search_people: [
-      { name: "keywords", label: "Keywords", type: "text", placeholder: "e.g., software engineer, VP" },
+      { name: "keywords", label: "Person Name", type: "text", placeholder: "e.g., Jane Doe" },
       { name: "titles", label: "Job Titles", type: "text", placeholder: "Comma separated" },
       { name: "locations", label: "Locations", type: "text", placeholder: "Comma separated" },
-      { name: "company_names", label: "Company Names", type: "text", placeholder: "Comma separated" }
+      { name: "company_names", label: "Company Domains", type: "text", placeholder: "e.g., apollo.io, clay.com (comma separated)" }
     ],
     enrich_contact: [
       { name: "email", label: "Email Address", type: "email", required: true, placeholder: "{{contact.email}}" },
@@ -112,6 +112,11 @@ export const ACTION_SCHEMAS: ActionSchemas = {
     create_scheduling_link: [
       { name: "event_type", label: "Event Type URI", type: "text", required: true, placeholder: "e.g., https://api.calendly.com/event_types/xxx" }
     ],
+    check_availability: [
+      { name: "event_type", label: "Event Type URI", type: "text", required: true, placeholder: "e.g., https://api.calendly.com/event_types/xxx" },
+      { name: "start_time", label: "Start Time (ISO 8601, optional)", type: "text", placeholder: "2026-10-10T00:00:00Z" },
+      { name: "end_time", label: "End Time (ISO 8601, optional, max 7 days from start)", type: "text", placeholder: "2026-10-17T00:00:00Z" }
+    ],
     book_meeting: [
       { name: "event_type", label: "Event Type URI", type: "text", required: true },
       { name: "inviteeEmail", label: "Invitee Email", type: "email", required: true }
@@ -123,11 +128,30 @@ export const ACTION_SCHEMAS: ActionSchemas = {
   },
   Gojiberry: {
     import_contacts: [
-      { name: "listId", label: "List ID", type: "text", required: true },
-      { name: "contacts", label: "Contacts (JSON)", type: "textarea" }
+      { name: "listId", label: "List ID (optional)", type: "text", placeholder: "Assign imported contacts to this list" },
+      { name: "contacts", label: "Contacts (JSON array)", type: "textarea", required: true, placeholder: '[{"firstName":"Jane","lastName":"Doe","profileUrl":"https://linkedin.com/in/jane","email":"jane@acme.com"}]' }
+    ],
+    export_contacts: [
+      { name: "listId", label: "List ID", type: "text", required: true, placeholder: "Export contacts from this list" },
+      { name: "limit", label: "Max Contacts", type: "number", placeholder: "100" }
     ],
     sync_leads: [
-      { name: "listId", label: "List ID", type: "text", required: true }
+      { name: "listId", label: "List ID", type: "text", required: true },
+      { name: "contactIds", label: "Contact IDs (comma separated)", type: "text", required: true, placeholder: "101, 102, 103" }
+    ],
+    update_contact: [
+      { name: "contactId", label: "Contact ID", type: "text", required: true, placeholder: "{{trigger.contact.id}}" },
+      { name: "email", label: "Email", type: "email" },
+      { name: "phone", label: "Phone", type: "text" },
+      { name: "jobTitle", label: "Job Title", type: "text" },
+      { name: "company", label: "Company", type: "text" },
+      { name: "note", label: "Note", type: "textarea" }
+    ],
+    create_campaign: [
+      { name: "name", label: "Campaign Name", type: "text", required: true },
+      { name: "listIds", label: "Lead List IDs (comma separated)", type: "text", required: true, placeholder: "list_123, list_456" },
+      { name: "steps", label: "Steps (JSON)", type: "textarea", required: true, placeholder: '[{"type":"invite","message":"Hi {{first_name}}"}]' },
+      { name: "language", label: "Language", type: "text", placeholder: "en" }
     ]
   },
   Instantly: {

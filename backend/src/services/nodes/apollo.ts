@@ -17,31 +17,26 @@ export class ApolloProcessor extends BaseProcessor implements NodeProcessor {
       }
       const { apiKey } = creds as { apiKey: string; account: any };
 
-      // 3. Set up Axios client for Apollo
+      // 3. Set up Axios client for Apollo.
+      // Base URL and `x-api-key` header per https://docs.apollo.io/reference — the
+      // legacy convention of passing `api_key` in the request body is no longer documented.
       const apolloClient = axios.create({
-        baseURL: 'https://api.apollo.io/v1',
+        baseURL: 'https://api.apollo.io/api/v1',
         headers: {
           'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache'
+          'x-api-key': apiKey
         }
       });
-
-      // Inject API key into payload or headers based on Apollo API standard
-      // Apollo usually accepts api_key in the request body or via query params.
-      // We will inject it into the body payload.
-      const basePayload = { api_key: apiKey };
 
       // 4. Route based on Action
       switch (node.action) {
         case 'search_people': {
-          // Map UI config fields to Apollo's expected parameters
+          // Map UI config fields to Apollo's documented People API Search parameters.
           const payload = {
-            ...basePayload,
-            q_keywords: config.keywords,
+            q_person_name: config.keywords || undefined,
             person_titles: config.titles ? config.titles.split(',').map((t: string) => t.trim()) : undefined,
             person_locations: config.locations ? config.locations.split(',').map((t: string) => t.trim()) : undefined,
-            organization_names: config.company_names ? config.company_names.split(',').map((t: string) => t.trim()) : undefined,
-            // Add more standard fields as we implement them in UI
+            q_organization_domains_list: config.company_names ? config.company_names.split(',').map((t: string) => t.trim()) : undefined,
           };
 
           if (context.isTestMode) {
@@ -56,7 +51,7 @@ export class ApolloProcessor extends BaseProcessor implements NodeProcessor {
             };
           }
 
-          const response = await apolloClient.post('/mixed_people/search', payload);
+          const response = await apolloClient.post('/mixed_people/api_search', payload);
           return {
             status: 'completed',
             output: response.data
@@ -65,7 +60,6 @@ export class ApolloProcessor extends BaseProcessor implements NodeProcessor {
 
         case 'enrich_contact': {
           const payload = {
-            ...basePayload,
             email: config.email,
             first_name: config.first_name,
             last_name: config.last_name,
@@ -82,7 +76,8 @@ export class ApolloProcessor extends BaseProcessor implements NodeProcessor {
             };
           }
 
-          const response = await apolloClient.post('/people/match', payload);
+          // Apollo's People Enrichment endpoint takes these as query parameters, not a JSON body.
+          const response = await apolloClient.post('/people/match', null, { params: payload });
           return {
             status: 'completed',
             output: response.data
@@ -91,7 +86,6 @@ export class ApolloProcessor extends BaseProcessor implements NodeProcessor {
 
         case 'create_contact': {
            const payload = {
-             ...basePayload,
              first_name: config.first_name,
              last_name: config.last_name,
              email: config.email,

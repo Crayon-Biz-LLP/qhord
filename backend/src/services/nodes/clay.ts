@@ -32,7 +32,7 @@ export class ClayProcessor extends BaseProcessor implements NodeProcessor {
           };
 
           if (context.isTestMode) {
-            context.testTrace?.push(`⚠ [Test Mode] Skipping actual Clay import_table execution.`);
+            context.testTrace?.push(`⚠ [Test Mode] Skipping actual Clay import_table execution. Note: this action calls an unverified placeholder endpoint (/tables/{id}/records is not confirmed against official Clay API docs).`);
             return { status: 'completed', output: { success: true, table_id: config.table_id || 'test_table' } };
           }
 
@@ -48,7 +48,7 @@ export class ClayProcessor extends BaseProcessor implements NodeProcessor {
           };
 
           if (context.isTestMode) {
-            context.testTrace?.push(`⚠ [Test Mode] Skipping actual Clay email_enrichment execution.`);
+            context.testTrace?.push(`⚠ [Test Mode] Skipping actual Clay email_enrichment execution. Note: this action calls an unverified placeholder endpoint (/enrich/email is not confirmed against official Clay API docs).`);
             return { 
               status: 'completed', 
               output: { enriched: true, email: payload.email, data: { name: 'Test User' } } 
@@ -68,7 +68,7 @@ export class ClayProcessor extends BaseProcessor implements NodeProcessor {
           };
 
           if (context.isTestMode) {
-            context.testTrace?.push(`⚠ [Test Mode] Skipping actual Clay company_enrichment execution.`);
+            context.testTrace?.push(`⚠ [Test Mode] Skipping actual Clay company_enrichment execution. Note: this action calls an unverified placeholder endpoint (/enrich/company is not confirmed against official Clay API docs).`);
             return { 
               status: 'completed', 
               output: { enriched: true, domain: payload.domain, data: { industry: 'Software' } } 

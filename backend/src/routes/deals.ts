@@ -36,7 +36,7 @@ router.get('/', async (req: Request, res: Response) => {
 router.post('/', async (req: Request, res: Response) => {
   try {
     const operatorId = req.user!.id;
-    const { name, contact, amount, health, stage, auto, avatar, clientId } = req.body;
+    const { name, contact, amount, health, stage, pipeline, ownerOperatorId, auto, avatar, clientId } = req.body;
 
     if (!name || !contact || !amount || !stage) {
       return res.status(400).json({ success: false, error: 'Missing required fields: name, contact, amount, stage' });
@@ -61,6 +61,8 @@ router.post('/', async (req: Request, res: Response) => {
         amount,
         health: health ? parseInt(health, 10) : 80,
         stage,
+        pipeline: pipeline || undefined,
+        owner_operator_id: ownerOperatorId || undefined,
         auto: auto !== undefined ? Boolean(auto) : true,
         avatar: avatar || (contact ? contact.charAt(0) : 'D'),
         client_id: targetClientId,
@@ -77,7 +79,7 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { stage, health, auto, name, contact, amount } = req.body;
+    const { stage, health, auto, name, contact, amount, pipeline, ownerOperatorId } = req.body;
 
     const deal = await prisma.deal.update({
       where: { id },
@@ -88,6 +90,8 @@ router.put('/:id', async (req: Request, res: Response) => {
         name: name || undefined,
         contact: contact || undefined,
         amount: amount || undefined,
+        pipeline: pipeline || undefined,
+        owner_operator_id: ownerOperatorId || undefined,
       }
     });
 
