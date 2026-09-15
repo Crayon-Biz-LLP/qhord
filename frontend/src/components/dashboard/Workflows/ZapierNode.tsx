@@ -10,7 +10,8 @@ export const ZapierNode = ({ data, selected }: NodeProps) => {
 
   const getIcon = () => {
      if (node.type === "trigger") {
-        if (node.label?.includes("Schedule")) return <Clock size={16} />;
+        const tType = node.config?.triggerType || 'schedule';
+        if (tType === 'schedule') return <Clock size={16} />;
         return <Activity size={16} />;
      }
      if (node.tool === "if_else") return <GitBranch size={16} />;
@@ -35,11 +36,67 @@ export const ZapierNode = ({ data, selected }: NodeProps) => {
     return node.tool ? node.tool.toUpperCase() : "ACTION";
   };
 
+  const getTriggerLabel = () => {
+    const config = node.config || {};
+    const tType = config.triggerType || 'schedule';
+
+    if (tType === 'schedule') {
+      const schedule = config.scheduleConfig || {};
+      if (schedule.frequencyType === 'once') return "Run only once";
+      if (schedule.frequencyType === 'recurring') {
+        let label = `Run every ${schedule.intervalValue || 1} ${schedule.intervalUnit || 'weeks'}`;
+        if (schedule.activeDays && schedule.activeDays.length > 0) {
+          label += ` on ${schedule.activeDays.join(', ')}`;
+        }
+        return label;
+      }
+      return "Based on a date or schedule";
+    }
+
+    if (tType === 'event') {
+      const eventId = config.eventConfig?.eventId;
+      if (eventId) {
+        return eventId.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      }
+      return "Based on a trigger event";
+    }
+
+    return "Manual Trigger";
+  };
+
+  const getTriggerSubtext = () => {
+    const config = node.config || {};
+    const tType = config.triggerType || 'schedule';
+
+    if (tType === 'schedule') {
+      const schedule = config.scheduleConfig || {};
+      if (schedule.startType === 'immediate') return "Start immediately after activation";
+      if (schedule.startType === 'scheduled') {
+        if (schedule.startDateTime) {
+          const date = new Date(schedule.startDateTime);
+          if (!isNaN(date.getTime())) {
+            return `Start on ${date.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', hour12: true })}`;
+          }
+          return `Start on ${schedule.startDateTime}`;
+        }
+        return "Start on scheduled date";
+      }
+    }
+
+    if (tType === 'event') {
+      const eventId = config.eventConfig?.eventId;
+      if (eventId) {
+        return `Kick off when ${eventId.replace(/_/g, ' ')}...`;
+      }
+      return "Waiting for system event...";
+    }
+    
+    return "Start your workflow";
+  };
+
   const getSubtext = () => {
     if (node.type === "trigger") {
-      if (node.label?.includes("Event")) return "Kick off when something happens in...";
-      if (node.label?.includes("Schedule")) return "Repeat on a cadence — daily, weekly...";
-      return "Start your workflow";
+      return getTriggerSubtext();
     }
     if (node.tool === "if_else") return "Send down one path if a condition is...";
     if (['Apollo', 'Clay', 'HeyReach', 'Smartlead', 'BetterContact', 'Calendly', 'Gojiberry'].includes(node.tool) && !node.action) {
@@ -109,10 +166,10 @@ export const ZapierNode = ({ data, selected }: NodeProps) => {
             {getTypeLabel()}
           </div>
           <h4 className="text-[13px] font-bold text-[#1a1510] truncate">
-            {node.label || "Select an action..."}
+            {node.type === "trigger" ? getTriggerLabel() : (node.label || "Select an action...")}
           </h4>
           <p className="text-[11px] text-[#1a1510]/50 mt-1 truncate max-w-full leading-relaxed">
-            {getSubtext()}
+            {node.type === "trigger" ? getTriggerSubtext() : getSubtext()}
           </p>
           
           {/* Validation or Config Status */}
