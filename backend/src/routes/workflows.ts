@@ -2,6 +2,16 @@ import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { prisma } from '../lib/prisma';
 import { workflowEngine } from '../services/workflowEngine';
+import {
+  SECRET_PLACEHOLDER,
+  sealNodeConfig,
+  maskNodeConfig,
+  openStoredSecret,
+  prepareWebhookRequest,
+  executeWebhook,
+  describeWebhookError,
+  WebhookConfigError,
+} from '../services/nodes/webhook-request';
 
 const router = Router();
 router.use(requireAuth);
@@ -52,7 +62,7 @@ router.post('/', async (req: Request, res: Response) => {
             tool: n.tool,
             action: n.action,
             label: n.label,
-            configuration_json: n.configurationJson || {},
+            configuration_json: sealNodeConfig(n.tool, n.configurationJson || {}),
             position: n.position || {}
           })) || []
         },
@@ -83,7 +93,11 @@ router.get('/:id', async (req: Request, res: Response) => {
       include: { nodes: true, edges: true }
     });
     if (!wf) return res.status(404).json({ success: false, error: 'Workflow not found' });
-    res.json({ success: true, workflow: wf });
+    const workflow = {
+      ...wf,
+      nodes: wf.nodes.map(n => ({ ...n, configuration_json: maskNodeConfig(n.tool, n.configuration_json) }))
+    };
+    res.json({ success: true, workflow });
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, error: 'Failed to fetch workflow' });
@@ -107,6 +121,14 @@ router.put('/:id', async (req: Request, res: Response) => {
     });
 
     if (nodes) {
+       // Nodes are replaced wholesale below, so grab the stored (encrypted) webhook configs
+       // first — an unchanged "saved" secret marker from the UI must resolve back to them.
+       const existingWebhookNodes = await prisma.workflowNode.findMany({
+         where: { workflow_id: wf.id, tool: 'send_webhook' },
+         select: { id: true, configuration_json: true }
+       });
+       const existingConfigById = new Map(existingWebhookNodes.map(n => [n.id, n.configuration_json as any]));
+
        await prisma.workflowEdge.deleteMany({ where: { workflow_id: wf.id } });
        await prisma.workflowNode.deleteMany({ where: { workflow_id: wf.id } });
        await prisma.workflowNode.createMany({
@@ -117,7 +139,7 @@ router.put('/:id', async (req: Request, res: Response) => {
              tool: n.tool,
              action: n.action,
              label: n.label,
-             configuration_json: n.configurationJson || {},
+             configuration_json: sealNodeConfig(n.tool, n.configurationJson || {}, existingConfigById.get(n.id)),
              position: n.position || {}
           }))
        });
@@ -139,6 +161,54 @@ router.put('/:id', async (req: Request, res: Response) => {
     res.json({ success: true, workflow: wf });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Failed to update workflow' });
+  }
+});
+
+// ── POST /api/workflows/test-webhook ─────────────────────────────
+// Powers the "Test connection" button on the Send webhook block: sends the request exactly as
+// the block is currently configured (including unsaved edits) and reports what came back.
+router.post('/test-webhook', async (req: Request, res: Response) => {
+  try {
+    const { config, workflowId, nodeId } = req.body || {};
+    if (!config || typeof config !== 'object') {
+      return res.status(400).json({ success: false, error: 'config is required' });
+    }
+
+    let secret = '';
+    if (config.authSecret === SECRET_PLACEHOLDER) {
+      // The browser only holds a marker; resolve the real secret from the operator's own node.
+      const stored = workflowId && nodeId
+        ? await prisma.workflowNode.findFirst({
+            where: { id: nodeId, workflow_id: workflowId, workflow: { created_by_operator_id: req.user!.id } },
+            select: { configuration_json: true }
+          })
+        : null;
+      const storedSecret = (stored?.configuration_json as any)?.authSecret;
+      if (!storedSecret) {
+        return res.status(400).json({ success: false, error: 'No saved secret found for this block. Re-enter it to test.' });
+      }
+      secret = openStoredSecret(storedSecret);
+    } else if (config.authSecret) {
+      secret = String(config.authSecret);
+    }
+
+    const result = await executeWebhook(prepareWebhookRequest(config, secret));
+    const bodyText = typeof result.data === 'string' ? result.data : JSON.stringify(result.data ?? '');
+
+    res.json({
+      success: true,
+      ok: result.status >= 200 && result.status < 400,
+      status: result.status,
+      statusText: result.statusText,
+      durationMs: result.durationMs,
+      bodyPreview: (bodyText || '').slice(0, 1000)
+    });
+  } catch (error: any) {
+    if (error instanceof WebhookConfigError) {
+      return res.status(400).json({ success: false, error: error.message });
+    }
+    // The request itself failed (unreachable host, timeout, blocked address...) — report it to the UI.
+    res.json({ success: false, error: describeWebhookError(error) });
   }
 });
 

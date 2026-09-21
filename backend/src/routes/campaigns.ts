@@ -271,6 +271,7 @@ router.get('/', async (req: Request, res: Response) => {
     res.json({
       campaigns: campaigns.map(campaign => ({
         id: campaign.id,
+        clientId: campaign.client_id,
         name: campaign.name,
         description: campaign.description,
         status: campaign.status,

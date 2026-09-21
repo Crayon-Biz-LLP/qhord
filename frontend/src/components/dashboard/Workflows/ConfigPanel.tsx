@@ -3,6 +3,7 @@ import { WfNode } from "./ZapierBuilder";
 import { X, Search, Wand2, Mail, Send, Activity, Clock, GitBranch, ShieldAlert, Settings2, ChevronDown } from "lucide-react";
 import { useClient } from "../../../contexts/ClientContext";
 import { api } from "../../../lib/api";
+import { SearchableSelect } from "../../ui/SearchableSelect";
 
 import { ACTION_SCHEMAS, FieldSchema } from "./actionSchemas";
 
@@ -109,22 +110,50 @@ const NO_VALUE_OPERATORS = [
   'is_empty', 'is_not_empty', 'is_true', 'is_false', 'exists', 'not_exists'
 ];
 
+// The backend never returns a saved auth secret to the browser — it sends this marker instead.
+const SAVED_SECRET_MARKER = '__stored__';
+
 export const ConfigPanel = ({
   node,
   allNodes,
   onChange,
-  onClose
+  onClose,
+  workflowId
 }: {
   node: WfNode;
   allNodes: WfNode[];
   onChange: (updates: Partial<WfNode>) => void;
   onClose: () => void;
+  workflowId?: string | null;
 }) => {
   const { selectedClient } = useClient();
   const [toolAccounts, setToolAccounts] = useState<any[]>([]);
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
   const [teamMembers, setTeamMembers] = useState<{ id: string; name: string; email: string }[]>([]);
-  const [campaignsList, setCampaignsList] = useState<{ id: string; name: string }[]>([]);
+  const [campaignsList, setCampaignsList] = useState<{ id: string; name: string; clientId?: string; status?: string }[]>([]);
+  const [webhookTest, setWebhookTest] = useState<{ ok: boolean; message: string; preview?: string } | null>(null);
+  const [isTestingWebhook, setIsTestingWebhook] = useState(false);
+
+  useEffect(() => {
+    setWebhookTest(null);
+  }, [node.id]);
+
+  const handleTestWebhook = async () => {
+    setIsTestingWebhook(true);
+    setWebhookTest(null);
+    try {
+      const { data } = await api.post('/workflows/test-webhook', { config: node.config, workflowId, nodeId: node.id });
+      if (data.success) {
+        setWebhookTest({ ok: data.ok, message: `${data.status} ${data.statusText || ''} · ${data.durationMs} ms`.replace(/\s+/g, ' ').trim(), preview: data.bodyPreview });
+      } else {
+        setWebhookTest({ ok: false, message: data.error || 'The request failed.' });
+      }
+    } catch (err: any) {
+      setWebhookTest({ ok: false, message: err?.response?.data?.error || 'Could not run the test.' });
+    } finally {
+      setIsTestingWebhook(false);
+    }
+  };
 
   useEffect(() => {
     api.get('/settings')
@@ -254,65 +283,90 @@ export const ConfigPanel = ({
     );
   };
 
-  if (node.tool === 'manage_lists') {
-    return (
-      <div className="h-full flex flex-col bg-white">
-        <div className="h-14 px-4 border-b border-[#1a1510]/[0.07] flex items-center justify-between shrink-0 bg-[#faf9f8]">
-          <h3 className="font-bold text-[#1a1510] text-[11px] tracking-widest uppercase">ACTION / Manage Lists</h3>
-          <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-md transition-colors text-slate-400"><X size={16} /></button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
-          <p className="text-xs text-slate-500">Adds records to an Apollo list, creating the list automatically if it doesn't exist yet.</p>
-          {renderApolloAccountPicker()}
-          <div className="space-y-2">
-            <label className="text-[11px] font-bold text-[#1a1510]">Record Type</label>
-            <select value={node.config?.modality || "contacts"} onChange={e => handleConfigChange("modality", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
-              <option value="contacts">Contacts</option>
-              <option value="accounts">Accounts</option>
-            </select>
-          </div>
-          <div className="space-y-2">
-            <label className="text-[11px] font-bold text-[#1a1510]">Apollo Record IDs <span className="text-red-500">*</span></label>
-            <input type="text" placeholder="e.g., 60f1a..., 60f1b... (comma separated)" value={node.config?.entityIds || ""} onChange={e => handleConfigChange("entityIds", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
-          </div>
-          <div className="space-y-2">
-            <label className="text-[11px] font-bold text-[#1a1510]">List Name(s) <span className="text-red-500">*</span></label>
-            <input type="text" placeholder="e.g., Q4 Outreach (comma separated)" value={node.config?.labelNames || ""} onChange={e => handleConfigChange("labelNames", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
-          </div>
-        </div>
-      </div>
+  if (node.tool === 'manage_campaigns') {
+    const campaignAction = node.config?.campaignAction === 'remove' ? 'remove' : 'add';
+    const removeScope = node.config?.removeScope === 'specific' ? 'specific' : 'all';
+    // Only this workflow's own client's campaigns are offered — the action can't reach another client's.
+    const campaignOptions = campaignsList
+      .filter(c => !selectedClient?.id || !c.clientId || c.clientId === selectedClient.id)
+      .map(c => ({ value: c.id, label: c.name, hint: c.status }));
+    const createCampaignLink = (
+      <a
+        href="/dashboard/campaigns/build"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block px-3 py-2.5 text-right text-[13px] font-semibold text-[#1a1510] hover:bg-slate-50"
+      >
+        + Create new campaign
+      </a>
     );
-  }
 
-  if (node.tool === 'manage_sequences') {
     return (
       <div className="h-full flex flex-col bg-white">
         <div className="h-14 px-4 border-b border-[#1a1510]/[0.07] flex items-center justify-between shrink-0 bg-[#faf9f8]">
-          <h3 className="font-bold text-[#1a1510] text-[11px] tracking-widest uppercase">ACTION / Manage Sequences</h3>
+          <h3 className="font-bold text-[#1a1510] text-[11px] tracking-widest uppercase">ACTION / Manage Campaigns</h3>
           <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-md transition-colors text-slate-400"><X size={16} /></button>
         </div>
         <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
-          <p className="text-xs text-slate-500">Adds contacts to an existing Apollo outreach sequence.</p>
-          {renderApolloAccountPicker()}
-          <div className="space-y-2">
-            <label className="text-[11px] font-bold text-[#1a1510]">Sequence ID <span className="text-red-500">*</span></label>
-            <input type="text" placeholder="{{trigger.sequence_id}}" value={node.config?.sequenceId || ""} onChange={e => handleConfigChange("sequenceId", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+          <div className="space-y-3">
+            <label className="flex items-center gap-3 text-sm text-[#1a1510] cursor-pointer">
+              <input type="radio" name="campaign_action" checked={campaignAction === 'add'} onChange={() => handleConfigChange('campaignAction', 'add')} className="accent-[#1a1510] w-4 h-4" />
+              Add contacts to campaign
+            </label>
+            <label className="flex items-center gap-3 text-sm text-[#1a1510] cursor-pointer">
+              <input type="radio" name="campaign_action" checked={campaignAction === 'remove'} onChange={() => handleConfigChange('campaignAction', 'remove')} className="accent-[#1a1510] w-4 h-4" />
+              Remove contacts from campaign
+            </label>
           </div>
-          <div className="space-y-2">
-            <label className="text-[11px] font-bold text-[#1a1510]">Contact IDs <span className="text-red-500">*</span></label>
-            <input type="text" placeholder="Comma separated Apollo contact IDs" value={node.config?.contactIds || ""} onChange={e => handleConfigChange("contactIds", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+
+          <div className="p-4 bg-[#faf9f8] border border-slate-200 rounded-xl space-y-4">
+            {campaignAction === 'add' ? (
+              <div className="space-y-2">
+                <label className="text-[11px] font-bold text-[#1a1510]">Campaign <span className="text-red-500">*</span></label>
+                <SearchableSelect
+                  options={campaignOptions}
+                  value={node.config?.campaignId || ''}
+                  onChange={(id) => handleConfigChange('campaignId', id)}
+                  placeholder="Select..."
+                  emptyMessage="No campaigns found for this client"
+                  footer={createCampaignLink}
+                />
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#1a1510]">Remove contacts from</label>
+                  <label className="flex items-center gap-3 text-sm text-[#1a1510] cursor-pointer">
+                    <input type="radio" name="campaign_remove_scope" checked={removeScope === 'all'} onChange={() => handleConfigChange('removeScope', 'all')} className="accent-[#1a1510] w-4 h-4" />
+                    Remove contacts from all campaigns
+                  </label>
+                  <label className="flex items-center gap-3 text-sm text-[#1a1510] cursor-pointer">
+                    <input type="radio" name="campaign_remove_scope" checked={removeScope === 'specific'} onChange={() => handleConfigChange('removeScope', 'specific')} className="accent-[#1a1510] w-4 h-4" />
+                    Remove contacts from specific campaign(s)
+                  </label>
+                </div>
+
+                {removeScope === 'specific' && (
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-bold text-[#1a1510]">Campaigns <span className="text-red-500">*</span></label>
+                    <SearchableSelect
+                      multiple
+                      options={campaignOptions}
+                      value={Array.isArray(node.config?.campaignIds) ? node.config.campaignIds : []}
+                      onChange={(ids) => handleConfigChange('campaignIds', ids)}
+                      placeholder="Select..."
+                      emptyMessage="No campaigns found for this client"
+                      footer={createCampaignLink}
+                    />
+                  </div>
+                )}
+              </>
+            )}
           </div>
-          <div className="space-y-2">
-            <label className="text-[11px] font-bold text-[#1a1510]">Send From (Email Account ID) <span className="text-red-500">*</span></label>
-            <input type="text" placeholder="Apollo email sending account ID" value={node.config?.sendEmailFromAccountId || ""} onChange={e => handleConfigChange("sendEmailFromAccountId", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
-          </div>
-          <div className="space-y-2">
-            <label className="text-[11px] font-bold text-[#1a1510]">Status</label>
-            <select value={node.config?.status || "active"} onChange={e => handleConfigChange("status", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
-              <option value="active">Active</option>
-              <option value="paused">Paused</option>
-            </select>
-          </div>
+
+          <p className="text-[11px] text-slate-400">
+            Applies to the contact this workflow is running for. A contact belongs to one campaign, so adding it here moves it from any other. This records the link — it doesn't start sending by itself.
+          </p>
         </div>
       </div>
     );
@@ -359,54 +413,6 @@ export const ConfigPanel = ({
             <label className="text-[11px] font-bold text-[#1a1510]">Note</label>
             <textarea value={node.config?.note || ""} onChange={e => handleConfigChange("note", e.target.value)} className="w-full h-20 p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none resize-none bg-white" />
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (node.tool === 'enrich_data') {
-    const mode = node.config?.mode || 'people';
-    return (
-      <div className="h-full flex flex-col bg-white">
-        <div className="h-14 px-4 border-b border-[#1a1510]/[0.07] flex items-center justify-between shrink-0 bg-[#faf9f8]">
-          <h3 className="font-bold text-[#1a1510] text-[11px] tracking-widest uppercase">ACTION / Enrich Data</h3>
-          <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-md transition-colors text-slate-400"><X size={16} /></button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
-          <p className="text-xs text-slate-500">Enriches people or company data via Apollo.</p>
-          {renderApolloAccountPicker()}
-          <div className="space-y-2">
-            <label className="text-[11px] font-bold text-[#1a1510]">Enrich</label>
-            <select value={mode} onChange={e => handleConfigChange("mode", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
-              <option value="people">People (bulk, up to 10)</option>
-              <option value="organization">Organization</option>
-            </select>
-          </div>
-          {mode === 'people' ? (
-            <div className="space-y-2">
-              <label className="text-[11px] font-bold text-[#1a1510]">People (JSON array) <span className="text-red-500">*</span></label>
-              <textarea placeholder='[{"email":"jane@acme.com"},{"first_name":"John","last_name":"Doe","organization_name":"Acme"}]' value={node.config?.details || ""} onChange={e => handleConfigChange("details", e.target.value)} className="w-full h-28 p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none resize-none bg-white font-mono" />
-            </div>
-          ) : (
-            <>
-              <div className="space-y-2">
-                <label className="text-[11px] font-bold text-[#1a1510]">Company Domain</label>
-                <input type="text" placeholder="apollo.io" value={node.config?.domain || ""} onChange={e => handleConfigChange("domain", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[11px] font-bold text-[#1a1510]">Website</label>
-                <input type="text" placeholder="http://www.apollo.io" value={node.config?.website || ""} onChange={e => handleConfigChange("website", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[11px] font-bold text-[#1a1510]">LinkedIn URL</label>
-                <input type="text" value={node.config?.linkedinUrl || ""} onChange={e => handleConfigChange("linkedinUrl", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[11px] font-bold text-[#1a1510]">Company Name</label>
-                <input type="text" value={node.config?.name || ""} onChange={e => handleConfigChange("name", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
-              </div>
-            </>
-          )}
         </div>
       </div>
     );
@@ -1157,6 +1163,19 @@ export const ConfigPanel = ({
   }
 
   if (node.tool === 'send_webhook') {
+    const WEBHOOK_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
+    const method: string = node.config?.method || 'GET';
+    const authType: string = node.config?.authType || 'none';
+    const hasBody = method !== 'GET';
+    const secretSaved = node.config?.authSecret === SAVED_SECRET_MARKER;
+    const headerRows: { key: string; value: string }[] =
+      Array.isArray(node.config?.headers) && node.config.headers.length > 0 ? node.config.headers : [{ key: '', value: '' }];
+    const setHeaderRows = (rows: { key: string; value: string }[]) => handleConfigChange('headers', rows);
+    const updateHeader = (idx: number, patch: Partial<{ key: string; value: string }>) =>
+      setHeaderRows(headerRows.map((row, i) => (i === idx ? { ...row, ...patch } : row)));
+    const fieldCls = "w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white";
+    const canTest = !!String(node.config?.url || '').trim() && !isTestingWebhook;
+
     return (
       <div className="h-full flex flex-col bg-white">
         <div className="h-14 px-4 border-b border-[#1a1510]/[0.07] flex items-center justify-between shrink-0 bg-[#faf9f8]">
@@ -1164,28 +1183,115 @@ export const ConfigPanel = ({
           <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-md transition-colors text-slate-400"><X size={16} /></button>
         </div>
         <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
-          <p className="text-xs text-slate-500">Sends an outbound HTTP request to a URL you control — no account connection needed.</p>
-          <div className="space-y-2">
-            <label className="text-[11px] font-bold text-[#1a1510]">URL <span className="text-red-500">*</span></label>
-            <input type="text" placeholder="https://example.com/webhook" value={node.config?.url || ""} onChange={e => handleConfigChange("url", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+          <p className="text-xs text-slate-500">Sends an HTTP request to a URL you control — no account connection needed.</p>
+
+          <div className="p-4 bg-[#faf9f8] border border-slate-200 rounded-xl space-y-4">
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold text-[#1a1510]">Method <span className="text-red-500">*</span></label>
+              <select value={method} onChange={e => handleConfigChange("method", e.target.value)} className={fieldCls}>
+                {WEBHOOK_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold text-[#1a1510]">Webhook URL <span className="text-red-500">*</span></label>
+              <input type="text" placeholder="Enter URL" value={node.config?.url || ""} onChange={e => handleConfigChange("url", e.target.value)} className={fieldCls} />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold text-[#1a1510]">API Authentication <span className="text-red-500">*</span></label>
+              <select value={authType} onChange={e => handleConfigChange("authType", e.target.value)} className={fieldCls}>
+                <option value="none">None</option>
+                <option value="basic">Basic Auth</option>
+                <option value="bearer">Bearer Token</option>
+                <option value="apikey">API Key</option>
+              </select>
+            </div>
+
+            {authType === 'basic' && (
+              <div className="space-y-2">
+                <label className="text-[11px] font-bold text-[#1a1510]">Username</label>
+                <input type="text" autoComplete="off" value={node.config?.authUsername || ""} onChange={e => handleConfigChange("authUsername", e.target.value)} className={fieldCls} />
+              </div>
+            )}
+
+            {authType === 'apikey' && (
+              <div className="space-y-2">
+                <label className="text-[11px] font-bold text-[#1a1510]">Header name</label>
+                <input type="text" placeholder="X-API-Key" value={node.config?.authKeyName || ""} onChange={e => handleConfigChange("authKeyName", e.target.value)} className={fieldCls} />
+              </div>
+            )}
+
+            {authType !== 'none' && (
+              <div className="space-y-2">
+                <label className="text-[11px] font-bold text-[#1a1510]">
+                  {authType === 'basic' ? 'Password' : authType === 'bearer' ? 'Token' : 'API key'}
+                </label>
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder={secretSaved ? 'Saved — type to replace' : ''}
+                  value={secretSaved ? '' : (node.config?.authSecret || '')}
+                  onChange={e => handleConfigChange("authSecret", e.target.value)}
+                  className={fieldCls}
+                />
+                <p className="text-[11px] text-slate-400">Stored encrypted. It is never shown again once saved.</p>
+              </div>
+            )}
           </div>
-          <div className="space-y-2">
-            <label className="text-[11px] font-bold text-[#1a1510]">Method</label>
-            <select value={node.config?.method || "POST"} onChange={e => handleConfigChange("method", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white">
-              <option value="POST">POST</option>
-              <option value="GET">GET</option>
-              <option value="PUT">PUT</option>
-              <option value="PATCH">PATCH</option>
-              <option value="DELETE">DELETE</option>
-            </select>
+
+          <div className="p-4 bg-[#faf9f8] border border-slate-200 rounded-xl space-y-3">
+            <label className="text-[11px] font-bold text-[#1a1510]">Headers</label>
+            {headerRows.map((row, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <input type="text" placeholder="Key" value={row.key} onChange={e => updateHeader(idx, { key: e.target.value })} className={`${fieldCls} flex-1 min-w-0`} />
+                <input type="text" placeholder="Value" value={row.value} onChange={e => updateHeader(idx, { value: e.target.value })} className={`${fieldCls} flex-1 min-w-0`} />
+                <button
+                  type="button"
+                  onClick={() => setHeaderRows(headerRows.filter((_, i) => i !== idx))}
+                  className="p-2 text-slate-400 hover:text-red-500 transition-colors shrink-0"
+                  title="Remove header"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setHeaderRows([...headerRows, { key: '', value: '' }])}
+              className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-white hover:text-[#1a1510] transition-colors"
+            >
+              + Add
+            </button>
+            <p className="text-[11px] text-slate-400">Header values are stored as typed — use API Authentication above for secrets.</p>
           </div>
+
+          {hasBody && (
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold text-[#1a1510]">Body (JSON or text, optional)</label>
+              <textarea placeholder='{"email": "{{trigger.contact.email}}"}' value={node.config?.body || ""} onChange={e => handleConfigChange("body", e.target.value)} className="w-full h-24 p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none resize-none bg-white font-mono" />
+            </div>
+          )}
+
           <div className="space-y-2">
-            <label className="text-[11px] font-bold text-[#1a1510]">Headers (JSON, optional)</label>
-            <textarea placeholder='{"Authorization": "Bearer ..."}' value={node.config?.headers || ""} onChange={e => handleConfigChange("headers", e.target.value)} className="w-full h-20 p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none resize-none bg-white font-mono" />
-          </div>
-          <div className="space-y-2">
-            <label className="text-[11px] font-bold text-[#1a1510]">Body (JSON or text, optional)</label>
-            <textarea placeholder='{"email": "{{trigger.contact.email}}"}' value={node.config?.body || ""} onChange={e => handleConfigChange("body", e.target.value)} className="w-full h-24 p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none resize-none bg-white font-mono" />
+            <button
+              type="button"
+              onClick={handleTestWebhook}
+              disabled={!canTest}
+              className="px-4 py-2 border border-slate-200 rounded-lg text-[13px] font-semibold text-[#1a1510] bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {isTestingWebhook ? 'Testing…' : 'Test connection'}
+            </button>
+            <p className="text-[11px] text-slate-400">Sends a real {method} request to this URL. Variables like {'{{trigger.…}}'} aren't filled in during a test.</p>
+
+            {webhookTest && (
+              <div className={`rounded-lg border p-3 text-xs ${webhookTest.ok ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-700'}`}>
+                <div className="font-bold">{webhookTest.ok ? 'Success' : 'Failed'} — {webhookTest.message}</div>
+                {webhookTest.preview && (
+                  <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap break-all font-mono text-[11px] opacity-80">{webhookTest.preview}</pre>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
