@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { ConnectModal } from "../../../../components/dashboard/Tools/ConnectModal";
-import { ZapierBuilder } from "../../../../components/dashboard/Workflows/ZapierBuilder";
+import { OwnerSelect } from "../../../../components/ui/OwnerSelect";
 import { Country, State } from 'country-state-city';
 import { useAuth } from "../../../../hooks/useAuth";
 
@@ -30,7 +30,6 @@ const STEPS = [
   { key: "channels", label: "Channels", icon: Layers },
   { key: "leads", label: "Leads", icon: Users },
   { key: "messaging", label: "Messaging", icon: Mail },
-  { key: "workflow", label: "Workflow", icon: RefreshCw },
   { key: "review", label: "Review", icon: Send },
 ] as const;
 
@@ -55,13 +54,6 @@ const INTENT_OPTIONS = [
     title: "Multichannel Outbound",
     desc: "Email + LinkedIn + Calls combined",
     tools: ["Apollo", "Clay", "Smartlead", "HeyReach"],
-  },
-  {
-    id: "signal",
-    icon: Zap,
-    title: "Signal-based Outreach",
-    desc: "Triggered by hiring, funding, intent",
-    tools: ["Clay", "Apollo", "Smartlead"],
   },
 ] as const;
 
@@ -302,8 +294,6 @@ export default function BuildCampaignPage() {
   const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [campaignId] = useState(() => typeof window !== 'undefined' && window.crypto?.randomUUID ? window.crypto.randomUUID() : 'c' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15));
-  const [campaignWorkflowId, setCampaignWorkflowId] = useState<string | null>(null);
-  const [isBuilderOpen, setIsBuilderOpen] = useState(false);
   const [connectedTools, setConnectedTools] = useState<string[]>([]);
   const [fetchingTools, setFetchingTools] = useState(false);
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
@@ -1120,13 +1110,6 @@ export default function BuildCampaignPage() {
     try {
       const response = await api.post("/campaigns/plan", {
         prompt: buildPrompt(),
-        workflowId: campaignWorkflowId,
-        workflows: workflows.map((w) => ({
-          name: w.name,
-          actions: w.actions.map((a) => ({
-            label: a.label,
-          })),
-        })),
       }, {
         headers: {
           "ngrok-skip-browser-warning": "true",
@@ -1149,20 +1132,6 @@ export default function BuildCampaignPage() {
       setBuilding(false);
     }
   };
-
-  if (isBuilderOpen) {
-    return (
-      <div className="fixed inset-0 z-50 bg-white">
-        <ZapierBuilder
-          workflowId={campaignWorkflowId}
-          onClose={(id?: string) => {
-            if (id) setCampaignWorkflowId(id);
-            setIsBuilderOpen(false);
-          }}
-        />
-      </div>
-    );
-  }
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#f7f8f9] text-[#1a1510] font-sans selection:bg-brand-gold/30">
@@ -1365,10 +1334,10 @@ export default function BuildCampaignPage() {
                       />
                     </Field>
                     <Field label="Owner" icon={Users}>
-                      <input
+                      <OwnerSelect
                         value={form.owner}
-                        onChange={(e) => set({ owner: e.target.value })}
-                        placeholder="e.g. Sarah Kim"
+                        onChange={(owner) => set({ owner })}
+                        placeholder="Select owner…"
                         className={inputCls}
                       />
                     </Field>
@@ -2165,51 +2134,6 @@ export default function BuildCampaignPage() {
                     </div>
                   </div>
 
-                </Section>
-              )}
-
-              {/* STEP 5 — WORKFLOW */}
-              {step === 4 && (
-                <Section
-                  title="Workflow"
-                  subtitle="Create your campaign automation workflow."
-                  action={
-                    !campaignWorkflowId && (
-                      <button
-                        onClick={() => setIsBuilderOpen(true)}
-                        className="h-10 px-4 rounded-xl border border-[#1a1510]/10 bg-white text-[12px] font-semibold text-[#1a1510]/70 hover:text-[#1a1510] hover:border-[#1a1510]/20 transition-colors flex items-center gap-2"
-                      >
-                        <Plus size={15} className="text-[#1a1510]/40" /> Create Workflow
-                      </button>
-                    )
-                  }
-                >
-                  {campaignWorkflowId ? (
-                    <div className="rounded-2xl border border-brand-gold/40 bg-brand-gold/[0.06] p-6 flex flex-col items-center text-center">
-                      <div className="w-12 h-12 rounded-xl bg-white border border-brand-gold/20 flex items-center justify-center text-brand-gold mb-3">
-                        <RefreshCw size={20} />
-                      </div>
-                      <h4 className="text-[14px] font-bold text-[#1a1510]">Workflow Attached</h4>
-                      <p className="text-[12px] text-[#1a1510]/60 mt-1 mb-4">Your automation is ready to launch with this campaign.</p>
-                      <div className="flex gap-2">
-                        <button onClick={() => setIsBuilderOpen(true)} className="h-9 px-4 rounded-lg bg-white border border-[#1a1510]/10 text-[12px] font-semibold hover:bg-slate-50 transition-colors">
-                          Edit Workflow
-                        </button>
-                        <button onClick={() => setCampaignWorkflowId(null)} className="h-9 px-4 rounded-lg bg-red-50 text-red-600 border border-red-100 text-[12px] font-semibold hover:bg-red-100 transition-colors">
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="rounded-2xl border border-[#1a1510]/[0.07] border-dashed p-10 flex flex-col items-center text-center bg-[#fafafa]">
-                      <div className="w-12 h-12 rounded-xl bg-white border border-[#1a1510]/10 flex items-center justify-center text-[#1a1510]/40 mb-3">
-                        <LayoutGrid size={20} />
-                      </div>
-                      <h4 className="text-[14px] font-bold text-[#1a1510]">No Workflow Created</h4>
-                      <p className="text-[12px] text-[#1a1510]/45 mt-1 max-w-sm">Create a workflow to orchestrate your emails, LinkedIn messages, and CRM actions.</p>
-                    </div>
-                  )}
-
                   {/* Daily Send Limit */}
                   <Field label="Daily Send Limit" icon={Zap}>
                     <input
@@ -2222,8 +2146,8 @@ export default function BuildCampaignPage() {
                 </Section>
               )}
 
-              {/* STEP 6 — REVIEW */}
-              {step === 5 && (
+              {/* STEP 5 — REVIEW */}
+              {step === 4 && (
                 <Section title="Review & Launch" subtitle="Confirm everything before activating">
                   {/* Metric cards */}
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -2265,26 +2189,6 @@ export default function BuildCampaignPage() {
                       <span className="text-[13px]"><span className="text-[#1a1510]/40">Total</span> <b className="text-[#1a1510]">{leads.length || leadsLoaded}</b></span>
                       <span className="text-[13px]"><span className="text-[#1a1510]/40">Verified</span> <b className="text-[#1a1510]">{leads.filter((l) => l.status === "verified").length}</b></span>
                       <span className="text-[13px]"><span className="text-[#1a1510]/40">Enriched</span> <b className="text-[#1a1510]">0 actions</b></span>
-                    </div>
-                  </div>
-
-                  {/* Workflows */}
-                  <div className="bg-white rounded-2xl border border-[#1a1510]/[0.07] p-5">
-                    <p className="text-[11px] font-bold text-[#1a1510]/40 uppercase tracking-wider mb-3">Workflows ({workflows.length})</p>
-                    <div className="space-y-2">
-                      {workflows.map((w) => (
-                        <div key={w.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-[#f7f8f9]">
-                          <div className="min-w-0">
-                            <p className="text-[13px] font-semibold text-[#1a1510] truncate">{w.name}</p>
-                            <div className="flex flex-wrap gap-1.5 mt-1.5">
-                              {form.channels.slice(0, 3).map((c) => (
-                                <span key={c} className="text-[10px] font-semibold text-[#1a1510]/55 px-1.5 py-0.5 rounded bg-white">{c}</span>
-                              ))}
-                            </div>
-                          </div>
-                          <span className="text-[11px] font-semibold text-[#1a1510]/50 px-2 py-1 rounded-md bg-white shrink-0">{w.actions.length} block{w.actions.length === 1 ? "" : "s"}</span>
-                        </div>
-                      ))}
                     </div>
                   </div>
 

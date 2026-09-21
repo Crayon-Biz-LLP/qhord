@@ -35,8 +35,22 @@ model Operator {
   workflows             Workflow[]
   sessions              Session[]
   owned_deals           Deal[]               @relation("deal_owner")
+  client_owners         ClientOwner[]
 
   @@map("operators")
+}
+
+// Custom "account owner" names an operator has added for their clients — free-text people
+// (e.g. account managers) who aren't necessarily users of the app.
+model ClientOwner {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  operator_id String   @db.Uuid
+  operator    Operator @relation(fields: [operator_id], references: [id], onDelete: Cascade)
+  name        String
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([operator_id, name])
+  @@map("client_owners")
 }
 
 model Workspace {

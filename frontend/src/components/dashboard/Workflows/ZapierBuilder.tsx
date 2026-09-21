@@ -90,13 +90,13 @@ const BLOCK_LIBRARY_CATEGORIES = [
     title: "Actions",
     subtitle: "Data, communications, and tasks",
     items: [
-      { id: "manage_sequences", label: "Manage Sequences", icon: Activity, type: "action" },
-      { id: "manage_lists", label: "Manage lists", icon: Database, type: "action" },
+      { id: "manage_campaigns", label: "Manage campaigns", icon: Activity, type: "action" },
       { id: "manage_deals", label: "Manage deals", icon: Database, type: "action" },
-      { id: "enrich_data", label: "Enrich data", icon: Settings2, type: "action" },
-      { id: "assign_manual_tasks", label: "Assign manual tasks", icon: Activity, type: "action" },
-      { id: "update_contact_account", label: "Update contact/account", icon: Database, type: "action" },
-      { id: "send_notifications", label: "Send Notifications", icon: Send, type: "action" },
+      // Temporarily hidden from the library (config panels + backend processors are intact —
+      // uncomment to bring them back):
+      // { id: "assign_manual_tasks", label: "Assign manual tasks", icon: Activity, type: "action" },
+      // { id: "update_contact_account", label: "Update contact/account", icon: Database, type: "action" },
+      // { id: "send_notifications", label: "Send Notifications", icon: Send, type: "action" },
       { id: "send_webhook", label: "Send webhook", icon: Settings2, type: "action" },
     ]
   },
@@ -756,7 +756,8 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
         <div className="w-[300px] border-r border-[#1a1510]/[0.07] bg-white flex flex-col shrink-0 z-10">
           {selectedNodeData ? (
             <ConfigPanel 
-              node={selectedNodeData} 
+              node={selectedNodeData}
+              workflowId={activeWorkflowId}
               allNodes={rawNodes}
               onChange={(updates: Partial<WfNode>) => updateNodeConfig(selectedNodeData.id, updates)} 
               onClose={() => setSelectedNodeId(null)}

@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
    Users, Plus, Search, Building2, ChevronRight, MoreVertical,
-   Trash2, Edit3, CheckCircle2, Shield, Bot, LayoutDashboard,
+   Trash2, Edit3, CheckCircle2, Bot, LayoutDashboard,
    Box, Terminal, Activity, Sparkles, Filter, Link2, Check, ChevronLeft, ArrowRight,
    Mail, Phone, Globe
 } from "lucide-react";
@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { useClient } from "../../../contexts/ClientContext";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { OwnerSelect } from "@/components/ui/OwnerSelect";
 
 export default function ClientsPage() {
    const router = useRouter();
@@ -309,17 +310,16 @@ export default function ClientsPage() {
                               </button>
                            </div>
                            <p className="text-[13px] text-[#1a1510]/45 leading-relaxed">
-                              A client is a persistent workspace for tools, campaigns, ownership, and guardrails — not just a CRM record.
+                              A client is a persistent workspace for tools, campaigns, and ownership — not just a CRM record.
                            </p>
                         </div>
 
                         {/* Stepper */}
-                        <div className="grid grid-cols-4 gap-1 p-1 bg-[#f7f8f9] rounded-xl border border-[#1a1510]/[0.07]">
+                        <div className="grid grid-cols-3 gap-1 p-1 bg-[#f7f8f9] rounded-xl border border-[#1a1510]/[0.07]">
                            {[
                               { id: 1, label: "Identity", icon: Users },
                               { id: 2, label: "ICP & Strategy", icon: Sparkles },
-                              { id: 3, label: "Connected Stack", icon: Link2 },
-                              { id: 4, label: "Guardrails", icon: Shield }
+                              { id: 3, label: "Connected Stack", icon: Link2 }
                            ].map((s) => {
                               const Icon = s.icon;
                               const isCompleted = step > s.id;
@@ -418,19 +418,11 @@ export default function ClientsPage() {
                                  <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-2">
                                        <label className="text-[12px] font-semibold text-[#1a1510]/60 px-0.5">Account owner</label>
-                                       <div className="relative">
-                                          <select
-                                             value={formData.account_owner}
-                                             onChange={(e) => setFormData({ ...formData, account_owner: e.target.value })}
-                                             className="w-full h-10 px-4 rounded-lg bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] focus:bg-white focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 focus:outline-none transition-all appearance-none"
-                                          >
-                                             <option value="">Assign owner...</option>
-                                             <option value="Sarah Mitchell">Sarah Mitchell</option>
-                                             <option value="Alex Chen">Alex Chen</option>
-                                             <option value="Marcus Johnson">Marcus Johnson</option>
-                                          </select>
-                                          <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1a1510]/30 pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                                       </div>
+                                       <OwnerSelect
+                                          value={formData.account_owner}
+                                          onChange={(owner) => setFormData(prev => ({ ...prev, account_owner: owner }))}
+                                          className="w-full h-10 px-4 rounded-lg bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] focus:bg-white focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 focus:outline-none transition-all placeholder:text-[#1a1510]/30"
+                                       />
                                     </div>
 
                                     <div className="space-y-2">
@@ -582,95 +574,12 @@ export default function ClientsPage() {
                                  </div>
                               </motion.div>
                            )}
-
-                           {step === 4 && (
-                              <motion.div
-                                 initial={{ opacity: 0, x: 10 }}
-                                 animate={{ opacity: 1, x: 0 }}
-                                 className="space-y-4"
-                              >
-                                 <div className="space-y-2">
-                                    <div>
-                                       <label className="text-[12px] font-semibold text-[#1a1510]/60 px-0.5">Approval mode</label>
-                                       <p className="text-[10px] font-semibold text-[#1a1510]/30 uppercase tracking-widest px-1 mt-0.5">
-                                          How much autonomy does Qhord have for this account?
-                                       </p>
-                                    </div>
-                                    
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                                       {[
-                                          { id: "Suggest only", title: "Suggest only", desc: "Qhord only suggests fixes. You execute everything." },
-                                          { id: "Approval required", title: "Approval required", desc: "Qhord proposes actions. You approve before execution." },
-                                          { id: "Auto with guardrails", title: "Auto with guardrails", desc: "Qhord acts automatically within deliverability + volume guardrails." },
-                                          { id: "Fully autonomous", title: "Fully autonomous", desc: "Qhord runs the account end-to-end with full audit trail." }
-                                       ].map((mode) => {
-                                          const isSelected = formData.approval_mode === mode.id;
-                                          return (
-                                             <div
-                                                key={mode.id}
-                                                onClick={() => setFormData({ ...formData, approval_mode: mode.id })}
-                                                className={`cursor-pointer p-3 rounded-xl border flex items-start gap-2.5 transition-all select-none ${
-                                                   isSelected
-                                                      ? "bg-brand-gold/5 border-brand-gold/50 shadow-sm"
-                                                      : "bg-[#f7f8f9] border-[#1a1510]/5 hover:border-[#1a1510]/15"
-                                                }`}
-                                             >
-                                                <div className={`mt-0.5 w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 transition-all ${
-                                                   isSelected ? "border-[#1a1510] bg-[#1a1510] text-white" : "border-[#1a1510]/20 bg-white"
-                                                }`}>
-                                                   {isSelected && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
-                                                </div>
-                                                <div>
-                                                   <h5 className="text-[10px] font-bold text-[#1a1510] leading-none mb-1">{mode.title}</h5>
-                                                   <p className="text-[9px] text-[#1a1510]/40 font-semibold leading-tight">{mode.desc}</p>
-                                                </div>
-                                             </div>
-                                          );
-                                       })}
-                                    </div>
-                                 </div>
-
-                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="space-y-1.5">
-                                       <label className="text-[12px] font-semibold text-[#1a1510]/60 px-0.5">Max daily sends per Inbox</label>
-                                       <input
-                                          type="number"
-                                          value={formData.max_daily_sends}
-                                          onChange={(e) => setFormData({ ...formData, max_daily_sends: Number(e.target.value) })}
-                                          placeholder="150"
-                                          className="w-full h-11 px-5 rounded-xl bg-[#f7f8f9] border border-transparent text-xs font-bold focus:bg-white focus:border-brand-gold/30 focus:outline-none transition-all"
-                                       />
-                                    </div>
-
-                                    <div className="flex flex-col justify-end">
-                                       <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#f7f8f9] border border-[#1a1510]/5 h-11">
-                                          <div>
-                                             <h5 className="text-[10px] font-bold text-[#1a1510] leading-none">Require approval for CRM writes</h5>
-                                          </div>
-                                          <button
-                                             type="button"
-                                             onClick={() => setFormData({ ...formData, require_crm_approval: !formData.require_crm_approval })}
-                                             className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                                                formData.require_crm_approval ? 'bg-[#1a1510]' : 'bg-[#1a1510]/15'
-                                             }`}
-                                          >
-                                             <span
-                                                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                                                   formData.require_crm_approval ? 'translate-x-4' : 'translate-x-0'
-                                                }`}
-                                             />
-                                          </button>
-                                       </div>
-                                    </div>
-                                 </div>
-                              </motion.div>
-                           )}
                         </div>
 
                         {/* Footer Controls */}
                         <div className="flex items-center justify-between pt-4 border-t border-[#1a1510]/[0.07]">
                            <div className="text-[12px] font-medium text-[#1a1510]/40">
-                              Step {step} of 4
+                              Step {step} of 3
                            </div>
 
                            <div className="flex gap-2.5">
@@ -684,7 +593,7 @@ export default function ClientsPage() {
                                  </button>
                               )}
 
-                              {step < 4 ? (
+                              {step < 3 ? (
                                  <button
                                     type="button"
                                     disabled={step === 1 ? !formData.name : step === 2 ? !formData.icp_summary : false}

@@ -7,10 +7,8 @@ import { BetterContactProcessor } from './bettercontact';
 import { InstantlyProcessor } from './instantly';
 import { CalendlyProcessor } from './calendly';
 import { GojiberryProcessor } from './gojiberry';
-import { ManageListsProcessor } from './manage-lists';
-import { ManageSequencesProcessor } from './manage-sequences';
+import { ManageCampaignsProcessor } from './manage-campaigns';
 import { AssignManualTasksProcessor } from './assign-manual-tasks';
-import { EnrichDataProcessor } from './enrich-data';
 import { SendWebhookProcessor } from './send-webhook';
 import { SendNotificationProcessor } from './send-notification';
 import { UpdateContactAccountProcessor } from './update-contact-account';
@@ -71,14 +69,12 @@ nodeProcessorFactory.register('Instantly', new InstantlyProcessor());
 nodeProcessorFactory.register('Calendly', new CalendlyProcessor());
 nodeProcessorFactory.register('Gojiberry', new GojiberryProcessor());
 
-// Generic "Actions" block-library items that are backed by Apollo's API under the hood
-// (each requires a connected Apollo account, resolved via getCredentials('Apollo', ...)).
-nodeProcessorFactory.register('manage_lists', new ManageListsProcessor());
-nodeProcessorFactory.register('manage_sequences', new ManageSequencesProcessor());
+// Generic "Actions" block-library item backed by Apollo's API under the hood
+// (requires a connected Apollo account, resolved via getCredentials('Apollo', ...)).
 nodeProcessorFactory.register('assign_manual_tasks', new AssignManualTasksProcessor());
-nodeProcessorFactory.register('enrich_data', new EnrichDataProcessor());
 
 // Generic, non-third-party Actions backed by internal Qhord models.
+nodeProcessorFactory.register('manage_campaigns', new ManageCampaignsProcessor());
 nodeProcessorFactory.register('send_webhook', new SendWebhookProcessor());
 nodeProcessorFactory.register('send_notifications', new SendNotificationProcessor());
 nodeProcessorFactory.register('update_contact_account', new UpdateContactAccountProcessor());
