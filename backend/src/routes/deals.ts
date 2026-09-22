@@ -36,7 +36,7 @@ router.get('/', async (req: Request, res: Response) => {
 router.post('/', async (req: Request, res: Response) => {
   try {
     const operatorId = req.user!.id;
-    const { name, contact, amount, health, stage, pipeline, ownerOperatorId, auto, avatar, clientId } = req.body;
+    const { name, contact, company, amount, health, stage, campaignId, ownerOperatorId, estimatedCloseDate, auto, avatar, clientId } = req.body;
 
     if (!name || !contact || !amount || !stage) {
       return res.status(400).json({ success: false, error: 'Missing required fields: name, contact, amount, stage' });
@@ -54,15 +54,24 @@ router.post('/', async (req: Request, res: Response) => {
       targetClientId = client.id;
     }
 
+    if (campaignId) {
+      const campaign = await prisma.campaign.findFirst({ where: { id: campaignId, client_id: targetClientId }, select: { id: true } });
+      if (!campaign) {
+        return res.status(400).json({ success: false, error: 'Campaign not found for this client.' });
+      }
+    }
+
     const deal = await prisma.deal.create({
       data: {
         name,
         contact,
+        company: company || undefined,
         amount,
         health: health ? parseInt(health, 10) : 80,
         stage,
-        pipeline: pipeline || undefined,
+        campaign_id: campaignId || undefined,
         owner_operator_id: ownerOperatorId || undefined,
+        estimated_close_date: estimatedCloseDate ? new Date(estimatedCloseDate) : undefined,
         auto: auto !== undefined ? Boolean(auto) : true,
         avatar: avatar || (contact ? contact.charAt(0) : 'D'),
         client_id: targetClientId,
@@ -79,7 +88,18 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { stage, health, auto, name, contact, amount, pipeline, ownerOperatorId } = req.body;
+    const { stage, health, auto, name, contact, company, amount, campaignId, ownerOperatorId, estimatedCloseDate } = req.body;
+
+    if (campaignId) {
+      const existing = await prisma.deal.findUnique({ where: { id }, select: { client_id: true } });
+      if (!existing) {
+        return res.status(404).json({ success: false, error: 'Deal not found' });
+      }
+      const campaign = await prisma.campaign.findFirst({ where: { id: campaignId, client_id: existing.client_id }, select: { id: true } });
+      if (!campaign) {
+        return res.status(400).json({ success: false, error: 'Campaign not found for this client.' });
+      }
+    }
 
     const deal = await prisma.deal.update({
       where: { id },
@@ -89,9 +109,11 @@ router.put('/:id', async (req: Request, res: Response) => {
         auto: auto !== undefined ? Boolean(auto) : undefined,
         name: name || undefined,
         contact: contact || undefined,
+        company: company !== undefined ? (company || null) : undefined,
         amount: amount || undefined,
-        pipeline: pipeline || undefined,
+        campaign_id: campaignId !== undefined ? (campaignId || null) : undefined,
         owner_operator_id: ownerOperatorId || undefined,
+        estimated_close_date: estimatedCloseDate !== undefined ? (estimatedCloseDate ? new Date(estimatedCloseDate) : null) : undefined,
       }
     });
 

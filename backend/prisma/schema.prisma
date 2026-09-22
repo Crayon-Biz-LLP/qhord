@@ -268,6 +268,7 @@ model Campaign {
   approvals CampaignApproval[]
   queue     ExecutionQueue?
   leads     Lead[]
+  deals     Deal[]
 
 
   @@map("campaigns")
@@ -387,12 +388,15 @@ model Deal {
   client     Client   @relation(fields: [client_id], references: [id], onDelete: Cascade)
   name       String
   contact    String
+  company    String?
   amount     String
   health     Int      @default(80)
   stage      String   // "New Lead", "Engaged", "Meeting", "Proposal", "Closed"
-  pipeline   String   @default("Pipeline 1")
+  campaign_id String?  @db.Uuid
+  campaign   Campaign? @relation(fields: [campaign_id], references: [id], onDelete: SetNull)
   owner_operator_id String?   @db.Uuid
   owner      Operator? @relation("deal_owner", fields: [owner_operator_id], references: [id], onDelete: SetNull)
+  estimated_close_date DateTime? @db.Timestamptz(6)
   auto       Boolean  @default(true)
   avatar     String   @default("D")
   created_at DateTime @default(now()) @db.Timestamptz(6)

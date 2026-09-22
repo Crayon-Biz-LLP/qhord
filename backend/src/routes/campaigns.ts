@@ -236,21 +236,24 @@ router.get('/', async (req: Request, res: Response) => {
   try {
     // For testing without auth, get all campaigns or use test user
     let operatorId = req.user?.id;
-    
+
     if (!operatorId) {
       // Get test user for demo
       let testOperator = await prisma.operator.findFirst({
         where: { email: 'demo@example.com' }
       });
-      
+
       if (testOperator) {
         operatorId = testOperator.id;
       }
     }
 
+    const { clientId } = req.query;
+
     const campaigns = await prisma.campaign.findMany({
       where: {
         ...(operatorId ? { created_by_operator_id: operatorId } : {}),
+        ...(clientId ? { client_id: clientId as string } : {}),
         status: {
           not: 'workflow_template'
         }

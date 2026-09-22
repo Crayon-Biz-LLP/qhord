@@ -159,10 +159,17 @@ export const ConfigPanel = ({
     api.get('/settings')
       .then(res => setTeamMembers(res.data?.team || []))
       .catch(() => setTeamMembers([]));
-    api.get('/campaigns')
+  }, []);
+
+  useEffect(() => {
+    if (!selectedClient?.id) {
+      setCampaignsList([]);
+      return;
+    }
+    api.get(`/campaigns?clientId=${selectedClient.id}`)
       .then(res => setCampaignsList(res.data?.campaigns || []))
       .catch(() => setCampaignsList([]));
-  }, []);
+  }, [selectedClient?.id]);
 
   useEffect(() => {
     const fetchAccounts = async () => {
@@ -1393,18 +1400,34 @@ export const ConfigPanel = ({
       { id: 'amount', label: 'Deal amount' },
       { id: 'stage', label: 'Deal stage' },
       { id: 'health', label: 'Health score' },
-      { id: 'pipeline', label: 'Pipeline' },
+      { id: 'campaignId', label: 'Campaign' },
       { id: 'owner_operator_id', label: 'Deal owner' },
       { id: 'contact', label: 'Contact' },
       { id: 'name', label: 'Deal name' },
     ];
     const dealField = node.config?.deal_field || 'amount';
+    const dealCampaignOptions = [
+      { value: '', label: 'No campaign' },
+      ...campaignsList
+        .filter(c => !selectedClient?.id || !c.clientId || c.clientId === selectedClient.id)
+        .map(c => ({ value: c.id, label: c.name, hint: c.status })),
+    ];
 
     const renderOwnerSelect = (fieldKey: string) => (
       <select value={node.config?.[fieldKey] || ""} onChange={e => handleConfigChange(fieldKey, e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white font-medium text-slate-700">
         <option value="">Unassigned</option>
         {teamMembers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
       </select>
+    );
+
+    const renderCampaignSelect = (fieldKey: string) => (
+      <SearchableSelect
+        options={dealCampaignOptions}
+        value={node.config?.[fieldKey] || ''}
+        onChange={(id) => handleConfigChange(fieldKey, id)}
+        placeholder="No campaign"
+        emptyMessage="No campaigns found for this client"
+      />
     );
 
     const renderStageSelect = (fieldKey: string, includeUnchanged: boolean) => (
@@ -1463,6 +1486,7 @@ export const ConfigPanel = ({
                 <div className="space-y-2">
                   <label className="text-[11px] font-bold text-[#1a1510]">Set new value to</label>
                   {dealField === 'stage' ? renderStageSelect('stage', true)
+                    : dealField === 'campaignId' ? renderCampaignSelect('campaignId')
                     : dealField === 'owner_operator_id' ? renderOwnerSelect('owner_operator_id')
                     : dealField === 'health' ? (
                       <input type="number" min={0} max={100} placeholder="Leave blank to keep unchanged" value={node.config?.health || ""} onChange={e => handleConfigChange("health", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
@@ -1486,8 +1510,8 @@ export const ConfigPanel = ({
                   <input type="text" placeholder="e.g. $18.5K" value={node.config?.amount || ""} onChange={e => handleConfigChange("amount", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#1a1510] flex items-center gap-1">Pipeline <span className="text-red-500">*</span></label>
-                  <input type="text" placeholder="Pipeline 1" value={node.config?.pipeline || ""} onChange={e => handleConfigChange("pipeline", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
+                  <label className="text-[11px] font-bold text-[#1a1510]">Campaign</label>
+                  {renderCampaignSelect('campaignId')}
                 </div>
                 <div className="space-y-2">
                   <label className="text-[11px] font-bold text-[#1a1510] flex items-center gap-1">Deal Stage <span className="text-red-500">*</span></label>

@@ -3,8 +3,9 @@ import { NodeProcessor, NodeProcessorContext, NodeExecutionResult } from './inde
 import { interpolateConfig } from './utils';
 import { BaseProcessor } from './base';
 
-// Create/update against the real Deal model (name, contact, amount, stage, health) —
-// mirrors backend/src/routes/deals.ts so workflow-driven deals stay consistent with the Pipeline UI.
+// Create/update against the real Deal model (name, contact, amount, stage, health, campaign,
+// owner) — mirrors backend/src/routes/deals.ts so workflow-driven deals stay consistent with
+// the Pipeline UI. Every read/write is scoped to the workflow's own client.
 export class ManageDealsProcessor extends BaseProcessor implements NodeProcessor {
   async execute(node: WorkflowNode, input: any, context: NodeProcessorContext): Promise<NodeExecutionResult> {
     try {
@@ -18,22 +19,36 @@ export class ManageDealsProcessor extends BaseProcessor implements NodeProcessor
 
       const health = config.health !== undefined && config.health !== '' ? parseInt(config.health, 10) : undefined;
 
+      if (config.campaignId) {
+        const campaign = await context.prisma.campaign.findFirst({
+          where: { id: config.campaignId, client_id: context.clientId },
+          select: { id: true }
+        });
+        if (!campaign) {
+          return { status: 'failed', error: 'Campaign not found for this client.' };
+        }
+      }
+
       if (isUpdate) {
         if (!config.dealId) {
           return { status: 'failed', error: 'Missing dealId for manage_deals update action.' };
         }
-        const deal = await context.prisma.deal.update({
-          where: { id: config.dealId },
+        const { count } = await context.prisma.deal.updateMany({
+          where: { id: config.dealId, client_id: context.clientId },
           data: {
             name: config.name || undefined,
             contact: config.contact || undefined,
             amount: config.amount || undefined,
             stage: config.stage || undefined,
-            pipeline: config.pipeline || undefined,
+            campaign_id: config.campaignId || undefined,
             owner_operator_id: config.owner_operator_id || undefined,
             health
           }
         });
+        if (count === 0) {
+          return { status: 'failed', error: 'Deal not found for this client.' };
+        }
+        const deal = await context.prisma.deal.findUnique({ where: { id: config.dealId } });
         return { status: 'completed', output: deal };
       }
 
@@ -56,7 +71,7 @@ export class ManageDealsProcessor extends BaseProcessor implements NodeProcessor
           contact: config.contact,
           amount: config.amount,
           stage: config.stage,
-          pipeline: config.pipeline || undefined,
+          campaign_id: config.campaignId || undefined,
           owner_operator_id: config.owner_operator_id || undefined,
           health: health ?? 80,
           avatar: config.contact.charAt(0).toUpperCase(),
