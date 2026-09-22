@@ -9,20 +9,28 @@ import { useRouter } from "next/navigation";
 import { Loader } from "@/components/ui/Loader";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
- 
+import { useClient } from "../../../contexts/ClientContext";
+
 export default function CampaignsPage() {
   const router = useRouter();
+  const { selectedClient } = useClient();
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
- 
+
   useEffect(() => {
     fetchCampaigns();
-  }, []);
- 
+  }, [selectedClient?.id]);
+
   const fetchCampaigns = async () => {
+    if (!selectedClient?.id) {
+      setCampaigns([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     try {
-      const response = await api.get("/campaigns");
+      const response = await api.get(`/campaigns?clientId=${selectedClient.id}`);
       setCampaigns(response.data.campaigns || []);
     } catch (error) {
       console.error('Error fetching campaigns:', error);
@@ -120,7 +128,13 @@ export default function CampaignsPage() {
             </div>
 
             <div className="bg-white rounded-2xl border border-[#1a1510]/[0.07] overflow-hidden">
-              {loading ? (
+              {!selectedClient ? (
+                <div className="flex flex-col items-center justify-center text-center py-16 px-6">
+                  <div className="w-14 h-14 rounded-2xl bg-[#f7f8f9] text-[#1a1510]/25 flex items-center justify-center mb-4"><Target size={26} /></div>
+                  <p className="text-[15px] font-semibold text-[#1a1510]">Select a client first</p>
+                  <p className="text-[13px] text-[#1a1510]/40 mt-1">Choose a client from the sidebar to view their campaigns.</p>
+                </div>
+              ) : loading ? (
                 <div className="p-12 flex flex-col items-center justify-center gap-4">
                   <Loader size={36} />
                   <p className="text-[13px] text-[#1a1510]/40">Loading campaigns…</p>

@@ -14,14 +14,19 @@ import { useClient } from "../../../contexts/ClientContext";
 import { api } from "../../../lib/api";
 import { Loader } from "../../../components/ui/Loader";
 import { DealsIcon } from "../../../components/ui/icons/DealsIcon";
+import { SearchableSelect } from "../../../components/ui/SearchableSelect";
 
 interface DealItem {
    id: string;
    name: string;
    contact: string;
+   company?: string | null;
    amount: string;
    health: number;
    stage: string;
+   campaign_id?: string | null;
+   owner_operator_id?: string | null;
+   estimated_close_date?: string | null;
    auto: boolean;
    avatar: string;
 }
@@ -47,9 +52,31 @@ export default function PipelinePage() {
    const [newContact, setNewContact] = useState("");
    const [newAmount, setNewAmount] = useState("$25K");
    const [newStage, setNewStage] = useState("New Lead");
+   const [newCompany, setNewCompany] = useState("");
+   const [newCampaignId, setNewCampaignId] = useState("");
+   const [newOwnerOperatorId, setNewOwnerOperatorId] = useState("");
+   const [newEstimatedCloseDate, setNewEstimatedCloseDate] = useState("");
    const [newHealth, setNewHealth] = useState(80);
    const [newAuto, setNewAuto] = useState(true);
    const [creating, setCreating] = useState(false);
+   const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>([]);
+   const [campaignsList, setCampaignsList] = useState<{ id: string; name: string; clientId?: string; status?: string }[]>([]);
+
+   useEffect(() => {
+      api.get("/settings")
+         .then(res => setTeamMembers(res.data?.team || []))
+         .catch(() => setTeamMembers([]));
+   }, []);
+
+   useEffect(() => {
+      if (!selectedClient?.id) {
+         setCampaignsList([]);
+         return;
+      }
+      api.get(`/campaigns?clientId=${selectedClient.id}`)
+         .then(res => setCampaignsList(res.data?.campaigns || []))
+         .catch(() => setCampaignsList([]));
+   }, [selectedClient?.id]);
 
    const fetchDeals = async () => {
       if (!selectedClient) {
@@ -82,8 +109,12 @@ export default function PipelinePage() {
          const res = await api.post("/deals", {
             name: newName,
             contact: newContact,
+            company: newCompany || undefined,
             amount: newAmount,
             stage: newStage,
+            campaignId: newCampaignId || undefined,
+            ownerOperatorId: newOwnerOperatorId || undefined,
+            estimatedCloseDate: newEstimatedCloseDate || undefined,
             health: newHealth,
             auto: newAuto,
             clientId: selectedClient.id,
@@ -94,8 +125,12 @@ export default function PipelinePage() {
             setIsCreateOpen(false);
             setNewName("");
             setNewContact("");
+            setNewCompany("");
             setNewAmount("$25K");
             setNewStage("New Lead");
+            setNewCampaignId("");
+            setNewOwnerOperatorId("");
+            setNewEstimatedCloseDate("");
             setNewHealth(80);
             setNewAuto(true);
          }
@@ -356,7 +391,7 @@ export default function PipelinePage() {
             {isCreateOpen && (
                <>
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsCreateOpen(false)} className="fixed inset-0 bg-[#1a1510]/40 backdrop-blur-sm z-[200]" />
-                  <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="fixed inset-4 m-auto w-full max-w-[480px] h-fit bg-white rounded-2xl shadow-2xl border border-[#1a1510]/[0.06] z-[201] p-6 sm:p-7">
+                  <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="fixed inset-4 m-auto w-full max-w-[480px] h-fit max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-2xl border border-[#1a1510]/[0.06] z-[201] p-6 sm:p-7">
                      <form onSubmit={handleCreateDeal} className="space-y-5">
                         <div className="flex justify-between items-center">
                            <h2 className="text-lg font-bold text-[#1a1510]">Add Deal</h2>
@@ -374,6 +409,11 @@ export default function PipelinePage() {
                               <input required type="text" value={newContact} onChange={(e) => setNewContact(e.target.value)} placeholder="e.g. Alex Kim" className="w-full h-11 px-4 bg-[#f7f8f9] border border-[#1a1510]/[0.07] rounded-xl outline-none focus:bg-white focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 text-[13px] transition-all placeholder:text-[#1a1510]/30" />
                            </div>
 
+                           <div className="space-y-1.5">
+                              <label className="text-[12px] font-semibold text-[#1a1510]/60">Company</label>
+                              <input type="text" value={newCompany} onChange={(e) => setNewCompany(e.target.value)} placeholder="e.g. GrowthCo" className="w-full h-11 px-4 bg-[#f7f8f9] border border-[#1a1510]/[0.07] rounded-xl outline-none focus:bg-white focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 text-[13px] transition-all placeholder:text-[#1a1510]/30" />
+                           </div>
+
                            <div className="grid grid-cols-2 gap-3">
                               <div className="space-y-1.5">
                                  <label className="text-[12px] font-semibold text-[#1a1510]/60">Amount</label>
@@ -389,15 +429,40 @@ export default function PipelinePage() {
                               </div>
                            </div>
 
-                           <div className="grid grid-cols-2 gap-3 items-end">
+                           <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1.5">
+                                 <label className="text-[12px] font-semibold text-[#1a1510]/60">Campaign</label>
+                                 <SearchableSelect
+                                    options={campaignsList
+                                       .filter(c => !selectedClient?.id || !c.clientId || c.clientId === selectedClient.id)
+                                       .map(c => ({ value: c.id, label: c.name, hint: c.status }))}
+                                    value={newCampaignId}
+                                    onChange={setNewCampaignId}
+                                    placeholder="No campaign"
+                                    emptyMessage="No campaigns found for this client"
+                                    className="h-11 bg-[#f7f8f9]"
+                                 />
+                              </div>
+                              <div className="space-y-1.5">
+                                 <label className="text-[12px] font-semibold text-[#1a1510]/60">Owner</label>
+                                 <select value={newOwnerOperatorId} onChange={(e) => setNewOwnerOperatorId(e.target.value)} className="w-full h-11 px-4 bg-[#f7f8f9] border border-[#1a1510]/[0.07] rounded-xl outline-none text-[13px] cursor-pointer">
+                                    <option value="">Unassigned</option>
+                                    {teamMembers.map(m => (
+                                       <option key={m.id} value={m.id}>{m.name}</option>
+                                    ))}
+                                 </select>
+                              </div>
+                           </div>
+
+                           <div className="grid grid-cols-2 gap-3">
                               <div className="space-y-1.5">
                                  <label className="text-[12px] font-semibold text-[#1a1510]/60">Win probability (%)</label>
                                  <input type="number" min="0" max="100" value={newHealth} onChange={(e) => setNewHealth(parseInt(e.target.value, 10))} className="w-full h-11 px-4 bg-[#f7f8f9] border border-[#1a1510]/[0.07] rounded-xl outline-none focus:bg-white focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 text-[13px] transition-all" />
                               </div>
-                              <label className="flex items-center gap-2 cursor-pointer text-[13px] font-medium text-[#1a1510] h-11">
-                                 <input type="checkbox" checked={newAuto} onChange={(e) => setNewAuto(e.target.checked)} className="rounded text-brand-gold focus:ring-brand-gold w-4 h-4" />
-                                 AI autonomous sync
-                              </label>
+                              <div className="space-y-1.5">
+                                 <label className="text-[12px] font-semibold text-[#1a1510]/60">Estimated close date</label>
+                                 <input type="date" value={newEstimatedCloseDate} onChange={(e) => setNewEstimatedCloseDate(e.target.value)} className="w-full h-11 px-4 bg-[#f7f8f9] border border-[#1a1510]/[0.07] rounded-xl outline-none focus:bg-white focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 text-[13px] transition-all" />
+                              </div>
                            </div>
                         </div>
 
