@@ -42,6 +42,55 @@ router.get('/apollo/status', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * GET /api/tools/apollo/mailboxes?accountId=<clientToolAccount id>
+ * Lists the sending mailboxes available on a connected Apollo account, so
+ * the user can pick which one campaigns should actually send from —
+ * otherwise Apollo silently uses whatever mailbox is set as its own
+ * internal default, which may not match the account you connected here.
+ */
+router.get('/apollo/mailboxes', async (req: Request, res: Response) => {
+  const accountId = req.query.accountId as string;
+  if (!accountId) {
+    res.status(400).json({ success: false, error: 'accountId is required' });
+    return;
+  }
+
+  try {
+    const account = await prisma.clientToolAccount.findUnique({ where: { id: accountId } });
+    if (!account) {
+      res.status(404).json({ success: false, error: 'Tool account not found' });
+      return;
+    }
+
+    const apiKey = decrypt(account.api_key_encrypted);
+    const apolloService = new ApolloService(apiKey);
+    const raw = await apolloService.listMailboxes({});
+
+    const list: any[] = Array.isArray(raw)
+      ? raw
+      : Array.isArray(raw?.email_accounts)
+        ? raw.email_accounts
+        : Array.isArray(raw?.emailer_accounts)
+          ? raw.emailer_accounts
+          : [];
+
+    const mailboxes = list
+      .map((m: any) => ({
+        id: m.id || m.email_account_id,
+        email: m.email || m.address || m.email_address || ''
+      }))
+      .filter((m: { id: string }) => !!m.id);
+
+    res.json({ success: true, mailboxes });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.response?.data?.message || error.message || 'Failed to fetch mailboxes'
+    });
+  }
+});
+
 router.get('/accounts/:clientId', async (req: Request, res: Response) => {
   const { clientId } = req.params;
   try {
@@ -167,6 +216,39 @@ router.post('/accounts/:id/test', async (req: Request, res: Response) => {
   } catch (err) {
     console.error('Test tool account connection error', err);
     res.status(500).json({ message: 'Failed to test connection' });
+  }
+});
+
+/**
+ * PATCH /api/tools/accounts/:id/config
+ * Saves per-connection settings (currently just Apollo's chosen sending
+ * mailbox) without touching the encrypted API key.
+ */
+router.patch('/accounts/:id/config', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { config } = req.body as { config: Record<string, unknown> };
+
+  try {
+    const updated = await prisma.clientToolAccount.update({
+      where: { id },
+      data: { config_json: (config ?? {}) as any },
+      select: {
+        id: true,
+        client_id: true,
+        tool_name: true,
+        account_label: true,
+        status: true,
+        config_json: true
+      }
+    });
+    res.json({ success: true, account: updated });
+  } catch (err: any) {
+    if (err.code === 'P2025') {
+      res.status(404).json({ success: false, message: 'Tool account not found' });
+      return;
+    }
+    console.error('Update tool account config error', err);
+    res.status(500).json({ success: false, message: 'Failed to update tool account config' });
   }
 });
 

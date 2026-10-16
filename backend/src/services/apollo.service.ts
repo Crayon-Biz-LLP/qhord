@@ -264,7 +264,7 @@ export class ApolloService {
     }
   }
 
-  async enrollLead(payload: { email: string; campaign_id: string; first_name?: string; last_name?: string }): Promise<any> {
+  async enrollLead(payload: { email: string; campaign_id: string; first_name?: string; last_name?: string; email_account_id?: string }): Promise<any> {
     let contactId: string;
     try {
       const matched = await this.enrichPerson({ email: payload.email });
@@ -289,7 +289,8 @@ export class ApolloService {
 
     return this.addToSequence({
       emailer_campaign_id: payload.campaign_id,
-      contact_ids: [contactId]
+      contact_ids: [contactId],
+      ...(payload.email_account_id ? { email_account_id: payload.email_account_id } : {})
     });
   }
 

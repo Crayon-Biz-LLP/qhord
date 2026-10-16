@@ -32,83 +32,86 @@ router.get('/metrics', async (req: Request, res: Response) => {
       avg_cost: 0
     };
 
-    // Calculate GTM Health (based on campaign performance)
-    const gtmHealth = stats.active_campaigns > 0 ? 
+    // Calculate GTM Health (based on real campaign performance)
+    const gtmHealth = stats.active_campaigns > 0 ?
       Math.min(95, 70 + (stats.completed_campaigns * 5)) : 85;
 
-    // Get execution metrics (mock data for now since table doesn't exist)
-    const executionMetrics = {
-      total_emails: Math.floor(Math.random() * 2000) + 500,
-      total_replies: Math.floor(Math.random() * 100) + 20,
-      total_meetings: Math.floor(Math.random() * 50) + 10,
-      avg_reply_rate: 3.5,
-      pipeline_value: Math.floor(Math.random() * 500000) + 100000,
-      at_risk_value: Math.floor(Math.random() * 50000) + 10000
+    // Real pipeline/at-risk figures from Deals tied to this operator's clients.
+    // Deal.amount is free-text ("$50K", "1200", ...) — same parsing the
+    // Pipeline page already uses for its own totals.
+    const parseAmount = (amt: string | null | undefined): number => {
+      if (!amt) return 0;
+      const clean = amt.replace(/[^0-9.]/g, '');
+      let val = parseFloat(clean) || 0;
+      const lower = amt.toLowerCase();
+      if (lower.includes('k')) val *= 1000;
+      if (lower.includes('m')) val *= 1000000;
+      return val;
     };
 
-    // Calculate reply rate
-    const replyRate = executionMetrics.total_emails > 0 ? 
-      (executionMetrics.total_replies / executionMetrics.total_emails * 100) : 0;
+    const deals = await prisma.deal.findMany({
+      where: { client: { created_by_operator_id: operatorId } },
+      select: { amount: true, health: true }
+    });
 
+    const pipelineValue = deals.reduce((sum, d) => sum + parseAmount(d.amount), 0);
+    const atRiskDeals = deals.filter((d) => d.health < 50);
+    const atRiskValue = atRiskDeals.reduce((sum, d) => sum + parseAmount(d.amount), 0);
+
+    // Reply rate, meetings and deliverability have no real tracking source
+    // yet (no reply/meeting aggregation exists across campaigns) — shown
+    // honestly as "not tracked" rather than a fabricated number.
     const metrics = {
       kpis: [
-        { 
-          label: "GTM HEALTH", 
-          value: `${gtmHealth}%`, 
-          change: stats.active_campaigns > 0 ? "+2%" : "0%", 
-          trend: "up" 
+        {
+          label: "GTM HEALTH",
+          value: `${gtmHealth}%`,
+          change: stats.active_campaigns > 0 ? "Based on active campaigns" : "No active campaigns",
+          trend: "up"
         },
-        { 
-          label: "ACTIVE", 
-          value: stats.active_campaigns.toString(), 
-          change: `${stats.active_campaigns} running`, 
-          trend: "neutral" 
+        {
+          label: "ACTIVE",
+          value: stats.active_campaigns.toString(),
+          change: `${stats.active_campaigns} running`,
+          trend: "neutral"
         },
-        { 
-          label: "REPLY RATE", 
-          value: `${replyRate.toFixed(1)}%`, 
-          change: "+1.2% vs last week", 
-          trend: "up" 
+        {
+          label: "COMPLETED",
+          value: stats.completed_campaigns.toString(),
+          change: `${stats.total_campaigns} total`,
+          trend: "neutral"
         },
-        { 
-          label: "MEETINGS", 
-          value: executionMetrics.total_meetings.toString(), 
-          change: "+3 today", 
-          trend: "up" 
+        {
+          label: "PIPELINE",
+          value: pipelineValue > 0 ? `$${Math.floor(pipelineValue / 1000)}K` : "—",
+          change: deals.length > 0 ? `${deals.length} deal(s)` : "No deals yet",
+          trend: "neutral"
         },
-        { 
-          label: "PIPELINE", 
-          value: `$${Math.floor(executionMetrics.pipeline_value / 1000)}K`, 
-          change: `+$${Math.floor(executionMetrics.pipeline_value * 0.1 / 1000)}K this week`, 
-          trend: "up" 
+        {
+          label: "AT RISK",
+          value: atRiskValue > 0 ? `$${Math.floor(atRiskValue / 1000)}K` : "—",
+          change: atRiskDeals.length > 0 ? `${atRiskDeals.length} deal(s) below 50% health` : "None flagged",
+          trend: atRiskValue > 0 ? "down" : "neutral"
         },
-        { 
-          label: "AT RISK", 
-          value: `$${Math.floor(executionMetrics.at_risk_value / 1000)}K`, 
-          change: "2 campaigns", 
-          trend: "down" 
+        {
+          label: "REPLY RATE",
+          value: "—",
+          change: "Not tracked yet",
+          trend: "neutral"
         },
-        { 
-          label: "DELIVERABILITY", 
-          value: "98.2%", 
-          change: "Healthy", 
-          trend: "neutral" 
+        {
+          label: "MEETINGS",
+          value: "—",
+          change: "Not tracked yet",
+          trend: "neutral"
         },
-        { 
-          label: "UNLOCKED", 
-          value: `$${Math.floor(executionMetrics.at_risk_value * 0.8 / 1000)}K`, 
-          change: "Recoverable", 
-          trend: "up" 
+        {
+          label: "DELIVERABILITY",
+          value: "—",
+          change: "Not tracked yet",
+          trend: "neutral"
         }
-      ],
-      aiOperator: {
-        status: "Online",
-        mode: "Assisted",
-        protectedRevenue: `$${Math.floor(executionMetrics.pipeline_value * 0.8)}`,
-        unlockedRevenue: `$${Math.floor(executionMetrics.at_risk_value * 0.8)}`,
-        safeActions: stats.active_campaigns + 2,
-        risksAvoided: Math.floor(Math.random() * 5) + 1
-      }
+      ]
     };
 
     res.json({
@@ -344,55 +347,47 @@ router.get('/live-activity', async (req: Request, res: Response) => {
 router.get('/health-table', async (req: Request, res: Response) => {
   try {
     const operatorId = req.user!.id;
-    
-    // Get recent campaigns with health data
-    const campaigns = await prisma.$queryRaw`
-      SELECT 
-        id,
-        name,
-        status,
-        estimated_cost,
-        created_at,
-        updated_at
-      FROM campaigns 
-      WHERE created_by_operator_id = ${operatorId}::uuid
-      ORDER BY updated_at DESC
-      LIMIT 10
-    ` as any[];
 
-    const healthTable = campaigns.map((campaign: any) => {
+    const campaigns = await prisma.campaign.findMany({
+      where: { created_by_operator_id: operatorId, status: { not: 'workflow_template' } },
+      orderBy: { updated_at: 'desc' },
+      take: 10,
+      include: {
+        steps: { select: { tool_name: true } },
+        deals: { select: { amount: true } }
+      }
+    });
+
+    const parseAmount = (amt: string | null | undefined): number => {
+      if (!amt) return 0;
+      const clean = amt.replace(/[^0-9.]/g, '');
+      let val = parseFloat(clean) || 0;
+      const lower = amt.toLowerCase();
+      if (lower.includes('k')) val *= 1000;
+      if (lower.includes('m')) val *= 1000000;
+      return val;
+    };
+
+    const healthTable = campaigns.map((campaign) => {
       const name = campaign.name || `Campaign ${campaign.id.substring(0, 8)}`;
       const status = campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1);
-      
-      // Calculate mock health based on status
-      let health = '—';
-      if (campaign.status === 'executing') {
-        health = `${Math.floor(Math.random() * 20) + 75}%`;
-      } else if (campaign.status === 'completed') {
-        health = `${Math.floor(Math.random() * 15) + 85}%`;
-      } else if (campaign.status === 'failed') {
-        health = `${Math.floor(Math.random() * 30) + 40}%`;
-      }
-      
-      // Mock tools based on campaign name
-      const tools = name.toLowerCase().includes('email') ? ['Smartlead'] :
-                   name.toLowerCase().includes('lead') ? ['Apollo'] :
-                   name.toLowerCase().includes('enrich') ? ['Clay'] :
-                   ['Apollo', 'Smartlead'];
-      
-      // Mock metrics
-      const replies = campaign.status === 'completed' ? Math.floor(Math.random() * 50) + 10 : 0;
-      const meetings = campaign.status === 'completed' ? Math.floor(Math.random() * 10) + 1 : 0;
-      const pipeline = campaign.status === 'completed' ? `$${Math.floor(campaign.estimated_cost * 0.8 / 1000)}K` : '—';
+
+      // Real tools this campaign actually uses, from its own steps —
+      // not guessed from the campaign's name.
+      const tools = [...new Set(campaign.steps.map((s) => s.tool_name))];
+
+      const pipelineValue = campaign.deals.reduce((sum, d) => sum + parseAmount(d.amount), 0);
 
       return {
         name,
         status,
-        health,
-        tools,
-        replies,
-        mtgs: meetings,
-        pipeline
+        // No deliverability/bounce/reply tracking exists yet to compute a
+        // real health score — shown honestly rather than randomized.
+        health: '—',
+        tools: tools.length > 0 ? tools : ['—'],
+        replies: 0,
+        mtgs: 0,
+        pipeline: pipelineValue > 0 ? `$${Math.floor(pipelineValue / 1000)}K` : '—'
       };
     });
 

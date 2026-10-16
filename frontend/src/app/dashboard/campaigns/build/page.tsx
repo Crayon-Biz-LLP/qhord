@@ -249,6 +249,7 @@ const LEAD_METHODS = [
 type Lead = {
   id: string; name: string; email: string; company: string; title: string;
   status: "verified" | "catch-all" | "unknown"; source: string;
+  location?: string;
   raw?: Record<string, string>;
 };
 
@@ -294,6 +295,9 @@ export default function BuildCampaignPage() {
   const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [campaignId] = useState(() => typeof window !== 'undefined' && window.crypto?.randomUUID ? window.crypto.randomUUID() : 'c' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15));
+  // Set when this session is editing an existing campaign (?id=...) — tells
+  // handleBuild to update that campaign instead of creating a duplicate.
+  const [editCampaignId, setEditCampaignId] = useState<string | null>(null);
   const [connectedTools, setConnectedTools] = useState<string[]>([]);
   const [fetchingTools, setFetchingTools] = useState(false);
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
@@ -320,6 +324,10 @@ export default function BuildCampaignPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
+  // The leads actually confirmed via "Push Leads" — kept separately since
+  // that action clears selectedLeads to advance the wizard, but Build (a
+  // later step) needs to remember which exact leads were chosen.
+  const [pushedLeads, setPushedLeads] = useState<Lead[]>([]);
   const [leadSearch, setLeadSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -399,6 +407,37 @@ export default function BuildCampaignPage() {
       set({ parentAccount: selectedClient.name });
     }
   }, [selectedClient, form.parentAccount]);
+
+  // Editing an existing campaign: /campaigns/build?id=... — prefill the
+  // wizard from whatever builder state was saved when it was last built,
+  // and remember the id so Build updates that campaign instead of creating
+  // a duplicate.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const editId = new URLSearchParams(window.location.search).get("id");
+    if (!editId) return;
+    setEditCampaignId(editId);
+
+    (async () => {
+      try {
+        const res = await api.get(`/campaigns/${editId}`);
+        const config = res.data?.campaign?.builderConfig;
+        if (config && typeof config === "object") {
+          const { emailSteps: savedEmailSteps, linkedinSteps: savedLinkedinSteps, ...savedForm } = config as any;
+          setForm((f) => ({ ...f, ...savedForm }));
+          if (Array.isArray(savedEmailSteps) && savedEmailSteps.length > 0) setEmailSteps(savedEmailSteps);
+          if (Array.isArray(savedLinkedinSteps)) setLinkedinSteps(savedLinkedinSteps);
+          toast.success("Loaded settings from the previous campaign.");
+        } else {
+          toast.error("This campaign has no saved settings to restore — starting a blank builder.");
+        }
+      } catch (err) {
+        console.error("Failed to load campaign for editing", err);
+        toast.error("Couldn't load campaign for editing.");
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const loadConnectedTools = useCallback(async () => {
     if (!selectedClient) {
@@ -649,6 +688,7 @@ export default function BuildCampaignPage() {
           const lastNameIdx = findHeaderIndex(["last name", "lastname", "last"], ["last", "lname"]);
           const companyIdx = findHeaderIndex(["company", "company name", "organization", "account name"], ["company", "org", "firm"]);
           const titleIdx = findHeaderIndex(["title", "job title", "role", "position"], ["title", "role", "position"]);
+          const locationIdx = findHeaderIndex(["location", "city", "region"], ["location", "city", "country"]);
 
           console.log("[CSV/Excel Upload] Resolved indices:", { emailIdx, nameIdx, firstNameIdx, lastNameIdx, companyIdx, titleIdx });
 
@@ -685,6 +725,7 @@ export default function BuildCampaignPage() {
               email: email,
               company: (companyIdx !== -1 && values[companyIdx]) ? String(values[companyIdx]).trim() : "SaaS Company",
               title: (titleIdx !== -1 && values[titleIdx]) ? String(values[titleIdx]).trim() : "Prospect",
+              location: (locationIdx !== -1 && values[locationIdx]) ? String(values[locationIdx]).trim() : undefined,
               status: "verified",
               source: isCSV ? "csv" : "excel",
               raw: raw
@@ -871,7 +912,9 @@ export default function BuildCampaignPage() {
       toast.error("Please select at least one lead to push.");
       return;
     }
-    toast.success(`Pushed ${selectedLeads.length} leads to outreach sequence!`);
+    const chosen = leads.filter((l) => selectedLeads.includes(l.id));
+    setPushedLeads(chosen);
+    toast.success(`${chosen.length} lead(s) confirmed for this campaign.`);
     setSelectedLeads([]);
     next();
   };
@@ -1106,10 +1149,23 @@ export default function BuildCampaignPage() {
   };
 
   const handleBuild = async () => {
+    if (!selectedClient) {
+      toast.error("Please select a client first.");
+      return;
+    }
     setBuilding(true);
     try {
+      // Leads confirmed via "Push Leads" are the ones the user means to run
+      // this campaign against — send them explicitly so execution doesn't
+      // independently re-source a different batch.
       const response = await api.post("/campaigns/plan", {
         prompt: buildPrompt(),
+        builderConfig: { ...form, emailSteps, linkedinSteps },
+        clientId: selectedClient.id,
+        ...(editCampaignId ? { campaignId: editCampaignId } : {}),
+        ...(pushedLeads.length > 0
+          ? { manualLeads: pushedLeads.map((l) => ({ email: l.email, name: l.name, company: l.company, title: l.title, location: l.location })) }
+          : {}),
       }, {
         headers: {
           "ngrok-skip-browser-warning": "true",
@@ -1118,7 +1174,7 @@ export default function BuildCampaignPage() {
 
       const data = response.data;
       if (data && data.success) {
-        toast.success("Campaign created successfully!");
+        toast.success(editCampaignId ? "Campaign updated successfully!" : "Campaign created successfully!");
         router.push("/dashboard/campaigns");
       } else {
         const errorMsg = data?.error || "Failed to create campaign";

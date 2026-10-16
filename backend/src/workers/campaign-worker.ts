@@ -2,7 +2,7 @@ import { Worker, Job } from 'bullmq';
 import { prisma } from '../lib/prisma';
 import { ExecutionEngine } from '../services/execution.engine';
 import { redisConnection } from '../queue/bullmq-setup';
-import { resolveManifestSteps, applyPipelineToPayload } from '../ai/pipeline/action-resolver';
+import { resolveManifestSteps, applyPipelineToPayload, isLeadSourceAction } from '../ai/pipeline/action-resolver';
 import { emptyPipelineContext, type ManifestStepLike } from '../ai/pipeline/pipeline-types';
 import type { ToolName } from '../types';
 import { mergePipelineContext } from '../ai/pipeline/pipeline-leads';
@@ -65,18 +65,17 @@ export class CampaignWorker {
     try {
       console.log(`🚀 Starting campaign execution: ${campaignId}`);
 
-      await prisma.campaign.update({
+      const campaign = await prisma.campaign.update({
         where: { id: campaignId },
         data: { status: 'executing' },
       });
-
 
       const campaignSteps = await prisma.campaignStep.findMany({
         where: { campaign_id: campaignId },
         orderBy: { step_order: 'asc' },
       });
 
-      const manifestSteps: ManifestStepLike[] = campaignSteps.map((s) => ({
+      let manifestSteps: ManifestStepLike[] = campaignSteps.map((s) => ({
         id: s.id,
         order: s.step_order,
         tool: s.tool_name,
@@ -85,10 +84,45 @@ export class CampaignWorker {
         dependencies: (s.dependencies as string[]) || [],
       }));
 
+      // A campaign built from a CSV/manual lead list already has its exact
+      // leads persisted (see POST /campaigns/plan). Use those as-is instead
+      // of re-running a live search step, which would source a fresh,
+      // unrelated batch of leads regardless of what was actually picked.
+      let existingLeads = await prisma.lead.findMany({ where: { campaign_id: campaignId } });
+      const usingPreloadedLeads = existingLeads.length > 0;
+
+      // Cap how many leads this run actually enrolls/sends to. This throttles
+      // a single execution pass — it doesn't yet spread sends across
+      // multiple days, since nothing schedules/resumes campaigns that way.
+      const dailyLimit = (campaign as any).daily_send_limit as number | null;
+      if (usingPreloadedLeads && dailyLimit && existingLeads.length > dailyLimit) {
+        console.log(`✂️ Capping ${existingLeads.length} lead(s) to daily send limit of ${dailyLimit}`);
+        existingLeads = existingLeads.slice(0, dailyLimit);
+      }
+
+      if (usingPreloadedLeads) {
+        manifestSteps = manifestSteps.filter((s) => !isLeadSourceAction(s.action));
+        console.log(`📇 Using ${existingLeads.length} pre-loaded lead(s) for this campaign — skipping live sourcing steps`);
+      }
+
       const resolvedSteps = resolveManifestSteps(manifestSteps);
       console.log(`📋 Resolved ${resolvedSteps.length} execution actions from ${campaignSteps.length} manifest steps`);
 
       let pipelineContext = emptyPipelineContext();
+      if (usingPreloadedLeads) {
+        pipelineContext = {
+          ...pipelineContext,
+          leads: existingLeads.map((l) => ({
+            first_name: l.first_name || '',
+            last_name: l.last_name || '',
+            email: l.email,
+            company_name: l.company_name || undefined,
+            title: l.title || undefined,
+            linkedin_url: l.linkedin_url || undefined,
+            industry: l.industry || undefined,
+          })),
+        };
+      }
       const results = [];
       let stepIndex = 0;
 
@@ -110,6 +144,46 @@ export class CampaignWorker {
               await new Promise((r) => setTimeout(r, resolved.waitMs));
             }
             console.log(`⏭️ Skipped (system): ${resolved.label}`);
+            continue;
+          }
+
+          // A campaign running against a specific, pre-loaded lead list
+          // (CSV/manual) enrolls each lead individually — resolving or
+          // creating its Apollo contact along the way — instead of one bulk
+          // add_to_sequence call, which needs Apollo contact ids our leads
+          // don't have unless they came from a live Apollo search step.
+          if (usingPreloadedLeads && resolved.tool === 'apollo' && resolved.action === 'add_to_sequence') {
+            const emailerCampaignId =
+              (manifestParams as any).emailer_campaign_id || (resolved.payload as any)?.emailer_campaign_id;
+
+            for (const lead of pipelineContext.leads) {
+              if (!lead.email) continue;
+              try {
+                const enrollResult = await this.executeResolvedStep(
+                  { tool: 'apollo', action: 'enroll_lead', label: `Apollo — enroll ${lead.email}` },
+                  {
+                    email: lead.email,
+                    campaign_id: emailerCampaignId,
+                    first_name: lead.first_name,
+                    last_name: lead.last_name,
+                  },
+                  operatorId,
+                  clientId,
+                  campaignId
+                );
+                results.push(enrollResult);
+              } catch (leadErr) {
+                console.error(`❌ Failed to enroll ${lead.email}`, leadErr);
+                results.push({
+                  success: false,
+                  tool: 'apollo',
+                  action: 'enroll_lead',
+                  status: 'error',
+                  error: leadErr instanceof Error ? leadErr.message : String(leadErr),
+                  response: null,
+                });
+              }
+            }
             continue;
           }
 
@@ -147,8 +221,10 @@ export class CampaignWorker {
         }
       }
 
-      // Persist leads from pipeline to database
-      if (pipelineContext.leads.length > 0) {
+      // Persist leads from pipeline to database (skip when they were
+      // already preloaded from an existing CSV/manual list — otherwise
+      // this would insert duplicate rows for the same leads).
+      if (!usingPreloadedLeads && pipelineContext.leads.length > 0) {
         const leadData = pipelineContext.leads.map((l: any) => ({
           client_id: clientId,
           campaign_id: campaignId,
@@ -215,6 +291,15 @@ export class CampaignWorker {
       throw new Error(
         `No tool account for ${resolved.tool}. Connect ${resolved.tool} in settings or run with mock accounts.`
       );
+    }
+
+    // Without this, Apollo enrolls contacts using whatever mailbox it has
+    // set as its own internal default — not necessarily the account the
+    // client actually connected here.
+    const senderAccountId = (toolAccount.config_json as any)?.senderAccountId;
+    const isApolloEnrollment = resolved.tool === 'apollo' && (resolved.action === 'add_to_sequence' || resolved.action === 'enroll_lead');
+    if (isApolloEnrollment && senderAccountId) {
+      payload = { ...payload, email_account_id: senderAccountId };
     }
 
     const execution = await this.executionEngine.execute(

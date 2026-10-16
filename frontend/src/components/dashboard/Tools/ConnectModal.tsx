@@ -13,12 +13,32 @@ interface ConnectModalProps {
    onSuccess: () => void;
 }
 
+interface ApolloMailbox {
+   id: string;
+   email: string;
+}
+
 export const ConnectModal = ({ isOpen, onClose, tool, clientId, onSuccess }: ConnectModalProps) => {
    const [apiKey, setApiKey] = useState("");
    const [accountLabel, setAccountLabel] = useState("");
    const [loading, setLoading] = useState(false);
-   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
+   const [status, setStatus] = useState<"idle" | "success" | "error" | "mailbox-select">("idle");
    const [errorMessage, setErrorMessage] = useState("");
+   const [newAccountId, setNewAccountId] = useState<string | null>(null);
+   const [mailboxes, setMailboxes] = useState<ApolloMailbox[]>([]);
+   const [selectedMailboxId, setSelectedMailboxId] = useState("");
+   const [savingMailbox, setSavingMailbox] = useState(false);
+
+   const resetAndClose = () => {
+      onSuccess();
+      onClose();
+      setApiKey("");
+      setAccountLabel("");
+      setStatus("idle");
+      setNewAccountId(null);
+      setMailboxes([]);
+      setSelectedMailboxId("");
+   };
 
    const handleConnect = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -29,26 +49,62 @@ export const ConnectModal = ({ isOpen, onClose, tool, clientId, onSuccess }: Con
       setErrorMessage("");
 
       try {
-         await api.post("/tools/accounts", {
+         const res = await api.post("/tools/accounts", {
             clientId,
             toolName: tool.id,
             accountLabel: accountLabel || `${tool.name} Account`,
             apiKey
          });
+
+         const accountId = res.data?.account?.id;
+
+         // Apollo can have several sending mailboxes — without picking one,
+         // campaigns fall back to whatever Apollo has set as its own
+         // internal default, which may not be this connected account.
+         if (tool.id === "apollo" && accountId) {
+            try {
+               const mbRes = await api.get(`/tools/apollo/mailboxes?accountId=${accountId}`);
+               const found: ApolloMailbox[] = mbRes.data?.mailboxes || [];
+               if (found.length > 1) {
+                  setNewAccountId(accountId);
+                  setMailboxes(found);
+                  setStatus("mailbox-select");
+                  setLoading(false);
+                  return;
+               } else if (found.length === 1) {
+                  await api.patch(`/tools/accounts/${accountId}/config`, {
+                     config: { senderAccountId: found[0].id, senderEmail: found[0].email }
+                  });
+               }
+            } catch (mbErr) {
+               console.error("Failed to fetch Apollo mailboxes", mbErr);
+            }
+         }
+
          setStatus("success");
-         setTimeout(() => {
-            onSuccess();
-            onClose();
-            // Reset state
-            setApiKey("");
-            setAccountLabel("");
-            setStatus("idle");
-         }, 1500);
+         setTimeout(resetAndClose, 1500);
       } catch (err: any) {
          setStatus("error");
          setErrorMessage(err.response?.data?.message || "Failed to establish connection. Verify API protocol.");
       } finally {
          setLoading(false);
+      }
+   };
+
+   const handleSaveMailbox = async () => {
+      if (!newAccountId || !selectedMailboxId) return;
+      setSavingMailbox(true);
+      try {
+         const mailbox = mailboxes.find((m) => m.id === selectedMailboxId);
+         await api.patch(`/tools/accounts/${newAccountId}/config`, {
+            config: { senderAccountId: selectedMailboxId, senderEmail: mailbox?.email }
+         });
+      } catch (err) {
+         console.error("Failed to save sending mailbox", err);
+      } finally {
+         setSavingMailbox(false);
+         setStatus("success");
+         setTimeout(resetAndClose, 1200);
       }
    };
 
@@ -104,6 +160,46 @@ export const ConnectModal = ({ isOpen, onClose, tool, clientId, onSuccess }: Con
                         <p className="text-[15px] font-semibold text-[#1a1510]">{tool?.name} connected</p>
                         <p className="text-[13px] text-[#1a1510]/40 mt-1">Syncing your account…</p>
                      </div>
+                  </motion.div>
+               ) : status === "mailbox-select" ? (
+                  <motion.div
+                     initial={{ opacity: 0, y: 8 }}
+                     animate={{ opacity: 1, y: 0 }}
+                     className="space-y-4"
+                  >
+                     <p className="text-[13px] text-[#1a1510]/60 leading-relaxed">
+                        This Apollo account has multiple sending mailboxes. Choose which one campaigns should send from.
+                     </p>
+                     <div className="space-y-2 max-h-56 overflow-y-auto">
+                        {mailboxes.map((mb) => (
+                           <button
+                              key={mb.id}
+                              type="button"
+                              onClick={() => setSelectedMailboxId(mb.id)}
+                              className={`w-full text-left px-4 py-3 rounded-xl border text-[13px] font-medium transition-colors ${
+                                 selectedMailboxId === mb.id
+                                    ? "border-brand-gold bg-brand-gold/10 text-[#1a1510]"
+                                    : "border-[#1a1510]/[0.07] text-[#1a1510]/70 hover:bg-[#f7f8f9]"
+                              }`}
+                           >
+                              {mb.email || mb.id}
+                           </button>
+                        ))}
+                     </div>
+                     <button
+                        type="button"
+                        onClick={handleSaveMailbox}
+                        disabled={!selectedMailboxId || savingMailbox}
+                        className="btn-shine w-full h-11 rounded-none bg-[#1a1510] text-white text-xs font-semibold hover:bg-[#2a2118] transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                     >
+                        {savingMailbox ? (
+                           <>
+                              <Loader2 size={15} className="animate-spin" /> Saving…
+                           </>
+                        ) : (
+                           "Save & Finish"
+                        )}
+                     </button>
                   </motion.div>
                ) : (
                   <form onSubmit={handleConnect} className="space-y-4">

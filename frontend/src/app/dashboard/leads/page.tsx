@@ -5,12 +5,13 @@ import { motion } from "framer-motion";
 import {
    Users, UserPlus, Filter, Search, Download,
    ChevronRight, Database, Zap, ShieldCheck, Mail,
-   LayoutDashboard, Plus, Sparkles, Star,
+   LayoutDashboard, Plus, Sparkles, MapPin, Megaphone,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { Loader } from "@/components/ui/Loader";
 import { LeadSourceIcon } from "@/components/ui/icons/LeadSourceIcon";
+import { useClient } from "../../../contexts/ClientContext";
 
 interface Lead {
    id: string;
@@ -22,25 +23,42 @@ interface Lead {
    domain: string;
    linkedin_url: string;
    industry: string;
+   location: string | null;
    source: string;
    status: string;
    enriched: boolean;
+   campaign_id: string | null;
+   campaign: { id: string; name: string } | null;
    created_at: string;
 }
 
+const FILTERS = ["All Leads", "In a Campaign", "Unassigned", "Enriched"] as const;
+
 export default function LeadsPage() {
    const router = useRouter();
-   const [activeFilter, setActiveFilter] = useState("All Leads");
+   const { selectedClient, loading: isClientLoading } = useClient();
+   const [activeFilter, setActiveFilter] = useState<typeof FILTERS[number]>("All Leads");
    const [leads, setLeads] = useState<Lead[]>([]);
    const [loading, setLoading] = useState(true);
 
    useEffect(() => {
-      api.get("/leads").then((res) => {
+      if (isClientLoading) return;
+      if (!selectedClient) {
+         setLeads([]);
+         setLoading(false);
+         return;
+      }
+      setLoading(true);
+      api.get(`/leads?clientId=${selectedClient.id}`).then((res) => {
          setLeads(res.data.leads || []);
       }).catch(console.error).finally(() => setLoading(false));
-   }, []);
+   }, [selectedClient, isClientLoading]);
 
-   const filteredLeads = activeFilter === "All Leads" ? leads : leads;
+   const filteredLeads =
+      activeFilter === "In a Campaign" ? leads.filter((l) => l.campaign_id) :
+      activeFilter === "Unassigned" ? leads.filter((l) => !l.campaign_id) :
+      activeFilter === "Enriched" ? leads.filter((l) => l.enriched) :
+      leads;
 
    return (
       <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#f7f8f9] text-[#1a1510] font-sans selection:bg-brand-gold/30">
@@ -77,6 +95,13 @@ export default function LeadsPage() {
 
          <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto scrollbar-hide pb-32">
 
+            {!selectedClient && !isClientLoading && (
+               <div className="p-4 rounded-xl bg-amber-50 border border-amber-100 text-amber-700 text-[13px] font-medium flex items-center gap-3">
+                  <Users className="text-amber-600 shrink-0" size={17} />
+                  <span>Select a client to view their leads.</span>
+               </div>
+            )}
+
             {/* 2. Metric Ribbon */}
             <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 w-full">
                {[
@@ -104,7 +129,7 @@ export default function LeadsPage() {
             {/* 3. Filter & Search */}
             <div className="bg-white rounded-2xl border border-[#1a1510]/[0.07] p-3 flex flex-col md:flex-row items-center justify-between gap-3">
                <div className="flex items-center gap-1 p-1 bg-[#f7f8f9] rounded-xl overflow-x-auto w-full md:w-auto scrollbar-hide">
-                  {["All Leads", "High ICP", "New Source", "In Outreach"].map((tab) => (
+                  {FILTERS.map((tab) => (
                      <button
                         key={tab}
                         onClick={() => setActiveFilter(tab)}
@@ -142,7 +167,7 @@ export default function LeadsPage() {
                         <tr className="border-b border-[#1a1510]/[0.07] bg-[#fafafa]">
                            <th className="py-4 px-6 w-[56px]"><input type="checkbox" className="w-4 h-4 rounded border-[#1a1510]/15 text-brand-gold cursor-pointer" /></th>
                            <th className="py-4 px-4 text-[10px] font-semibold uppercase tracking-wider text-[#1a1510]/35">Identity</th>
-                           <th className="py-4 px-4 text-[10px] font-semibold uppercase tracking-wider text-[#1a1510]/35 text-center">ICP</th>
+                           <th className="py-4 px-4 text-[10px] font-semibold uppercase tracking-wider text-[#1a1510]/35">Campaign</th>
                            <th className="py-4 px-4 text-[10px] font-semibold uppercase tracking-wider text-[#1a1510]/35">Source</th>
                            <th className="py-4 px-4 text-[10px] font-semibold uppercase tracking-wider text-[#1a1510]/35">Status</th>
                            <th className="py-4 px-6 text-[10px] font-semibold uppercase tracking-wider text-[#1a1510]/35 text-right">Actions</th>
@@ -177,14 +202,22 @@ export default function LeadsPage() {
                                  <h4 className="text-[13px] font-semibold text-[#1a1510] leading-tight truncate">{lead.first_name} {lead.last_name}</h4>
                                  <p className="text-[12px] font-medium text-[#1a1510]/45 mt-0.5 truncate">{lead.title || '—'} @ {lead.company_name || lead.domain}</p>
                                  <p className="text-[11px] text-[#1a1510]/30 mt-0.5 truncate">{lead.email}</p>
+                                 {lead.location && (
+                                    <p className="text-[11px] text-[#1a1510]/30 mt-0.5 truncate flex items-center gap-1">
+                                       <MapPin size={10} /> {lead.location}
+                                    </p>
+                                 )}
                               </div>
                            </div>
                         </td>
-                        <td className="py-4 px-4 text-center">
-                           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-medium bg-emerald-50 text-emerald-600">
-                              <Star size={11} className="fill-emerald-600" />
-                              {lead.industry ? lead.industry.slice(0, 10) : 'B2B'}
-                           </div>
+                        <td className="py-4 px-4">
+                           {lead.campaign ? (
+                              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-medium bg-brand-gold/10 text-[#1a1510]/70">
+                                 <Megaphone size={11} /> {lead.campaign.name}
+                              </div>
+                           ) : (
+                              <span className="text-[11px] text-[#1a1510]/30">Unassigned</span>
+                           )}
                         </td>
                         <td className="py-4 px-4">
                            <div className="flex items-center gap-1.5 text-[12px] font-medium text-[#1a1510]/50">

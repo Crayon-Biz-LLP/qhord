@@ -13,6 +13,7 @@ import { useClient } from "../../../contexts/ClientContext";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { OwnerSelect } from "@/components/ui/OwnerSelect";
+import { StyledSelect } from "@/components/ui/StyledSelect";
 
 export default function ClientsPage() {
    const router = useRouter();
@@ -387,20 +388,18 @@ export default function ClientsPage() {
                                  <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-2">
                                        <label className="text-[12px] font-semibold text-[#1a1510]/60 px-0.5">Region</label>
-                                       <div className="relative">
-                                          <select
-                                             value={formData.region}
-                                             onChange={(e) => setFormData({ ...formData, region: e.target.value })}
-                                             className="w-full h-10 px-4 rounded-lg bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] focus:bg-white focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 focus:outline-none transition-all appearance-none"
-                                          >
-                                             <option value="">Select region...</option>
-                                             <option value="North America">North America</option>
-                                             <option value="EMEA">EMEA</option>
-                                             <option value="APAC">APAC</option>
-                                             <option value="South America">South America</option>
-                                          </select>
-                                          <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1a1510]/30 pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                                       </div>
+                                       <StyledSelect
+                                          value={formData.region}
+                                          onChange={(region) => setFormData({ ...formData, region })}
+                                          placeholder="Select region..."
+                                          options={[
+                                             { value: "North America", label: "North America" },
+                                             { value: "EMEA", label: "EMEA" },
+                                             { value: "APAC", label: "APAC" },
+                                             { value: "South America", label: "South America" },
+                                          ]}
+                                          className="h-10 px-4 rounded-lg bg-[#f7f8f9] border"
+                                       />
                                     </div>
 
                                     <div className="space-y-2">
@@ -427,19 +426,16 @@ export default function ClientsPage() {
 
                                     <div className="space-y-2">
                                        <label className="text-[12px] font-semibold text-[#1a1510]/60 px-0.5">Priority</label>
-                                       <div className="relative">
-                                          <select
-                                             value={formData.priority}
-                                             onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                                             className="w-full h-10 pl-10 pr-4 rounded-lg bg-[#f7f8f9] border border-[#1a1510]/[0.07] text-[13px] focus:bg-white focus:border-brand-gold/40 focus:ring-2 focus:ring-brand-gold/10 focus:outline-none transition-all appearance-none"
-                                          >
-                                             <option value="High">High</option>
-                                             <option value="Medium">Medium</option>
-                                             <option value="Low">Low</option>
-                                          </select>
-                                          <div className={`absolute left-4 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full ${formData.priority === 'High' ? 'bg-red-500' : formData.priority === 'Medium' ? 'bg-[#ffcc00]' : 'bg-emerald-500'}`} />
-                                          <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1a1510]/30 pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                                       </div>
+                                       <StyledSelect
+                                          value={formData.priority}
+                                          onChange={(priority) => setFormData({ ...formData, priority })}
+                                          options={[
+                                             { value: "High", label: "High", icon: <span className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0" /> },
+                                             { value: "Medium", label: "Medium", icon: <span className="w-2.5 h-2.5 rounded-full bg-[#ffcc00] shrink-0" /> },
+                                             { value: "Low", label: "Low", icon: <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" /> },
+                                          ]}
+                                          className="h-10 px-4 rounded-lg bg-[#f7f8f9] border"
+                                       />
                                     </div>
                                  </div>
                               </motion.div>

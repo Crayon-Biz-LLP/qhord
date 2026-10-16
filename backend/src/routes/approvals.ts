@@ -24,11 +24,12 @@ interface CampaignSubmissionRequest {
 router.post('/submit', async (req: Request, res: Response) => {
   try {
     const { campaignId } = req.body as CampaignSubmissionRequest;
+    const operatorId = req.user!.id;
 
-    // Get the campaign (demo mode - skip user check)
     const campaign = await prisma.campaign.findFirst({
       where: {
         id: campaignId,
+        created_by_operator_id: operatorId,
         status: { not: 'workflow_template' }
       }
     });
@@ -41,36 +42,22 @@ router.post('/submit', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Campaign can only be submitted from draft status' });
     }
 
-    // Update campaign status to approved (auto-approved on submission)
+    // Move to pending_approval — this only requests approval. Execution is
+    // triggered from /review, once someone actually approves it.
     const updatedCampaign = await prisma.campaign.update({
       where: { id: campaignId },
       data: {
-        status: 'approved'
+        status: 'pending_approval'
       }
     } as any);
 
-    // Create approval record as approved
     const approval = await prisma.campaignApproval.create({
       data: {
         campaign_id: campaignId,
-        requested_by_operator_id: campaign.created_by_operator_id,
-        status: 'approved',
-        comments: 'Auto-approved on submission'
+        requested_by_operator_id: operatorId,
+        status: 'pending'
       }
     } as any);
-
-    // Trigger execution queue immediately
-    console.log(`🚀 Campaign auto-approved on submission, triggering execution: ${campaignId}`);
-    const { ExecutionQueue } = await import('../services/execution.queue');
-    const executionQueue = new ExecutionQueue();
-    setTimeout(async () => {
-      try {
-        console.log('🎯 Triggering execution queue (auto-approve on submit)');
-        await executionQueue.triggerApprovedCampaigns();
-      } catch (error) {
-        console.error('❌ Failed to trigger campaign execution:', error);
-      }
-    }, 1000);
 
     res.json({
       success: true,
@@ -97,6 +84,7 @@ router.post('/review', async (req: Request, res: Response) => {
     const campaign = await prisma.campaign.findFirst({
       where: {
         id: campaignId,
+        created_by_operator_id: operatorId,
         status: { not: 'workflow_template' }
       }
     });
@@ -207,7 +195,8 @@ router.get('/pending', async (req: Request, res: Response) => {
     
     const pendingCampaigns = await prisma.campaign.findMany({
       where: {
-        status: 'pending_approval'
+        status: 'pending_approval',
+        created_by_operator_id: operatorId
       } as any,
       include: {
         client: true as any,
@@ -252,9 +241,9 @@ router.get('/pending', async (req: Request, res: Response) => {
         client: campaign.client,
         estimated_cost: campaign.estimated_cost,
         estimated_duration: campaign.estimated_duration,
-        step_count: 0, // campaign._count.steps,
+        step_count: (campaign as any)._count?.steps ?? 0,
         created_by: campaign.created_by_operator,
-        submitted_by: null, // campaign.approvals[0]?.requested_by_operator,
+        submitted_by: (campaign as any).approvals?.[0]?.requested_by_operator ?? null,
         submitted_at: (campaign as any).submitted_at || campaign.created_at,
         manifest: campaign.manifest
       }))

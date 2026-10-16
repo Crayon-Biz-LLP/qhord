@@ -521,6 +521,11 @@ export class ExecutionEngine {
         if (action === 'enrich_organization') return service.enrichOrganization(payload);
         if (action === 'list_sequences') return service.listSequences(payload);
         if (action === 'add_to_sequence') return service.addToSequence(payload);
+        // Resolves (or creates) the Apollo contact for a single lead by
+        // email and adds just that one to the sequence — used when a
+        // campaign runs against a specific, pre-loaded lead list rather
+        // than a live Apollo search whose results already carry Apollo ids.
+        if (action === 'enroll_lead') return service.enrollLead(payload as any);
         if (action === 'list_mailboxes') return service.listMailboxes(payload);
         if (action === 'list_labels') return service.listLabels(payload);
 

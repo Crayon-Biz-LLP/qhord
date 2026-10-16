@@ -316,7 +316,7 @@ export default function InboxPage() {
           <p className="text-[15px] font-semibold text-[#1a1510]">No inbox integrations connected for this client.</p>
           <p className="text-[13px] text-[#1a1510]/40 mt-1 max-w-xs">Connect Smartlead, Instantly, HeyReach, or HubSpot in Tools to start receiving replies here.</p>
           <button
-            onClick={() => router.push("/dashboard/tools")}
+            onClick={() => router.push("/dashboard/tools?inbox=1")}
             className="btn-shine mt-6 h-10 px-6 rounded-none bg-[#1a1510] text-white text-xs font-semibold flex items-center gap-2 hover:bg-[#2a2118] transition-colors"
           >
             <Plug size={14} /> Connect a tool

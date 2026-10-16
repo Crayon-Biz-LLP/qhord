@@ -15,6 +15,7 @@ import { api } from "../../../lib/api";
 import { Loader } from "../../../components/ui/Loader";
 import { DealsIcon } from "../../../components/ui/icons/DealsIcon";
 import { SearchableSelect } from "../../../components/ui/SearchableSelect";
+import { StyledSelect } from "../../../components/ui/StyledSelect";
 
 interface DealItem {
    id: string;
@@ -346,15 +347,14 @@ export default function PipelinePage() {
                                     </div>
 
                                     {/* Action stage change menu */}
-                                    <select
-                                       value={deal.stage}
-                                       onChange={(e) => handleUpdateStage(deal.id, e.target.value)}
-                                       className="w-full text-[11px] font-medium bg-[#f7f8f9] border border-[#1a1510]/[0.06] rounded-lg px-2.5 py-1.5 text-[#1a1510]/60 focus:text-[#1a1510] outline-none mb-3 cursor-pointer"
-                                    >
-                                       {STAGE_CONFIGS.map(sc => (
-                                          <option key={sc.key} value={sc.key}>{sc.title}</option>
-                                       ))}
-                                    </select>
+                                    <div className="mb-3">
+                                       <StyledSelect
+                                          value={deal.stage}
+                                          onChange={(stage) => handleUpdateStage(deal.id, stage)}
+                                          options={STAGE_CONFIGS.map(sc => ({ value: sc.key, label: sc.title, icon: <span className={`w-2 h-2 rounded-full shrink-0 ${sc.color}`} /> }))}
+                                          className="text-[11px] font-medium bg-[#f7f8f9] border border-[#1a1510]/[0.06] rounded-lg px-2.5 py-1.5"
+                                       />
+                                    </div>
 
                                     <div className="flex items-end justify-between pt-3 border-t border-[#1a1510]/[0.06]">
                                        <div>
@@ -421,11 +421,12 @@ export default function PipelinePage() {
                               </div>
                               <div className="space-y-1.5">
                                  <label className="text-[12px] font-semibold text-[#1a1510]/60">Stage</label>
-                                 <select value={newStage} onChange={(e) => setNewStage(e.target.value)} className="w-full h-11 px-4 bg-[#f7f8f9] border border-[#1a1510]/[0.07] rounded-xl outline-none text-[13px] cursor-pointer">
-                                    {STAGE_CONFIGS.map(sc => (
-                                       <option key={sc.key} value={sc.key}>{sc.title}</option>
-                                    ))}
-                                 </select>
+                                 <StyledSelect
+                                    value={newStage}
+                                    onChange={setNewStage}
+                                    options={STAGE_CONFIGS.map(sc => ({ value: sc.key, label: sc.title, icon: <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${sc.color}`} /> }))}
+                                    className="h-11 px-4 bg-[#f7f8f9] border rounded-xl"
+                                 />
                               </div>
                            </div>
 
@@ -445,12 +446,12 @@ export default function PipelinePage() {
                               </div>
                               <div className="space-y-1.5">
                                  <label className="text-[12px] font-semibold text-[#1a1510]/60">Owner</label>
-                                 <select value={newOwnerOperatorId} onChange={(e) => setNewOwnerOperatorId(e.target.value)} className="w-full h-11 px-4 bg-[#f7f8f9] border border-[#1a1510]/[0.07] rounded-xl outline-none text-[13px] cursor-pointer">
-                                    <option value="">Unassigned</option>
-                                    {teamMembers.map(m => (
-                                       <option key={m.id} value={m.id}>{m.name}</option>
-                                    ))}
-                                 </select>
+                                 <StyledSelect
+                                    value={newOwnerOperatorId}
+                                    onChange={setNewOwnerOperatorId}
+                                    options={[{ value: "", label: "Unassigned" }, ...teamMembers.map(m => ({ value: m.id, label: m.name }))]}
+                                    className="h-11 px-4 bg-[#f7f8f9] border rounded-xl"
+                                 />
                               </div>
                            </div>
 

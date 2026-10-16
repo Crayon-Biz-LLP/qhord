@@ -353,6 +353,14 @@ function resolveOneStep(step: ManifestStepLike): ResolvedExecutionStep[] {
 }
 
 const SOURCE_ACTIONS = new Set(['search_people', 'search_leads', 'search_companies']);
+
+/** True when a manifest step's action sources new leads (live search) rather
+ * than operating on leads already known to the pipeline. Used to skip
+ * re-sourcing when a campaign already has a concrete, hand-picked lead list
+ * (CSV/manual upload) instead of a live-search criteria. */
+export function isLeadSourceAction(action: string): boolean {
+  return SOURCE_ACTIONS.has(action);
+}
 const ENRICH_ACTIONS = new Set([
   'enrich_contacts',
   'send_leads',

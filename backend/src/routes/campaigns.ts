@@ -97,6 +97,26 @@ router.post('/send-test', async (req: Request, res: Response) => {
 
 interface CampaignPlanRequest {
   prompt: string;
+  // Raw builder wizard state (form fields, email/LinkedIn steps), stored
+  // as-is so the builder can reload and prefill itself when editing later.
+  builderConfig?: Record<string, unknown>;
+  // The client this campaign is being built for (the active client in the
+  // dashboard's client switcher). Without this, campaigns silently land on
+  // whichever client the operator created first.
+  clientId?: string;
+  // Set when re-building from the Edit flow — the existing campaign to
+  // update in place instead of creating a duplicate.
+  campaignId?: string;
+  // Hand-picked leads (from a CSV upload or manual entry). When present,
+  // the campaign runs against exactly this list instead of having the AI
+  // pipeline re-source leads by criteria at execution time.
+  manualLeads?: Array<{
+    email: string;
+    name?: string;
+    company?: string;
+    title?: string;
+    location?: string;
+  }>;
 }
 
 interface CampaignPlanResponse {
@@ -122,7 +142,7 @@ interface CampaignPlanResponse {
  */
 router.post('/plan', async (req: Request, res: Response) => {
   try {
-    const { prompt } = req.body as CampaignPlanRequest;
+    const { prompt, builderConfig, clientId: requestedClientId, campaignId: editCampaignId, manualLeads } = req.body as CampaignPlanRequest;
 
     if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
       return res.status(400).json({
@@ -171,11 +191,25 @@ router.post('/plan', async (req: Request, res: Response) => {
 
       clientId = testClient.id;
     } else {
-      // Get active tools for this client
-      const activeTools = await getActiveToolsForClient(req.user!.id);
-
-      // Get client ID for this operator (for now, get the first client)
-      clientId = await getClientIdForOperator(req.user!.id);
+      if (requestedClientId) {
+        // Use the client actively selected in the dashboard, but verify
+        // the operator actually owns it before trusting it.
+        const ownedClient = await prisma.client.findFirst({
+          where: { id: requestedClientId, created_by_operator_id: req.user!.id },
+          select: { id: true }
+        });
+        if (!ownedClient) {
+          return res.status(400).json({
+            success: false,
+            error: 'Selected client not found for this operator'
+          } as CampaignPlanResponse);
+        }
+        clientId = ownedClient.id;
+      } else {
+        // No client specified — fall back to the operator's first client
+        // (used by the unauthenticated/demo test path above).
+        clientId = await getClientIdForOperator(req.user!.id);
+      }
 
       if (!clientId) {
         return res.status(400).json({
@@ -206,10 +240,91 @@ router.post('/plan', async (req: Request, res: Response) => {
       } as CampaignPlanResponse);
     }
 
+    // The compiler always creates a fresh campaign row (the langgraph
+    // pipeline has no concept of "update"). When this request came from
+    // editing an existing campaign, fold that fresh result into the
+    // original row instead of leaving both around as a duplicate.
+    let finalCampaignId = result.campaignId;
+    if (editCampaignId && editCampaignId !== result.campaignId) {
+      const targetCampaign = await prisma.campaign.findFirst({
+        where: { id: editCampaignId, created_by_operator_id: operatorId }
+      });
+      const freshCampaign = targetCampaign
+        ? await prisma.campaign.findUnique({ where: { id: result.campaignId } })
+        : null;
+
+      if (targetCampaign && freshCampaign) {
+        await prisma.$transaction([
+          prisma.campaignStep.deleteMany({ where: { campaign_id: editCampaignId } }),
+          prisma.campaignStep.updateMany({
+            where: { campaign_id: result.campaignId },
+            data: { campaign_id: editCampaignId }
+          }),
+          prisma.campaign.update({
+            where: { id: editCampaignId },
+            data: {
+              name: freshCampaign.name,
+              description: freshCampaign.description,
+              manifest: freshCampaign.manifest as any,
+              estimated_cost: freshCampaign.estimated_cost,
+              estimated_duration: freshCampaign.estimated_duration,
+              status: 'draft'
+            }
+          }),
+          prisma.campaign.delete({ where: { id: result.campaignId } })
+        ]);
+
+        finalCampaignId = editCampaignId;
+      }
+    }
+
+    if (manualLeads && manualLeads.length > 0) {
+      const leadRows = manualLeads
+        .filter((l) => l.email && l.email.includes('@'))
+        .map((l) => {
+          const [firstName, ...rest] = (l.name || '').trim().split(/\s+/).filter(Boolean);
+          return {
+            client_id: clientId,
+            campaign_id: finalCampaignId,
+            email: l.email.trim(),
+            first_name: firstName || '',
+            last_name: rest.join(' '),
+            title: l.title || '',
+            company_name: l.company || '',
+            location: l.location || '',
+            source: 'csv',
+            status: 'new',
+            enriched: false
+          };
+        });
+
+      if (leadRows.length > 0) {
+        // Editing an existing campaign replaces its lead list rather than
+        // appending to it, matching what the wizard shows the user.
+        await prisma.$transaction([
+          prisma.lead.deleteMany({ where: { campaign_id: finalCampaignId } }),
+          prisma.lead.createMany({ data: leadRows })
+        ]).catch((err) => console.error('Failed to save campaign leads', err));
+      }
+    }
+
+    if (builderConfig) {
+      const dailyLimitRaw = (builderConfig as any).dailyLimit;
+      const dailyLimit = Number.isFinite(dailyLimitRaw) && dailyLimitRaw > 0 ? Math.floor(dailyLimitRaw) : null;
+
+      await prisma.campaign.update({
+        where: { id: finalCampaignId },
+        data: {
+          builder_config: builderConfig as any,
+          ...(dailyLimit ? { daily_send_limit: dailyLimit } : {})
+        }
+      }).catch((err) => console.error('Failed to save builder config on campaign', err));
+    }
+
     // Return success response
     const response: CampaignPlanResponse = {
       success: true,
-      campaignId: result.campaignId,
+      campaignId: finalCampaignId,
       plan: result.validatedPlan,
       estimatedCost: result.validatedPlan?.estimated_cost,
       estimatedDuration: result.validatedPlan?.estimated_duration,
@@ -280,7 +395,7 @@ router.get('/', async (req: Request, res: Response) => {
         status: campaign.status,
         estimatedCost: campaign.estimated_cost,
         estimatedDuration: campaign.estimated_duration,
-        stepCount: 0, // TODO: Add step count when needed
+        stepCount: (campaign as any)._count?.steps ?? 0,
         createdAt: campaign.created_at
       }))
     });
@@ -327,6 +442,7 @@ router.get('/:id', async (req: Request, res: Response) => {
         description: campaign.description,
         status: campaign.status,
         manifest: campaign.manifest,
+        builderConfig: (campaign as any).builder_config ?? null,
         estimatedCost: campaign.estimated_cost,
         estimatedDuration: campaign.estimated_duration,
         steps: campaign.steps.map(step => ({
@@ -346,6 +462,32 @@ router.get('/:id', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Get campaign error:', error);
     res.status(500).json({ error: 'Failed to fetch campaign' });
+  }
+});
+
+/**
+ * DELETE /api/campaigns/:id
+ * Delete a campaign (and its steps/approvals/queue entry via cascade).
+ * Leads and deals that reference this campaign keep existing but lose the link.
+ */
+router.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const campaign = await prisma.campaign.findFirst({
+      where: { id, created_by_operator_id: req.user!.id }
+    });
+
+    if (!campaign) {
+      return res.status(404).json({ error: 'Campaign not found' });
+    }
+
+    await prisma.campaign.delete({ where: { id } });
+
+    res.status(204).send();
+  } catch (error) {
+    console.error('Delete campaign error:', error);
+    res.status(500).json({ error: 'Failed to delete campaign' });
   }
 });
 

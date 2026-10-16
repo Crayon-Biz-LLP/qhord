@@ -33,7 +33,7 @@ interface ToolItem {
    accountId?: string;
 }
 
-// --- Icons Mapper ---
+// --- Icons Mapper (fallback when a logo image fails to load / isn't mapped) ---
 const TOOL_ICONS: Record<string, any> = {
    apollo: Database,
    zoominfo: Globe,
@@ -52,7 +52,84 @@ const TOOL_ICONS: Record<string, any> = {
    salesforce: Shield,
    pipedrive: Target,
    calendly: Calendar,
+   bettercontact: UserPlus,
+   brevo: Mail,
+   hunter: Search,
+   gojiberry: Sparkles,
 };
+
+// --- Real brand logos, via each vendor's own domain favicon service.
+// Falls back to the lucide icon above if a logo 404s or the vendor has no
+// mapping yet - see <ToolLogo> below.
+const TOOL_LOGO_DOMAINS: Record<string, string> = {
+   apollo: "apollo.io",
+   zoominfo: "zoominfo.com",
+   cognism: "cognism.com",
+   lusha: "lusha.com",
+   clay: "clay.com",
+   clearbit: "clearbit.com",
+   smartlead: "smartlead.ai",
+   instantly: "instantly.ai",
+   lemlist: "lemlist.com",
+   heyreach: "heyreach.io",
+   expandi: "expandi.io",
+   zapier: "zapier.com",
+   make: "make.com",
+   hubspot: "hubspot.com",
+   salesforce: "salesforce.com",
+   pipedrive: "pipedrive.com",
+   calendly: "calendly.com",
+   bettercontact: "bettercontact.rocks",
+   brevo: "brevo.com",
+   hunter: "hunter.io",
+   gojiberry: "gojiberry.ai",
+};
+
+// Locally hosted brand logos (no external dependency, matches the
+// workflow builder's ZapierNode icon treatment). Preferred over the
+// Clearbit favicon service below when a file is available.
+const TOOL_LOGO_FILES: Record<string, string> = {
+   apollo: "/logos/apollo.png",
+   clay: "/logos/clay.png",
+   smartlead: "/logos/smartleads.webp",
+   instantly: "/logos/instantly.png",
+   heyreach: "/logos/heyreach.png",
+   bettercontact: "/logos/bettercontact.png",
+   calendly: "/logos/calendly.png",
+   gojiberry: "/logos/gojiberry.png",
+   hubspot: "/logos/hubspot.png",
+   lemlist: "/logos/lemlist.png",
+   zoominfo: "/logos/zoominfo.png",
+};
+
+function ToolLogo({ tool }: { tool: ToolItem }) {
+   const localSrc = TOOL_LOGO_FILES[tool.id];
+   const domain = TOOL_LOGO_DOMAINS[tool.id];
+   const [stage, setStage] = useState<"local" | "remote" | "icon">(
+      localSrc ? "local" : domain ? "remote" : "icon"
+   );
+
+   if (stage === "icon") {
+      return <tool.icon size={20} />;
+   }
+
+   const src = stage === "local" ? localSrc : `https://logo.clearbit.com/${domain}?size=64`;
+
+   return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+         src={src}
+         alt=""
+         className="w-6 h-6 object-contain rounded"
+         onError={() => setStage(stage === "local" && domain ? "remote" : "icon")}
+      />
+   );
+}
+
+// Tools that actually have an inbox provider wired up (see backend
+// integrations/inbox/registry.ts) — the only ones worth offering when
+// someone arrives here from Unibox's "no integrations connected" state.
+const INBOX_CAPABLE_TOOL_IDS = ["smartlead", "instantly", "heyreach", "hubspot"];
 
 const CATEGORIES = [
    "All",
@@ -74,6 +151,15 @@ export default function ToolsPage() {
    const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
    const [toastMessage, setToastMessage] = useState<string | null>(null);
    const { selectedClient, loading: isClientLoading } = useClient();
+   // Set when arriving from Unibox's "connect a tool" prompt — narrows the
+   // grid to tools that can actually power the inbox, so Apollo etc. (which
+   // has no inbox provider and can never satisfy Unibox) isn't offered here.
+   const [inboxOnly, setInboxOnly] = useState(false);
+
+   useEffect(() => {
+      if (typeof window === "undefined") return;
+      setInboxOnly(new URLSearchParams(window.location.search).get("inbox") === "1");
+   }, []);
 
    const showToast = (msg: string) => {
       setToastMessage(msg);
@@ -169,13 +255,22 @@ export default function ToolsPage() {
    };
 
    const filteredTools = useMemo(() => {
-      return tools.filter(tool => {
-         const matchesCategory = activeCategory === "All" || tool.category === activeCategory;
-         const matchesSearch = tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            tool.description.toLowerCase().includes(searchQuery.toLowerCase());
-         return matchesCategory && matchesSearch;
-      });
-   }, [activeCategory, searchQuery, tools]);
+      return tools
+         .filter(tool => {
+            const matchesCategory = activeCategory === "All" || tool.category === activeCategory;
+            const matchesSearch = tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+               tool.description.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesInbox = !inboxOnly || INBOX_CAPABLE_TOOL_IDS.includes(tool.id);
+            return matchesCategory && matchesSearch && matchesInbox;
+         })
+         // Active/connected tools first, then available-to-connect, then
+         // coming soon/disabled last; alphabetical within each group.
+         .sort((a, b) => {
+            const rank = (t: ToolItem) => (t.isConnected ? 0 : t.status === "active" ? 1 : 2);
+            const rankDiff = rank(a) - rank(b);
+            return rankDiff !== 0 ? rankDiff : a.name.localeCompare(b.name);
+         });
+   }, [activeCategory, searchQuery, tools, inboxOnly]);
 
    return (
       <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#f7f8f9] text-[#1a1510] font-sans selection:bg-brand-gold/30">
@@ -241,6 +336,21 @@ export default function ToolsPage() {
                      ))}
                   </div>
 
+                  {inboxOnly && (
+                     <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 text-blue-700 text-[13px] font-medium flex items-center justify-between gap-3 flex-wrap">
+                        <span>Showing tools that can power Unibox — connect one of these to start receiving replies.</span>
+                        <button
+                           onClick={() => {
+                              setInboxOnly(false);
+                              window.history.replaceState(null, "", "/dashboard/tools");
+                           }}
+                           className="text-blue-700 underline underline-offset-2 shrink-0"
+                        >
+                           Show all tools
+                        </button>
+                     </div>
+                  )}
+
                   {!selectedClient && (
                      <div className="p-4 rounded-xl bg-amber-50 border border-amber-100 text-amber-700 text-[13px] font-medium flex items-center gap-3">
                         <Shield className="text-amber-600 shrink-0" size={17} />
@@ -261,8 +371,8 @@ export default function ToolsPage() {
                            {/* Card Header */}
                            <div className="flex justify-between items-start gap-3">
                               <div className="flex items-center gap-3 min-w-0">
-                                 <div className="w-11 h-11 rounded-xl bg-[#f7f8f9] flex items-center justify-center text-[#1a1510]/50 shrink-0">
-                                    <tool.icon size={20} />
+                                 <div className="w-11 h-11 rounded-xl bg-[#f7f8f9] flex items-center justify-center text-[#1a1510]/50 shrink-0 overflow-hidden">
+                                    <ToolLogo tool={tool} />
                                  </div>
                                  <div className="min-w-0">
                                     <h3 className="text-[15px] font-semibold text-[#1a1510] tracking-tight leading-none mb-1.5 truncate">{tool.name}</h3>
