@@ -1,5 +1,5 @@
 import React from 'react';
-import { BaseEdge, EdgeLabelRenderer, EdgeProps, getSmoothStepPath, Position } from '@xyflow/react';
+import { BaseEdge, EdgeLabelRenderer, EdgeProps, getSmoothStepPath, getStraightPath, Position } from '@xyflow/react';
 import { Plus } from 'lucide-react';
 
 export const ZapierEdge = ({
@@ -14,15 +14,24 @@ export const ZapierEdge = ({
   markerEnd,
   data,
 }: EdgeProps) => {
-  const [edgePath, labelX, labelY] = getSmoothStepPath({
-    sourceX,
-    sourceY,
-    sourcePosition: sourcePosition || Position.Bottom,
-    targetX,
-    targetY,
-    targetPosition: targetPosition || Position.Top,
-    borderRadius: 8,
-  });
+  // Branch children are laid out to land exactly under their source handle,
+  // but a couple of px of layout/measurement rounding is enough to make
+  // getSmoothStepPath draw a visible little kink instead of one clean line.
+  // Snap to a true straight line whenever the two are close enough that a
+  // kink would just be visual noise, not a real horizontal offset worth
+  // routing around.
+  const isNearlyAligned = Math.abs(sourceX - targetX) < 4;
+  const [edgePath, labelX, labelY] = isNearlyAligned
+    ? getStraightPath({ sourceX, sourceY, targetX, targetY })
+    : getSmoothStepPath({
+        sourceX,
+        sourceY,
+        sourcePosition: sourcePosition || Position.Bottom,
+        targetX,
+        targetY,
+        targetPosition: targetPosition || Position.Top,
+        borderRadius: 8,
+      });
 
   const onAddClick = (e: React.MouseEvent) => {
     e.stopPropagation();

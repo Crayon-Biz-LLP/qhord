@@ -439,6 +439,16 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
     }
     
     const newNodeId = crypto.randomUUID();
+    // Branch/Multi Split only render a handle per config.branches/cases entry
+    // (if_else's TRUE/FALSE handles are hardcoded, so it always shows a
+    // branch shape) — without a seeded default they'd show just the
+    // Fallback line until someone opens the panel and adds one manually.
+    const defaultConfig: Record<string, any> =
+      itemData.id === 'branch'
+        ? { branches: [{ id: 'branch_1', name: 'Branch 1', field: '', operator: 'equals', value: '' }] }
+        : itemData.id === 'multi_split'
+          ? { cases: [{ id: 'case_1', label: 'Case 1', value: '' }] }
+          : {};
     const newNode: Node = {
       id: newNodeId,
       type: 'customNode',
@@ -450,7 +460,7 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
           tool: itemData.id,
           action: null,
           label: itemData.label,
-          config: {}
+          config: defaultConfig
         },
         onDelete: () => removeNode(newNodeId)
       },
@@ -501,7 +511,16 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
       });
       setPendingHandleConnection(null);
     } else {
-      const leafNodes = nodes.filter(n => !edges.some(e => e.source === n.id));
+      // Branch-type nodes (if_else/branch/multi_split) have multiple named
+      // handles instead of one plain output — appending here generically
+      // would create an edge with no sourceHandle, which the engine can
+      // never match to any specific branch (it just never fires). Those
+      // nodes must be wired per-handle via their own "+" buttons instead.
+      const leafNodes = nodes.filter(n => {
+        if (edges.some(e => e.source === n.id)) return false;
+        const dataNode = n.data.node as any;
+        return !['if_else', 'branch', 'multi_split'].includes(dataNode.tool);
+      });
       if (leafNodes.length > 0) {
         leafNodes.forEach(leaf => {
           newEdges.push({
@@ -513,6 +532,18 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
             data: { onAddNode: handleAddNodeClick }
           });
         });
+      } else {
+        const strandedBranchNode = nodes.find(n => {
+          if (edges.some(e => e.source === n.id)) return false;
+          const dataNode = n.data.node as any;
+          return ['if_else', 'branch', 'multi_split'].includes(dataNode.tool);
+        });
+        if (strandedBranchNode) {
+          // Still add the node (so it's on the canvas to wire up), just
+          // without a guessed edge — drag a connection from the specific
+          // branch handle (e.g. Case 1, Fallback) to it instead.
+          toast("Added — drag a connection from the branch (e.g. Case 1, Fallback) you want it on.");
+        }
       }
     }
 

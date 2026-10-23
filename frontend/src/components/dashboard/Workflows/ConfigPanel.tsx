@@ -729,7 +729,11 @@ export const ConfigPanel = ({
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-8 custom-scrollbar">
-           {node.tool === 'filter' && (
+           {node.tool === 'filter' && (() => {
+             // Same fix as branch/multi_split: one seeded default, read/written
+             // consistently, so editing the first unconfigured condition doesn't crash.
+             const conditions = node.config?.conditions || [{ id: '1', field: '', type: 'text', operator: 'equals', value: '' }];
+             return (
              <div className="space-y-4">
                <div className="text-[13px] font-bold text-[#1a1510]">Filter Configuration</div>
                <p className="text-xs text-slate-500">Only continue if the following conditions are met:</p>
@@ -740,24 +744,24 @@ export const ConfigPanel = ({
                      <option value="OR">Match ANY condition (OR)</option>
                    </select>
                  </div>
-                 {(node.config?.conditions || [{ id: '1', field: '', type: 'text', operator: 'equals', value: '' }]).map((cond: any, idx: number) => {
+                 {conditions.map((cond: any, idx: number) => {
                    const type = cond.type || 'text';
                    const ops = OPERATORS[type] || OPERATORS.text;
                    const noValue = NO_VALUE_OPERATORS.includes(cond.operator);
-                   
+
                    return (
                      <div key={cond.id || idx} className="flex flex-col gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
                        <div className="flex gap-2 items-start">
                          <input type="text" placeholder="Field e.g. {{trigger.contact.email}}" value={cond.field || ""} onChange={e => {
-                           const newConds = [...(node.config?.conditions || [])];
+                           const newConds = [...conditions];
                            newConds[idx] = { ...cond, field: e.target.value };
                            handleConfigChange("conditions", newConds);
                          }} className="flex-1 p-2 border border-slate-200 rounded text-xs outline-none bg-white" />
-                         
+
                          <select value={type} onChange={e => {
                            const newType = e.target.value;
                            const defaultOp = OPERATORS[newType][0].id;
-                           const newConds = [...(node.config?.conditions || [])];
+                           const newConds = [...conditions];
                            newConds[idx] = { ...cond, type: newType, operator: defaultOp, value: '' };
                            handleConfigChange("conditions", newConds);
                          }} className="w-24 p-2 border border-slate-200 rounded text-xs outline-none bg-white">
@@ -765,25 +769,25 @@ export const ConfigPanel = ({
                          </select>
 
                          <button onClick={() => {
-                            const newConds = [...(node.config?.conditions || [])];
-                            newConds.splice(idx, 1);
+                            const newConds = conditions.filter((_: any, i: number) => i !== idx);
                             handleConfigChange("conditions", newConds.length > 0 ? newConds : [{ id: '1', field: '', type: 'text', operator: 'equals', value: '' }]);
                          }} className="text-slate-400 hover:text-red-500 p-2"><X size={14}/></button>
                        </div>
-                       
+
                        <div className="flex gap-2 items-start">
                          <select value={cond.operator || ops[0].id} onChange={e => {
-                           const newConds = [...(node.config?.conditions || [])];
-                           newConds[idx] = { ...cond, operator: e.target.value };
-                           if (NO_VALUE_OPERATORS.includes(e.target.value)) newConds[idx].value = '';
+                           const newConds = [...conditions];
+                           const updated: any = { ...cond, operator: e.target.value };
+                           if (NO_VALUE_OPERATORS.includes(e.target.value)) updated.value = '';
+                           newConds[idx] = updated;
                            handleConfigChange("conditions", newConds);
                          }} className={`${noValue ? 'w-full' : 'w-1/2'} p-2 border border-slate-200 rounded text-xs outline-none bg-white`}>
                            {ops.map((o: any) => <option key={o.id} value={o.id}>{o.label}</option>)}
                          </select>
-                         
+
                          {!noValue && (
                            <input type="text" placeholder="Value" value={cond.value || ""} onChange={e => {
-                             const newConds = [...(node.config?.conditions || [])];
+                             const newConds = [...conditions];
                              newConds[idx] = { ...cond, value: e.target.value };
                              handleConfigChange("conditions", newConds);
                            }} className="w-1/2 p-2 border border-slate-200 rounded text-xs outline-none bg-white" />
@@ -793,15 +797,17 @@ export const ConfigPanel = ({
                    );
                  })}
                  <button onClick={() => {
-                    const newConds = [...(node.config?.conditions || [{ id: '1', field: '', type: 'text', operator: 'equals', value: '' }])];
-                    newConds.push({ id: crypto.randomUUID(), field: '', type: 'text', operator: 'equals', value: '' });
+                    const newConds = [...conditions, { id: crypto.randomUUID(), field: '', type: 'text', operator: 'equals', value: '' }];
                     handleConfigChange("conditions", newConds);
                  }} className="text-xs font-bold text-brand-gold hover:text-brand-gold/80">+ Add Condition</button>
                </div>
              </div>
-           )}
+             );
+           })()}
 
-           {node.tool === 'if_else' && (
+           {node.tool === 'if_else' && (() => {
+             const conditions = node.config?.conditions || [{ id: '1', field: '', type: 'text', operator: 'equals', value: '' }];
+             return (
              <div className="space-y-4">
                <div className="text-[13px] font-bold text-[#1a1510]">If / Else Configuration</div>
                <p className="text-xs text-slate-500">Determine if the TRUE or FALSE path executes.</p>
@@ -813,24 +819,24 @@ export const ConfigPanel = ({
                      <option value="OR">ANY condition matches</option>
                    </select>
                  </div>
-                 {(node.config?.conditions || [{ id: '1', field: '', type: 'text', operator: 'equals', value: '' }]).map((cond: any, idx: number) => {
+                 {conditions.map((cond: any, idx: number) => {
                    const type = cond.type || 'text';
                    const ops = OPERATORS[type] || OPERATORS.text;
                    const noValue = NO_VALUE_OPERATORS.includes(cond.operator);
-                   
+
                    return (
                      <div key={cond.id || idx} className="flex flex-col gap-2 bg-brand-gold/5 p-3 rounded-lg border border-brand-gold/20">
                        <div className="flex gap-2 items-start">
                          <input type="text" placeholder="Field e.g. {{trigger.contact.email}}" value={cond.field || ""} onChange={e => {
-                           const newConds = [...(node.config?.conditions || [])];
+                           const newConds = [...conditions];
                            newConds[idx] = { ...cond, field: e.target.value };
                            handleConfigChange("conditions", newConds);
                          }} className="flex-1 p-2 border border-slate-200 rounded text-xs outline-none bg-white" />
-                         
+
                          <select value={type} onChange={e => {
                            const newType = e.target.value;
                            const defaultOp = OPERATORS[newType][0].id;
-                           const newConds = [...(node.config?.conditions || [])];
+                           const newConds = [...conditions];
                            newConds[idx] = { ...cond, type: newType, operator: defaultOp, value: '' };
                            handleConfigChange("conditions", newConds);
                          }} className="w-24 p-2 border border-slate-200 rounded text-xs outline-none bg-white">
@@ -838,25 +844,25 @@ export const ConfigPanel = ({
                          </select>
 
                          <button onClick={() => {
-                            const newConds = [...(node.config?.conditions || [])];
-                            newConds.splice(idx, 1);
+                            const newConds = conditions.filter((_: any, i: number) => i !== idx);
                             handleConfigChange("conditions", newConds.length > 0 ? newConds : [{ id: '1', field: '', type: 'text', operator: 'equals', value: '' }]);
                          }} className="text-slate-400 hover:text-red-500 p-2"><X size={14}/></button>
                        </div>
-                       
+
                        <div className="flex gap-2 items-start">
                          <select value={cond.operator || ops[0].id} onChange={e => {
-                           const newConds = [...(node.config?.conditions || [])];
-                           newConds[idx] = { ...cond, operator: e.target.value };
-                           if (NO_VALUE_OPERATORS.includes(e.target.value)) newConds[idx].value = '';
+                           const newConds = [...conditions];
+                           const updated: any = { ...cond, operator: e.target.value };
+                           if (NO_VALUE_OPERATORS.includes(e.target.value)) updated.value = '';
+                           newConds[idx] = updated;
                            handleConfigChange("conditions", newConds);
                          }} className={`${noValue ? 'w-full' : 'w-1/2'} p-2 border border-slate-200 rounded text-xs outline-none bg-white`}>
                            {ops.map((o: any) => <option key={o.id} value={o.id}>{o.label}</option>)}
                          </select>
-                         
+
                          {!noValue && (
                            <input type="text" placeholder="Value" value={cond.value || ""} onChange={e => {
-                             const newConds = [...(node.config?.conditions || [])];
+                             const newConds = [...conditions];
                              newConds[idx] = { ...cond, value: e.target.value };
                              handleConfigChange("conditions", newConds);
                            }} className="w-1/2 p-2 border border-slate-200 rounded text-xs outline-none bg-white" />
@@ -866,12 +872,11 @@ export const ConfigPanel = ({
                    );
                  })}
                  <button onClick={() => {
-                    const newConds = [...(node.config?.conditions || [{ id: '1', field: '', type: 'text', operator: 'equals', value: '' }])];
-                    newConds.push({ id: crypto.randomUUID(), field: '', type: 'text', operator: 'equals', value: '' });
+                    const newConds = [...conditions, { id: crypto.randomUUID(), field: '', type: 'text', operator: 'equals', value: '' }];
                     handleConfigChange("conditions", newConds);
                  }} className="text-xs font-bold text-brand-gold hover:text-brand-gold/80">+ Add Condition</button>
                </div>
-               
+
                <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-2">
                  <div className="flex items-center gap-2 text-xs">
                    <div className="w-16 font-bold text-slate-500">THEN</div>
@@ -883,36 +888,43 @@ export const ConfigPanel = ({
                  </div>
                </div>
              </div>
-           )}
+             );
+           })()}
 
-           {node.tool === 'branch' && (
+           {node.tool === 'branch' && (() => {
+             // Single source of truth for the "no branches configured yet" default —
+             // every handler below reads/writes through this instead of each
+             // reconstructing its own (previously mismatched) fallback, which caused
+             // editing the first unconfigured branch to crash (writing into an index
+             // of an array that didn't actually contain the row being shown).
+             const branches = node.config?.branches || [{ id: 'branch_1', name: 'Branch 1', field: '', operator: 'equals', value: '' }];
+             return (
              <div className="space-y-4">
                <div className="text-[13px] font-bold text-[#1a1510]">Branch Configuration</div>
                <p className="text-xs text-slate-500">The first branch that matches will execute.</p>
                <div className="space-y-4">
-                 {(node.config?.branches || [{ id: 'branch_1', name: 'Branch 1', field: '', operator: 'equals', value: '' }]).map((b: any, idx: number) => (
+                 {branches.map((b: any, idx: number) => (
                    <div key={b.id || idx} className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3">
                      <div className="flex items-center justify-between">
                        <input type="text" placeholder="Branch Name" value={b.name} onChange={e => {
-                         const newBs = [...(node.config?.branches || [])];
-                         newBs[idx].name = e.target.value;
+                         const newBs = [...branches];
+                         newBs[idx] = { ...newBs[idx], name: e.target.value };
                          handleConfigChange("branches", newBs);
                        }} className="font-bold bg-transparent outline-none border-b border-transparent focus:border-slate-300 text-sm w-full max-w-[200px]" />
                        <button onClick={() => {
-                          const newBs = [...(node.config?.branches || [])];
-                          newBs.splice(idx, 1);
+                          const newBs = branches.filter((_: any, i: number) => i !== idx);
                           handleConfigChange("branches", newBs.length > 0 ? newBs : [{ id: 'branch_1', name: 'Branch 1', field: '', operator: 'equals', value: '' }]);
                        }} className="text-slate-400 hover:text-red-500"><X size={14}/></button>
                      </div>
                      <div className="flex gap-2">
                        <input type="text" placeholder="Field" value={b.field} onChange={e => {
-                         const newBs = [...(node.config?.branches || [])];
-                         newBs[idx].field = e.target.value;
+                         const newBs = [...branches];
+                         newBs[idx] = { ...newBs[idx], field: e.target.value };
                          handleConfigChange("branches", newBs);
                        }} className="flex-1 p-2 border border-slate-200 rounded text-xs outline-none bg-white" />
                        <select value={b.operator} onChange={e => {
-                         const newBs = [...(node.config?.branches || [])];
-                         newBs[idx].operator = e.target.value;
+                         const newBs = [...branches];
+                         newBs[idx] = { ...newBs[idx], operator: e.target.value };
                          handleConfigChange("branches", newBs);
                        }} className="w-24 p-2 border border-slate-200 rounded text-xs outline-none bg-white">
                          <option value="equals">=</option>
@@ -920,32 +932,36 @@ export const ConfigPanel = ({
                          <option value="contains">Has</option>
                        </select>
                        <input type="text" placeholder="Value" value={b.value} onChange={e => {
-                         const newBs = [...(node.config?.branches || [])];
-                         newBs[idx].value = e.target.value;
+                         const newBs = [...branches];
+                         newBs[idx] = { ...newBs[idx], value: e.target.value };
                          handleConfigChange("branches", newBs);
                        }} className="flex-1 p-2 border border-slate-200 rounded text-xs outline-none bg-white" />
                      </div>
                    </div>
                  ))}
                  <button onClick={() => {
-                    const newBs = [...(node.config?.branches || [{ id: 'branch_1', name: 'Branch 1', field: '', operator: 'equals', value: '' }])];
-                    newBs.push({ id: `branch_${crypto.randomUUID().substring(0,8)}`, name: `Branch ${newBs.length + 1}`, field: '', operator: 'equals', value: '' });
+                    const newBs = [...branches, { id: `branch_${crypto.randomUUID().substring(0,8)}`, name: `Branch ${branches.length + 1}`, field: '', operator: 'equals', value: '' }];
                     handleConfigChange("branches", newBs);
                  }} className="text-xs font-bold text-brand-gold hover:text-brand-gold/80">+ Add Branch</button>
                </div>
-               
+
                <div className="mt-4 pt-4 border-t border-slate-100 p-3 bg-slate-50 rounded-lg border flex items-center justify-between">
                  <div className="text-xs font-bold">Fallback Branch</div>
                  <div className="text-[10px] text-slate-500">Executes if no other branches match</div>
                </div>
              </div>
-           )}
+             );
+           })()}
 
-           {node.tool === 'multi_split' && (
+           {node.tool === 'multi_split' && (() => {
+             // Same fix as 'branch' above: one seeded default, used consistently by
+             // every handler, so editing the first unconfigured case doesn't crash.
+             const cases = node.config?.cases || [{ id: 'case_1', label: 'Case 1', value: '' }];
+             return (
              <div className="space-y-4">
                <div className="text-[13px] font-bold text-[#1a1510]">Multi Split</div>
                <p className="text-xs text-slate-500">Evaluate a single field against multiple specific values.</p>
-               
+
                <div className="space-y-2">
                  <label className="text-[11px] font-bold text-[#1a1510]">Evaluate Field</label>
                  <input type="text" placeholder="{{trigger.contact.country}}" value={node.config?.evaluateField || ""} onChange={e => handleConfigChange("evaluateField", e.target.value)} className="w-full p-2.5 border border-[#1a1510]/[0.07] rounded-lg text-sm outline-none bg-white" />
@@ -953,30 +969,28 @@ export const ConfigPanel = ({
 
                <div className="space-y-3 mt-4">
                  <label className="text-[11px] font-bold text-[#1a1510]">Cases (Values)</label>
-                 {(node.config?.cases || [{ id: 'case_1', label: 'Case 1', value: '' }]).map((c: any, idx: number) => (
+                 {cases.map((c: any, idx: number) => (
                    <div key={c.id || idx} className="flex gap-2 items-center bg-slate-50 p-2 rounded-lg border border-slate-200">
                      <div className="text-xs font-bold text-slate-400 w-16 text-right mr-2">Equals</div>
                      <input type="text" placeholder="Value" value={c.value} onChange={e => {
-                       const newCs = [...(node.config?.cases || [])];
-                       newCs[idx].value = e.target.value;
-                       newCs[idx].label = e.target.value || `Case ${idx+1}`;
+                       const newCs = [...cases];
+                       newCs[idx] = { ...newCs[idx], value: e.target.value, label: e.target.value || `Case ${idx+1}` };
                        handleConfigChange("cases", newCs);
                      }} className="flex-1 p-2 border border-slate-200 rounded text-xs outline-none bg-white" />
                      <button onClick={() => {
-                        const newCs = [...(node.config?.cases || [])];
-                        newCs.splice(idx, 1);
+                        const newCs = cases.filter((_: any, i: number) => i !== idx);
                         handleConfigChange("cases", newCs.length > 0 ? newCs : [{ id: 'case_1', label: 'Case 1', value: '' }]);
                      }} className="text-slate-400 hover:text-red-500 p-2"><X size={14}/></button>
                    </div>
                  ))}
                  <button onClick={() => {
-                    const newCs = [...(node.config?.cases || [{ id: 'case_1', label: 'Case 1', value: '' }])];
-                    newCs.push({ id: `case_${crypto.randomUUID().substring(0,8)}`, label: `Case ${newCs.length + 1}`, value: '' });
+                    const newCs = [...cases, { id: `case_${crypto.randomUUID().substring(0,8)}`, label: `Case ${cases.length + 1}`, value: '' }];
                     handleConfigChange("cases", newCs);
                  }} className="text-xs font-bold text-brand-gold hover:text-brand-gold/80">+ Add Case</button>
                </div>
              </div>
-           )}
+             );
+           })()}
 
            {node.tool === 'delay' && (() => {
              const mode = node.config?.mode || 'duration';

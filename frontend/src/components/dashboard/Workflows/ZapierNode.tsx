@@ -239,14 +239,12 @@ export const ZapierNode = ({ data, selected }: NodeProps) => {
              return (
                <div key={handleId} className="relative group/handle flex flex-col items-center">
                  <Handle type="source" position={Position.Bottom} id={handleId} className="!relative !transform-none w-3 h-3 bg-white border-2 border-slate-300 rounded-full hover:border-brand-gold hover:bg-brand-gold/20 hover:scale-125 transition-all" />
-                 <span className="absolute top-4 text-[9px] font-bold text-slate-400 group-hover/handle:text-[#1a1510] pointer-events-none whitespace-nowrap">{c.label || c.value || `Case ${i+1}`}</span>
                  {renderBranchAddButton(handleId)}
                </div>
              );
            })}
            <div className="relative group/handle flex flex-col items-center">
              <Handle type="source" position={Position.Bottom} id="fallback" className="!relative !transform-none w-3 h-3 bg-white border-2 border-slate-300 rounded-full hover:border-brand-gold hover:bg-brand-gold/20 hover:scale-125 transition-all" />
-             <span className="absolute top-4 text-[9px] font-bold text-slate-400 group-hover/handle:text-[#1a1510] pointer-events-none">FALLBACK</span>
              {renderBranchAddButton('fallback')}
            </div>
          </div>
