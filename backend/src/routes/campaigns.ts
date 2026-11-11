@@ -220,7 +220,7 @@ router.post('/plan', async (req: Request, res: Response) => {
     }
 
     // Get active tools
-    const activeTools = await getActiveToolsForClient(operatorId);
+    const activeTools = await getActiveToolsForClient(operatorId, clientId);
     const memoryInsights = await plannerMemoryService.getInsights(operatorId, prompt, activeTools);
 
     // Run the campaign compiler
@@ -319,6 +319,36 @@ router.post('/plan', async (req: Request, res: Response) => {
           ...(dailyLimit ? { daily_send_limit: dailyLimit } : {})
         }
       }).catch((err) => console.error('Failed to save builder config on campaign', err));
+
+      // The AI-compiled send step only ever carries a hardcoded placeholder
+      // subject and no body at all — wire in what was actually written in
+      // the wizard's messaging step so a launched campaign sends the real
+      // email instead of generic filler content. 'send_campaign' is the one
+      // action the email-send step uses regardless of which tool
+      // (Brevo/Smartlead) ends up resolving it, so no tool filter is needed.
+      const emailSteps = (builderConfig as any).emailSteps;
+      const firstEmail = Array.isArray(emailSteps) ? emailSteps[0] : null;
+      if (firstEmail?.subject || firstEmail?.body) {
+        const sendSteps = await prisma.campaignStep.findMany({
+          where: {
+            campaign_id: finalCampaignId,
+            action: 'send_campaign'
+          }
+        });
+        for (const step of sendSteps) {
+          const params = (step.params as Record<string, unknown>) || {};
+          await prisma.campaignStep.update({
+            where: { id: step.id },
+            data: {
+              params: {
+                ...params,
+                subject: firstEmail.subject || params.subject,
+                htmlContent: firstEmail.body || ''
+              }
+            }
+          }).catch((err) => console.error('Failed to wire real email content into send step', err));
+        }
+      }
     }
 
     // Return success response
@@ -494,14 +524,16 @@ router.delete('/:id', async (req: Request, res: Response) => {
 /**
  * Helper function to get active tools for a client
  */
-async function getActiveToolsForClient(operatorId: string): Promise<string[]> {
+async function getActiveToolsForClient(operatorId: string, clientId?: string): Promise<string[]> {
   try {
-    // Get the client's active tool accounts
+    // Scoped to the specific client being built for — this previously
+    // queried every tool the operator ever connected across ALL their
+    // clients, so a campaign for Client A could "see" Client B's Smartlead
+    // connection as if it were available here.
     const toolAccounts = await prisma.clientToolAccount.findMany({
       where: {
         created_by_operator_id: operatorId,
-        // In a real app, you'd filter by a specific client
-        // For now, get all tools for this operator's clients
+        ...(clientId ? { client_id: clientId } : {})
       },
       select: {
         tool_name: true
@@ -509,18 +541,23 @@ async function getActiveToolsForClient(operatorId: string): Promise<string[]> {
       distinct: ['tool_name']
     });
 
-    const { getEnvToolsForDemoStack, useFreeDemoStack } = await import('../config/demo-stack');
-    const tools = new Set<string>(
-      toolAccounts.length > 0
-        ? toolAccounts.map((account) => account.tool_name)
-        : ['Apollo', 'Clay', 'Smartlead']
-    );
-    for (const t of getEnvToolsForDemoStack()) {
-      tools.add(t);
+    const { getEnvToolsForDemoStack, useFreeDemoStack, canonicalToolName } = await import('../config/demo-stack');
+    // tool_name is stored however the Connect flow sent it (lowercase
+    // tool_id, e.g. "smartlead"/"bettercontact") — normalize to the
+    // display-cased form the AI compiler actually checks for
+    // ("Smartlead"/"BetterContacts"), or a real connection is invisible to it.
+    const tools = new Set<string>(toolAccounts.map((account) => canonicalToolName(account.tool_name)));
+
+    // Only fall back to Qhord's own env-configured tools when demo-stack
+    // mode is actually on, or when this client has no real tools connected
+    // at all — otherwise a client with their own Apollo account shouldn't
+    // silently also get the server's own Brevo sender added in.
+    if (useFreeDemoStack() || tools.size === 0) {
+      for (const t of getEnvToolsForDemoStack()) {
+        tools.add(t);
+      }
     }
-    if (useFreeDemoStack()) {
-      tools.add('Hunter');
-      tools.add('Brevo');
+    if (tools.size === 0) {
       tools.add('Apollo');
       tools.add('Clay');
       tools.add('Smartlead');

@@ -302,6 +302,18 @@ export class CampaignWorker {
       payload = { ...payload, email_account_id: senderAccountId };
     }
 
+    // A Smartlead campaign cannot send at all without a real email account
+    // attached to it — fail loudly here instead of letting Smartlead accept
+    // the call and silently never deliver anything.
+    if (resolved.tool === 'smartlead' && resolved.action === 'add_email_account_to_campaign') {
+      if (!senderAccountId) {
+        throw new Error(
+          'Smartlead sender mailbox not configured for this client. Reconnect Smartlead and pick a sending mailbox in Tools settings before launching.'
+        );
+      }
+      payload = { ...payload, email_account_ids: [senderAccountId] };
+    }
+
     const execution = await this.executionEngine.execute(
       {
         clientId,

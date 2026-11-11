@@ -18,6 +18,10 @@ interface ApolloMailbox {
    email: string;
 }
 
+// Tools where a campaign can't actually deliver until one specific sending
+// mailbox/email-account is picked out of possibly several connected ones.
+const MAILBOX_SELECTABLE_TOOLS = new Set(["apollo", "smartlead"]);
+
 export const ConnectModal = ({ isOpen, onClose, tool, clientId, onSuccess }: ConnectModalProps) => {
    const [apiKey, setApiKey] = useState("");
    const [accountLabel, setAccountLabel] = useState("");
@@ -58,12 +62,13 @@ export const ConnectModal = ({ isOpen, onClose, tool, clientId, onSuccess }: Con
 
          const accountId = res.data?.account?.id;
 
-         // Apollo can have several sending mailboxes — without picking one,
-         // campaigns fall back to whatever Apollo has set as its own
-         // internal default, which may not be this connected account.
-         if (tool.id === "apollo" && accountId) {
+         // Apollo and Smartlead can have several sending mailboxes — without
+         // picking one, campaigns fall back to whatever the tool has set as
+         // its own internal default, which may not be this connected account,
+         // or (for Smartlead) may not send at all with no mailbox attached.
+         if (MAILBOX_SELECTABLE_TOOLS.has(tool.id) && accountId) {
             try {
-               const mbRes = await api.get(`/tools/apollo/mailboxes?accountId=${accountId}`);
+               const mbRes = await api.get(`/tools/${tool.id}/mailboxes?accountId=${accountId}`);
                const found: ApolloMailbox[] = mbRes.data?.mailboxes || [];
                if (found.length > 1) {
                   setNewAccountId(accountId);
@@ -77,7 +82,7 @@ export const ConnectModal = ({ isOpen, onClose, tool, clientId, onSuccess }: Con
                   });
                }
             } catch (mbErr) {
-               console.error("Failed to fetch Apollo mailboxes", mbErr);
+               console.error(`Failed to fetch ${tool.id} mailboxes`, mbErr);
             }
          }
 
@@ -168,7 +173,7 @@ export const ConnectModal = ({ isOpen, onClose, tool, clientId, onSuccess }: Con
                      className="space-y-4"
                   >
                      <p className="text-[13px] text-[#1a1510]/60 leading-relaxed">
-                        This Apollo account has multiple sending mailboxes. Choose which one campaigns should send from.
+                        This {tool?.name} account has multiple sending mailboxes. Choose which one campaigns should send from.
                      </p>
                      <div className="space-y-2 max-h-56 overflow-y-auto">
                         {mailboxes.map((mb) => (

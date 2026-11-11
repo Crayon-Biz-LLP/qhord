@@ -378,6 +378,12 @@ export class ExecutionEngine {
     if (tool === 'smartlead' && action === 'add_email_account_to_campaign') {
       return { ...base, campaign_id: payload?.campaign_id, added: true };
     }
+    if (tool === 'smartlead' && action === 'save_sequence') {
+      return { ...base, campaign_id: payload?.campaign_id, sequence_saved: true };
+    }
+    if (tool === 'smartlead' && action === 'update_campaign_status') {
+      return { ...base, campaign_id: payload?.campaign_id, status: payload?.status };
+    }
 
     // ---- HeyReach mocks ----
     if (tool === 'heyreach' && action === 'get_all_campaigns') {
@@ -602,6 +608,8 @@ export class ExecutionEngine {
         if (action === 'update_lead_status') return service.updateLeadStatus(payload);
         if (action === 'get_all_email_accounts') return service.getAllEmailAccounts(payload);
         if (action === 'add_email_account_to_campaign') return service.addEmailAccountToCampaign(payload);
+        if (action === 'save_sequence') return service.saveCampaignSequence(payload);
+        if (action === 'update_campaign_status') return service.updateCampaignStatus(payload);
         break;
       }
       case 'hunter': {

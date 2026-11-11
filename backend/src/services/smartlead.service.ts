@@ -35,6 +35,36 @@ export class SmartLeadService {
     return response.data;
   }
 
+  /** Sets the campaign's actual email sequence content — without this, a
+   * Smartlead campaign has no subject/body at all and has nothing to send. */
+  async saveCampaignSequence(payload: { campaign_id: string | number; subject?: string; email_body?: string }): Promise<any> {
+    const { campaign_id, subject, email_body } = payload;
+    const response = await this.client.post(`/campaigns/${campaign_id}/sequences`, {
+      sequences: [
+        {
+          seq_number: 1,
+          seq_delay_details: { delay_in_days: 0 },
+          subject: subject || 'Quick question',
+          email_body: email_body || '<p>Hi {{first_name}},</p>',
+        },
+      ],
+    }, {
+      params: this.params(),
+    });
+    return response.data;
+  }
+
+  /** Moves a campaign out of DRAFTED into an actually-sending state (or
+   * pauses/stops it). Creating and populating a campaign alone never sends
+   * anything — Smartlead only starts delivering once this is called. */
+  async updateCampaignStatus(payload: { campaign_id: string | number; status: 'START' | 'PAUSED' | 'STOPPED' }): Promise<any> {
+    const { campaign_id, status } = payload;
+    const response = await this.client.post(`/campaigns/${campaign_id}/status`, { status }, {
+      params: this.params(),
+    });
+    return response.data;
+  }
+
   async updateCampaignSchedule(payload: any): Promise<any> {
     const { campaign_id, ...body } = payload;
     const response = await this.client.post(`/campaigns/${campaign_id}/schedule`, body, {

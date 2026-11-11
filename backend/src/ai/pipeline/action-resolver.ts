@@ -207,6 +207,27 @@ function resolveOneStep(step: ManifestStepLike): ResolvedExecutionStep[] {
           payload: { name: campaignName },
           label: 'Smartlead — create campaign',
         },
+        // Without this, the campaign Smartlead creates has no subject/body
+        // at all — there is nothing to send until a real sequence is saved.
+        {
+          manifestStepId: id,
+          tool: 'smartlead',
+          action: 'save_sequence',
+          payload: {
+            subject: params.subject,
+            email_body: params.htmlContent || params.email_body,
+          },
+          label: 'Smartlead — save email sequence',
+        },
+        // Attaches the sending mailbox the client actually connected —
+        // without one, the campaign has no account to send from.
+        {
+          manifestStepId: id,
+          tool: 'smartlead',
+          action: 'add_email_account_to_campaign',
+          payload: {},
+          label: 'Smartlead — assign sender mailbox',
+        },
         {
           manifestStepId: id,
           tool: 'smartlead',
@@ -219,6 +240,15 @@ function resolveOneStep(step: ManifestStepLike): ResolvedExecutionStep[] {
             _from_pipeline: true,
           },
           label: 'Smartlead — add leads',
+        },
+        // A Smartlead campaign sits in DRAFTED and sends nothing until it is
+        // explicitly started — creating/populating it is not enough.
+        {
+          manifestStepId: id,
+          tool: 'smartlead',
+          action: 'update_campaign_status',
+          payload: { status: 'START' },
+          label: 'Smartlead — start campaign',
         },
       ];
     }
@@ -399,6 +429,17 @@ export function applyPipelineToPayload(
       payload.campaign_id = ctx.campaignId;
     }
     delete payload._from_pipeline;
+  }
+
+  if (
+    resolved.tool === 'smartlead' &&
+    (resolved.action === 'save_sequence' ||
+      resolved.action === 'add_email_account_to_campaign' ||
+      resolved.action === 'update_campaign_status')
+  ) {
+    if (ctx.campaignId != null && !payload.campaign_id) {
+      payload.campaign_id = ctx.campaignId;
+    }
   }
 
   if (resolved.tool === 'brevo' && resolved.action === 'sync_contacts' && payload._from_pipeline) {

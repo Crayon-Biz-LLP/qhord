@@ -25,6 +25,41 @@ export function mapManifestTool(tool: ToolName, action: string): ToolName {
   return tool;
 }
 
+const CANONICAL_TOOL_NAMES: Record<string, string> = {
+  apollo: 'Apollo',
+  zoominfo: 'ZoomInfo',
+  cognism: 'Cognism',
+  lusha: 'Lusha',
+  clay: 'Clay',
+  clearbit: 'Clearbit',
+  smartlead: 'Smartlead',
+  hunter: 'Hunter',
+  bettercontact: 'BetterContacts',
+  bettercontacts: 'BetterContacts',
+  brevo: 'Brevo',
+  instantly: 'Instantly',
+  lemlist: 'Lemlist',
+  heyreach: 'HeyReach',
+  expandi: 'Expandi',
+  zapier: 'Zapier',
+  make: 'Make',
+  hubspot: 'HubSpot',
+  salesforce: 'Salesforce',
+  pipedrive: 'Pipedrive',
+  calendly: 'Calendly',
+};
+
+/** A tool connection is stored under whatever casing the Connect flow sent
+ * at save time (the lowercase tool_id, e.g. "smartlead" or "bettercontact"),
+ * but the AI compiler (manifest-builder) and the demo-stack fallback both
+ * check the display-cased form (e.g. "Smartlead", "BetterContacts"). Without
+ * normalizing here, a client's real connected tools are invisible to the
+ * compiler and nothing gets built for them at all. */
+export function canonicalToolName(name: string): string {
+  const key = name.trim().toLowerCase();
+  return CANONICAL_TOOL_NAMES[key] || name;
+}
+
 export function getEnvToolsForDemoStack(): string[] {
   const tools: string[] = [];
   if (process.env.HUNTER_API_KEY?.trim()) tools.push('Hunter');

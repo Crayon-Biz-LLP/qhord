@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma';
 import { requireAuth } from '../middleware/auth';
 import { encrypt, decrypt } from '../config/encryption';
 import { ApolloService } from '../services/apollo.service';
+import { SmartLeadService } from '../services/smartlead.service';
 import { validateToolKey } from '../validators';
 
 const router = Router();
@@ -81,6 +82,49 @@ router.get('/apollo/mailboxes', async (req: Request, res: Response) => {
         email: m.email || m.address || m.email_address || ''
       }))
       .filter((m: { id: string }) => !!m.id);
+
+    res.json({ success: true, mailboxes });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.response?.data?.message || error.message || 'Failed to fetch mailboxes'
+    });
+  }
+});
+
+/**
+ * GET /api/tools/smartlead/mailboxes?accountId=<clientToolAccount id>
+ * Lists the warmed-up sending email accounts available on a connected
+ * Smartlead account, so the user can pick which one campaigns actually
+ * send from — a Smartlead campaign cannot deliver anything until a real
+ * email account is attached to it.
+ */
+router.get('/smartlead/mailboxes', async (req: Request, res: Response) => {
+  const accountId = req.query.accountId as string;
+  if (!accountId) {
+    res.status(400).json({ success: false, error: 'accountId is required' });
+    return;
+  }
+
+  try {
+    const account = await prisma.clientToolAccount.findUnique({ where: { id: accountId } });
+    if (!account) {
+      res.status(404).json({ success: false, error: 'Tool account not found' });
+      return;
+    }
+
+    const apiKey = decrypt(account.api_key_encrypted);
+    const smartleadService = new SmartLeadService(apiKey);
+    const raw = await smartleadService.getAllEmailAccounts({});
+
+    const list: any[] = Array.isArray(raw) ? raw : Array.isArray(raw?.email_accounts) ? raw.email_accounts : [];
+
+    const mailboxes = list
+      .map((m: any) => ({
+        id: m.id,
+        email: m.from_email || m.email || ''
+      }))
+      .filter((m: { id: unknown }) => m.id !== undefined && m.id !== null);
 
     res.json({ success: true, mailboxes });
   } catch (error: any) {

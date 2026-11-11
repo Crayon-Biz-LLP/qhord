@@ -151,10 +151,14 @@ export class ManifestBuilder {
     if (intent.sequence.includes('send') || intent.sequence.includes('deliver')) {
       const deps = steps.length > 0 ? [steps[steps.length - 1].id] : [];
       if (hasEmailSend) {
+        // hasEmailSend already confirmed one of these is actually connected —
+        // picking a dedicated cold-email sender over Brevo when available
+        // instead of hardcoding Brevo regardless of what the client connected.
+        const useSmartlead = activeTools.includes('Smartlead');
         steps.push({
           id: 'send_emails',
           order: order++,
-          tool: 'Brevo',
+          tool: useSmartlead ? 'Smartlead' : 'Brevo',
           action: 'send_campaign',
           params: {
             subject: 'Personalized B2B Outreach',

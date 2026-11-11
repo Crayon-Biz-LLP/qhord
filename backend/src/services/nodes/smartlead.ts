@@ -76,7 +76,7 @@ export class SmartleadProcessor extends BaseProcessor implements NodeProcessor {
 
            const statusMap: Record<string, string> = {
              'pause_campaign': 'PAUSED',
-             'resume_campaign': 'ACTIVE',
+             'resume_campaign': 'START',
              'stop_campaign': 'STOPPED'
            };
 
