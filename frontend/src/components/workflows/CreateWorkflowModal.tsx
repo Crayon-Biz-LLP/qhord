@@ -8,9 +8,10 @@ interface CreateWorkflowModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  clientId: string;
 }
 
-export function CreateWorkflowModal({ isOpen, onClose, onSuccess }: CreateWorkflowModalProps) {
+export function CreateWorkflowModal({ isOpen, onClose, onSuccess, clientId }: CreateWorkflowModalProps) {
   const [prompt, setPrompt] = useState("");
   const [name, setName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
@@ -26,7 +27,8 @@ export function CreateWorkflowModal({ isOpen, onClose, onSuccess }: CreateWorkfl
     try {
       const response = await api.post("/workflows", {
         prompt: prompt.trim(),
-        name: name.trim() || undefined
+        name: name.trim() || undefined,
+        clientId
       });
 
       const data = response.data;

@@ -16,6 +16,15 @@ import {
 const router = Router();
 router.use(requireAuth);
 
+// Any authenticated operator could otherwise read/update/run/delete another
+// operator's client's workflow just by guessing its id — this scopes every
+// :id route to a workflow whose client the requesting operator actually owns.
+async function getOwnedWorkflow(workflowId: string, operatorId: string) {
+  return prisma.workflow.findFirst({
+    where: { id: workflowId, client: { created_by_operator_id: operatorId } }
+  });
+}
+
 // ── GET /api/workflows ───────────────────────────────────────────
 router.get('/', async (req: Request, res: Response) => {
   try {
@@ -44,6 +53,12 @@ router.post('/', async (req: Request, res: Response) => {
     const { name, status, clientId, nodes } = req.body;
     const operatorId = req.user!.id;
     if (!clientId) return res.status(400).json({ success: false, error: 'clientId is required' });
+
+    const ownedClient = await prisma.client.findFirst({
+      where: { id: clientId, created_by_operator_id: operatorId },
+      select: { id: true }
+    });
+    if (!ownedClient) return res.status(400).json({ success: false, error: 'Client not found for this operator' });
 
     const triggerNode = nodes?.find((n: any) => n.nodeType === 'trigger');
 
@@ -88,6 +103,9 @@ router.post('/', async (req: Request, res: Response) => {
 // ── GET /api/workflows/:id ───────────────────────────────────────
 router.get('/:id', async (req: Request, res: Response) => {
   try {
+    const owned = await getOwnedWorkflow(req.params.id, req.user!.id);
+    if (!owned) return res.status(404).json({ success: false, error: 'Workflow not found' });
+
     const wf = await prisma.workflow.findUnique({
       where: { id: req.params.id },
       include: { nodes: true, edges: true }
@@ -107,6 +125,9 @@ router.get('/:id', async (req: Request, res: Response) => {
 // ── PUT /api/workflows/:id ───────────────────────────────────────
 router.put('/:id', async (req: Request, res: Response) => {
   try {
+    const owned = await getOwnedWorkflow(req.params.id, req.user!.id);
+    if (!owned) return res.status(404).json({ success: false, error: 'Workflow not found' });
+
     const { name, status, nodes } = req.body;
     const triggerNode = nodes?.find((n: any) => n.nodeType === 'trigger');
 
@@ -115,8 +136,14 @@ router.put('/:id', async (req: Request, res: Response) => {
       data: {
         name,
         status,
-        triggerType: triggerNode?.action || 'manual',
-        triggerTool: triggerNode?.tool || null
+        // Only touch trigger metadata when nodes were actually sent — a
+        // bare rename/status update (e.g. the Rename action) sends no
+        // nodes at all, and previously this always overwrote the real
+        // trigger config with 'manual'/null regardless.
+        ...(nodes ? {
+          triggerType: triggerNode?.action || 'manual',
+          triggerTool: triggerNode?.tool || null
+        } : {})
       }
     });
 
@@ -215,6 +242,9 @@ router.post('/test-webhook', async (req: Request, res: Response) => {
 // ── GET /api/workflows/:id/runs ──────────────────────────────────
 router.get('/:id/runs', async (req: Request, res: Response) => {
   try {
+    const owned = await getOwnedWorkflow(req.params.id, req.user!.id);
+    if (!owned) return res.status(404).json({ success: false, error: 'Workflow not found' });
+
     const runs = await prisma.workflowRun.findMany({
       where: { workflow_id: req.params.id },
       orderBy: { startedAt: 'desc' }
@@ -228,6 +258,9 @@ router.get('/:id/runs', async (req: Request, res: Response) => {
 // ── POST /api/workflows/:id/runs ─────────────────────────────────
 router.post('/:id/runs', async (req: Request, res: Response) => {
   try {
+    const owned = await getOwnedWorkflow(req.params.id, req.user!.id);
+    if (!owned) return res.status(404).json({ success: false, error: 'Workflow not found' });
+
     const { triggerPayload } = req.body;
     const run = await prisma.workflowRun.create({
       data: {
@@ -249,6 +282,9 @@ router.post('/:id/runs', async (req: Request, res: Response) => {
 // ── POST /api/workflows/:id/test ─────────────────────────────────
 router.post('/:id/test', async (req: Request, res: Response) => {
   try {
+    const owned = await getOwnedWorkflow(req.params.id, req.user!.id);
+    if (!owned) return res.status(404).json({ success: false, error: 'Workflow not found' });
+
     const { triggerPayload } = req.body;
     const run = await prisma.workflowRun.create({
       data: {
@@ -261,13 +297,18 @@ router.post('/:id/test', async (req: Request, res: Response) => {
     // Wait for the test execution to complete and get the trace
     const result = await workflowEngine.executeRun(run.id, true);
 
-    res.json({ success: true, run, trace: result?.trace || [], result });
+    // Surface the actual outcome — this previously always reported success
+    // even when the engine threw and the run was marked 'failed'.
+    res.json({ success: result?.success ?? false, run, trace: result?.trace || [], result });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Failed to test workflow' });
   }
 });
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
+    const owned = await getOwnedWorkflow(req.params.id, req.user!.id);
+    if (!owned) return res.status(404).json({ success: false, error: 'Workflow not found' });
+
     await prisma.workflow.delete({ where: { id: req.params.id } });
     res.json({ success: true, message: 'Workflow deleted successfully' });
   } catch (error) {

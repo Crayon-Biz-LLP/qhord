@@ -462,11 +462,24 @@ export class WorkflowEngine {
          }
          
          if (isTestMode) testTrace.push(`✓ Starting loop over ${collection.length} items.`);
-         
+
+         if (!isTestMode) {
+           await prisma.workflowRunStep.create({
+             data: {
+               run_id: runId,
+               node_id: node.id,
+               status: 'completed',
+               started_at: new Date(),
+               completed_at: new Date(),
+               output_json: { itemCount: collection.length }
+             }
+           });
+         }
+
          // In Test Mode we only process the first item to prevent infinite/massive traces
          const items = isTestMode ? collection.slice(0, 1) : collection;
          const outgoingEdges = edges.filter(e => e.source_node_id === node.id);
-         
+
          for (let i = 0; i < items.length; i++) {
            const item = items[i];
            // Isolate context
@@ -536,6 +549,24 @@ export class WorkflowEngine {
       }
     } else {
       selectedHandles = ['default']; // normal nodes
+    }
+
+    // filter/if_else/branch/multi_split never run through the standard
+    // action-processor block above, so without this a Merge node counting
+    // completed steps for its incoming edges' source nodes always sees 0
+    // for any of these — it can never fire. Recording a step here (once we
+    // know the node actually continued, not e.g. a failed filter) fixes that.
+    if (!isTestMode && ['filter', 'if_else', 'branch', 'multi_split'].includes(node.tool)) {
+      await prisma.workflowRunStep.create({
+        data: {
+          run_id: runId,
+          node_id: node.id,
+          status: 'completed',
+          started_at: new Date(),
+          completed_at: new Date(),
+          output_json: previousOutputs[node.id] ?? null
+        }
+      });
     }
 
     for (const edge of outgoingEdges) {

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { requireAuth } from '../middleware/auth';
+import { fireEventTrigger } from '../services/trigger-dispatch';
 
 const router = Router();
 router.use(requireAuth);
@@ -79,6 +80,10 @@ router.post('/', async (req: Request, res: Response) => {
     });
 
     res.status(201).json({ success: true, deal });
+
+    fireEventTrigger(targetClientId, 'deal_created', { deal }).catch((err) =>
+      console.error('[deals] deal_created trigger dispatch failed:', err)
+    );
   } catch (error) {
     console.error('Create deal error:', error);
     res.status(500).json({ success: false, error: 'Failed to create deal' });
@@ -118,6 +123,10 @@ router.put('/:id', async (req: Request, res: Response) => {
     });
 
     res.json({ success: true, deal });
+
+    fireEventTrigger(deal.client_id, 'deal_updated', { deal }).catch((err) =>
+      console.error('[deals] deal_updated trigger dispatch failed:', err)
+    );
   } catch (error: any) {
     if (error.code === 'P2025') {
       return res.status(404).json({ success: false, error: 'Deal not found' });

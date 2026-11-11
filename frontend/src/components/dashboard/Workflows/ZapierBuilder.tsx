@@ -381,7 +381,12 @@ export const BuilderCanvas = ({ workflowId, onClose }: { workflowId: string | nu
              id: e.id,
              source: e.source_node_id || e.source,
              target: e.target_node_id || e.target,
-             sourceHandle: e.sourceHandle,
+             // The API never returns a ReactFlow-style sourceHandle — only
+             // branchKey. Without this fallback, every reloaded branch edge
+             // re-attaches to the node's default handle visually, even
+             // though branchKey (preserved in data below) keeps it wired
+             // correctly for actual execution.
+             sourceHandle: e.sourceHandle || e.branchKey,
              targetHandle: e.targetHandle,
              type: 'customEdge',
              markerEnd: { type: MarkerType.ArrowClosed },

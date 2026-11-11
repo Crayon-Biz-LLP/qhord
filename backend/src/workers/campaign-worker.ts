@@ -7,6 +7,7 @@ import { emptyPipelineContext, type ManifestStepLike } from '../ai/pipeline/pipe
 import type { ToolName } from '../types';
 import { mergePipelineContext } from '../ai/pipeline/pipeline-leads';
 import { findToolAccount } from '../ai/pipeline/ensure-tool-accounts';
+import { fireEventTrigger } from '../services/trigger-dispatch';
 
 const CREDIT_COST: Record<string, number> = {
   hunter: 2,
@@ -197,6 +198,17 @@ export class CampaignWorker {
             campaignId
           );
           results.push(result);
+
+          // The moment an email actually goes out — fires any workflow
+          // whose trigger is configured for the "Email sent" event.
+          const emailActuallySent =
+            (resolved.tool === 'brevo' && resolved.action === 'send_campaign_now') ||
+            (resolved.tool === 'smartlead' && resolved.action === 'update_campaign_status' && (payload as any)?.status === 'START');
+          if (emailActuallySent) {
+            fireEventTrigger(clientId, 'email_sent', { campaign: { id: campaignId } }, { campaignId }).catch((err) =>
+              console.error('[campaign-worker] email_sent trigger dispatch failed:', err)
+            );
+          }
 
           pipelineContext = mergePipelineContext(
             pipelineContext,

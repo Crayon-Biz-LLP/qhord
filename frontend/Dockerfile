@@ -11,6 +11,14 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+# next.config.js's rewrites() destination is resolved once, at `next build`,
+# and baked into .next/ — the container's runtime env has no effect on it.
+# Without this build arg, a self-hosted docker-compose build always falls
+# back to the production Render URL regardless of what docker-compose.yml
+# sets for NEXT_PUBLIC_API_URL at container start.
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./
 COPY tsconfig.json ./

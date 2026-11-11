@@ -27,3 +27,13 @@ workflowQueue.add('check-delays', {}, {
   removeOnComplete: true,
   removeOnFail: true
 }).catch((err) => console.error('[workflow-queue] Failed to schedule check-delays repeat job:', err));
+
+// Recurring job that fires schedule-trigger workflows whose configured time
+// has arrived. Without this, a workflow set to run "every Monday" or "on a
+// specific date" never actually starts on its own — only manual Run/Test did.
+workflowQueue.add('check-scheduled-triggers', {}, {
+  repeat: { every: 60_000 },
+  jobId: 'check-scheduled-triggers-repeat',
+  removeOnComplete: true,
+  removeOnFail: true
+}).catch((err) => console.error('[workflow-queue] Failed to schedule check-scheduled-triggers repeat job:', err));

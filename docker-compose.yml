@@ -12,7 +12,10 @@ services:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
-      - ./backend/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+      # schema.sql only ever created 5 of the ~30 real tables (no workflow
+      # tables, among others) and would now conflict with `prisma migrate
+      # deploy`, which the backend runs on startup and creates everything
+      # from the actual schema. Start from an empty DB and let that do it.
 
   redis:
     image: redis:7-alpine
@@ -52,6 +55,10 @@ services:
   frontend:
     build:
       context: ./frontend
+      args:
+        # Must also be a build arg, not just a runtime env var below —
+        # next.config.js's rewrite destination is baked in at build time.
+        NEXT_PUBLIC_API_URL: http://backend:4000/api
     restart: unless-stopped
     environment:
       NODE_ENV: production
