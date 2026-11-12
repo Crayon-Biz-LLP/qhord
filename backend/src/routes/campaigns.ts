@@ -3,33 +3,15 @@ import { runCampaignCompiler } from '../ai/langgraph/state-machine';
 import { requireAuth } from '../middleware/auth';
 import { prisma } from '../lib/prisma';
 import { PlannerMemoryService } from '../services/planner-memory.service';
-import jwt from 'jsonwebtoken';
-import { AuthTokenPayload } from '../types';
-import nodemailer from 'nodemailer';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'development-secret';
 
 const router = Router();
 const plannerMemoryService = new PlannerMemoryService();
 
-// Apply authentication to all routes except /plan and GET /campaigns for testing
-router.use((req, res, next) => {
-  if (req.path === '/plan' || (req.method === 'GET' && req.path === '/')) {
-    // Attempt optional token parsing to set req.user if a token is provided
-    const header = req.headers.authorization;
-    if (header && header.startsWith('Bearer ')) {
-      const token = header.substring('Bearer '.length);
-      try {
-        const decoded = jwt.verify(token, JWT_SECRET) as AuthTokenPayload;
-        req.user = decoded;
-      } catch {
-        // Ignore invalid token on optional auth paths
-      }
-    }
-    return next();
-  }
-  return requireAuth(req, res, next);
-});
+// Every route requires real auth, including /plan and GET / — these used to
+// be exempted "for testing", which meant anyone could create campaigns
+// (burning LLM calls) or list campaigns unauthenticated, and silently fell
+// back to an auto-created demo operator with a hardcoded plaintext password.
+router.use(requireAuth);
 
 router.post('/send-test', async (req: Request, res: Response) => {
   try {
@@ -151,72 +133,32 @@ router.post('/plan', async (req: Request, res: Response) => {
       } as CampaignPlanResponse);
     }
 
-    // For testing without auth, create or get test user and client
-    let operatorId = req.user?.id;
-    let clientId;
+    const operatorId = req.user!.id;
+    let clientId: string | null;
 
-    if (!operatorId) {
-      // Create test user for demo
-      let testOperator = await prisma.operator.findFirst({
-        where: { email: 'demo@example.com' }
+    if (requestedClientId) {
+      // Use the client actively selected in the dashboard, but verify
+      // the operator actually owns it before trusting it.
+      const ownedClient = await prisma.client.findFirst({
+        where: { id: requestedClientId, created_by_operator_id: operatorId },
+        select: { id: true }
       });
-
-      if (!testOperator) {
-        testOperator = await prisma.operator.create({
-          data: {
-            email: 'demo@example.com',
-            password_hash: 'demo123',
-            name: 'Demo User',
-            role: 'operator'
-          }
-        });
-      }
-
-      operatorId = testOperator.id;
-
-      // Create test client
-      let testClient = await prisma.client.findFirst({
-        where: { created_by_operator_id: operatorId }
-      });
-
-      if (!testClient) {
-        testClient = await prisma.client.create({
-          data: {
-            name: 'Demo Client',
-            description: 'Demo client for testing',
-            created_by_operator_id: operatorId
-          }
-        });
-      }
-
-      clientId = testClient.id;
-    } else {
-      if (requestedClientId) {
-        // Use the client actively selected in the dashboard, but verify
-        // the operator actually owns it before trusting it.
-        const ownedClient = await prisma.client.findFirst({
-          where: { id: requestedClientId, created_by_operator_id: req.user!.id },
-          select: { id: true }
-        });
-        if (!ownedClient) {
-          return res.status(400).json({
-            success: false,
-            error: 'Selected client not found for this operator'
-          } as CampaignPlanResponse);
-        }
-        clientId = ownedClient.id;
-      } else {
-        // No client specified — fall back to the operator's first client
-        // (used by the unauthenticated/demo test path above).
-        clientId = await getClientIdForOperator(req.user!.id);
-      }
-
-      if (!clientId) {
+      if (!ownedClient) {
         return res.status(400).json({
           success: false,
-          error: 'No client found for this operator'
+          error: 'Selected client not found for this operator'
         } as CampaignPlanResponse);
       }
+      clientId = ownedClient.id;
+    } else {
+      clientId = await getClientIdForOperator(operatorId);
+    }
+
+    if (!clientId) {
+      return res.status(400).json({
+        success: false,
+        error: 'No client found for this operator'
+      } as CampaignPlanResponse);
     }
 
     // Get active tools
@@ -270,6 +212,14 @@ router.post('/plan', async (req: Request, res: Response) => {
               estimated_duration: freshCampaign.estimated_duration,
               status: 'draft'
             }
+          }),
+          // Rebuilding an approved/pending/executing campaign resets it to
+          // draft above — any approval record still sitting in 'pending' no
+          // longer reflects what's actually being asked for, so it shouldn't
+          // be approvable as-is. Approved/rejected history stays untouched.
+          prisma.campaignApproval.updateMany({
+            where: { campaign_id: editCampaignId, status: 'pending' },
+            data: { status: 'superseded' }
           }),
           prisma.campaign.delete({ where: { id: result.campaignId } })
         ]);
@@ -379,25 +329,12 @@ router.post('/plan', async (req: Request, res: Response) => {
  */
 router.get('/', async (req: Request, res: Response) => {
   try {
-    // For testing without auth, get all campaigns or use test user
-    let operatorId = req.user?.id;
-
-    if (!operatorId) {
-      // Get test user for demo
-      let testOperator = await prisma.operator.findFirst({
-        where: { email: 'demo@example.com' }
-      });
-
-      if (testOperator) {
-        operatorId = testOperator.id;
-      }
-    }
-
+    const operatorId = req.user!.id;
     const { clientId } = req.query;
 
     const campaigns = await prisma.campaign.findMany({
       where: {
-        ...(operatorId ? { created_by_operator_id: operatorId } : {}),
+        created_by_operator_id: operatorId,
         ...(clientId ? { client_id: clientId as string } : {}),
         status: {
           not: 'workflow_template'
@@ -602,24 +539,95 @@ async function getClientIdForOperator(operatorId: string): Promise<string | null
 import { findToolAccount } from '../ai/pipeline/ensure-tool-accounts';
 import { ApolloService } from '../services/apollo.service';
 
-async function ensureCampaignExists(campaignId: string, clientAccountId: string, operatorId?: string) {
-  const campaign = await prisma.campaign.findUnique({ where: { id: campaignId } });
-  if (!campaign) {
-    let finalOperatorId = operatorId;
-    if (!finalOperatorId) {
-      const defaultOperator = await prisma.operator.findFirst();
-      finalOperatorId = defaultOperator?.id || '';
+/**
+ * POST /api/campaigns/draft
+ * Creates a real, persisted draft campaign up front, server-side, so the
+ * builder wizard has one stable id for the whole session instead of
+ * generating a random UUID client-side (which orphaned leads on a campaign
+ * the compiler never actually created). Owned by the caller from the start.
+ */
+router.post('/draft', async (req: Request, res: Response) => {
+  try {
+    const operatorId = req.user!.id;
+    const { clientId: requestedClientId } = req.body as { clientId?: string };
+
+    let clientId = requestedClientId;
+    if (clientId) {
+      const ownedClient = await prisma.client.findFirst({
+        where: { id: clientId, created_by_operator_id: operatorId },
+        select: { id: true }
+      });
+      if (!ownedClient) {
+        return res.status(400).json({ success: false, error: 'Selected client not found for this operator' });
+      }
+    } else {
+      clientId = (await getClientIdForOperator(operatorId)) || undefined;
     }
-    await prisma.campaign.create({
+
+    if (!clientId) {
+      return res.status(400).json({ success: false, error: 'No client found for this operator' });
+    }
+
+    const campaign = await prisma.campaign.create({
       data: {
-        id: campaignId,
-        client_id: clientAccountId,
-        name: 'Draft Campaign',
-        created_by_operator_id: finalOperatorId,
+        client_id: clientId,
+        name: 'Untitled Draft',
+        created_by_operator_id: operatorId,
         status: 'draft'
       }
     });
+
+    res.status(201).json({ success: true, campaignId: campaign.id });
+  } catch (error) {
+    console.error('Create draft campaign error:', error);
+    res.status(500).json({ success: false, error: 'Failed to create draft campaign' });
   }
+});
+
+/**
+ * PATCH /api/campaigns/:id/draft
+ * Lightweight save for "Save Draft" — persists builder state without
+ * running the LLM compiler (unlike POST /plan). Previously this button only
+ * navigated away; nothing was ever saved.
+ */
+router.patch('/:id/draft', async (req: Request, res: Response) => {
+  try {
+    const operatorId = req.user!.id;
+    const { id } = req.params;
+    const { name, builderConfig } = req.body as { name?: string; builderConfig?: Record<string, unknown> };
+
+    const campaign = await prisma.campaign.findFirst({
+      where: { id, created_by_operator_id: operatorId }
+    });
+    if (!campaign) {
+      return res.status(404).json({ success: false, error: 'Campaign not found' });
+    }
+    if (campaign.status !== 'draft') {
+      return res.status(400).json({ success: false, error: 'Only draft campaigns can be saved this way' });
+    }
+
+    const updated = await prisma.campaign.update({
+      where: { id },
+      data: {
+        ...(name ? { name } : {}),
+        ...(builderConfig ? { builder_config: builderConfig as any } : {})
+      }
+    });
+
+    res.json({ success: true, campaignId: updated.id });
+  } catch (error) {
+    console.error('Save draft campaign error:', error);
+    res.status(500).json({ success: false, error: 'Failed to save draft' });
+  }
+});
+
+/** Confirms the campaign exists and belongs to the requesting operator. */
+async function assertCampaignOwnership(campaignId: string, operatorId: string): Promise<boolean> {
+  const campaign = await prisma.campaign.findFirst({
+    where: { id: campaignId, created_by_operator_id: operatorId },
+    select: { id: true }
+  });
+  return !!campaign;
 }
 
 router.post('/:campaignId/leads/import/apollo', async (req: Request, res: Response) => {
@@ -631,8 +639,12 @@ router.post('/:campaignId/leads/import/apollo', async (req: Request, res: Respon
   }
 
   try {
-    const operatorId = req.user?.id;
-    await ensureCampaignExists(campaignId, clientAccountId, operatorId);
+    const operatorId = req.user!.id;
+    const owned = await assertCampaignOwnership(campaignId, operatorId);
+    if (!owned) {
+      res.status(404).json({ success: false, error: 'Campaign not found' });
+      return;
+    }
 
     const apolloService = new ApolloService();
     const { leads, fallback } = await apolloService.importLeads(campaignId, clientAccountId, filters);
@@ -664,6 +676,12 @@ router.post('/:campaignId/leads/apollo/search', async (req: Request, res: Respon
 
 router.post('/:campaignId/leads/dedup', async (req: Request, res: Response) => {
   const { campaignId } = req.params;
+  const operatorId = req.user!.id;
+  const owned = await assertCampaignOwnership(campaignId, operatorId);
+  if (!owned) {
+    res.status(404).json({ success: false, error: 'Campaign not found' });
+    return;
+  }
   try {
     const leads = await prisma.lead.findMany({
       where: { campaign_id: campaignId },
@@ -738,6 +756,13 @@ router.post('/:campaignId/leads/enrich', async (req: Request, res: Response) => 
   const { leadIds, tool } = req.body;
   if (!leadIds || !Array.isArray(leadIds) || !tool) {
     res.status(400).json({ success: false, error: 'leadIds array and tool are required' });
+    return;
+  }
+
+  const operatorId = req.user!.id;
+  const owned = await assertCampaignOwnership(campaignId, operatorId);
+  if (!owned) {
+    res.status(404).json({ success: false, error: 'Campaign not found' });
     return;
   }
 

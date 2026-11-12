@@ -47,8 +47,17 @@ router.post('/submit', async (req: Request, res: Response) => {
     const updatedCampaign = await prisma.campaign.update({
       where: { id: campaignId },
       data: {
-        status: 'pending_approval'
+        status: 'pending_approval',
+        submitted_by_operator_id: operatorId,
+        submitted_at: new Date()
       }
+    } as any);
+
+    // A re-submission after editing shouldn't leave a stale pending approval
+    // record from before the edit sitting around alongside the new one.
+    await prisma.campaignApproval.updateMany({
+      where: { campaign_id: campaignId, status: 'pending' },
+      data: { status: 'superseded' }
     } as any);
 
     const approval = await prisma.campaignApproval.create({
@@ -79,12 +88,15 @@ router.post('/review', async (req: Request, res: Response) => {
   try {
     const { campaignId, action, comments } = req.body as CampaignApprovalRequest;
     const operatorId = req.user!.id;
+    const isAdmin = req.user!.role === 'admin';
 
-    // Get the campaign
+    // A regular operator can only review their own campaigns (today's
+    // behavior — effectively self-approval). An admin is the actual
+    // approver role: they can see and act on anyone's pending campaign.
     const campaign = await prisma.campaign.findFirst({
       where: {
         id: campaignId,
-        created_by_operator_id: operatorId,
+        ...(isAdmin ? {} : { created_by_operator_id: operatorId }),
         status: { not: 'workflow_template' }
       }
     });
@@ -119,6 +131,8 @@ router.post('/review', async (req: Request, res: Response) => {
     if (action === 'approve') {
       // Approve the campaign
       updateData.status = 'approved';
+      updateData.approved_by_operator_id = operatorId;
+      updateData.approved_at = new Date();
 
       updatedCampaign = await prisma.campaign.update({
         where: { id: campaignId },
@@ -130,22 +144,19 @@ router.post('/review', async (req: Request, res: Response) => {
         where: { id: approval.id },
         data: {
           status: 'approved',
+          approved_by_operator_id: operatorId,
           comments
         }
       } as any);
 
-      // Trigger immediate execution (demo mode - no real API calls)
+      // Queue only THIS campaign — not every approved campaign platform-wide.
       console.log(`🚀 Campaign approved, triggering execution: ${campaignId}`);
-      
-      // Import execution queue
       const { ExecutionQueue } = await import('../services/execution.queue');
       const executionQueue = new ExecutionQueue();
-      
-      // Trigger execution in background (demo mode - no real API calls)
+
       setTimeout(async () => {
         try {
-          console.log('🎯 Triggering execution queue (demo mode - no real API calls)');
-          await executionQueue.triggerApprovedCampaigns();
+          await executionQueue.triggerApprovedCampaigns({ campaignId });
         } catch (error) {
           console.error('❌ Failed to trigger campaign execution:', error);
         }
@@ -192,11 +203,15 @@ router.post('/review', async (req: Request, res: Response) => {
 router.get('/pending', async (req: Request, res: Response) => {
   try {
     const operatorId = req.user!.id;
-    
+    const isAdmin = req.user!.role === 'admin';
+
+    // Admins (the approver role) see every pending campaign so a different
+    // person than the submitter can actually review it. A regular operator
+    // only ever sees their own — same as before.
     const pendingCampaigns = await prisma.campaign.findMany({
       where: {
         status: 'pending_approval',
-        created_by_operator_id: operatorId
+        ...(isAdmin ? {} : { created_by_operator_id: operatorId })
       } as any,
       include: {
         client: true as any,

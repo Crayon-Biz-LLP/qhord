@@ -9,17 +9,26 @@ export class ExecutionQueue {
     this.executionEngine = new ExecutionEngine();
   }
 
-  async triggerApprovedCampaigns() {
-    // Find all approved campaigns that haven't been executed yet
-    const approvedCampaigns = await prisma.campaign.findMany({
-      where: {
-        status: 'approved'
-      }
-    });
+  /**
+   * Queues approved campaigns for execution. Pass `campaignId` to queue just
+   * the one campaign that was just approved (the normal path, from
+   * routes/approvals.ts). Pass `operatorId` to scope to one operator's
+   * approved campaigns (the manual "trigger" endpoints, admin-only). With
+   * neither, queues every approved campaign platform-wide — callers of that
+   * form must themselves be gated to admins.
+   */
+  async triggerApprovedCampaigns(scope?: { campaignId?: string; operatorId?: string }) {
+    const where: any = { status: 'approved' };
+    if (scope?.campaignId) {
+      where.id = scope.campaignId;
+    } else if (scope?.operatorId) {
+      where.created_by_operator_id = scope.operatorId;
+    }
+
+    const approvedCampaigns = await prisma.campaign.findMany({ where });
 
     console.log(`🚀 Found ${approvedCampaigns.length} approved campaigns to queue`);
 
-    // Add each approved campaign to the queue
     for (const campaign of approvedCampaigns) {
       await this.queueCampaign(campaign);
     }
@@ -49,18 +58,36 @@ export class ExecutionQueue {
         data: { status: 'executing' }
       });
 
+      await prisma.executionQueue.upsert({
+        where: { campaign_id: campaign.id },
+        create: {
+          campaign_id: campaign.id,
+          status: 'queued',
+          priority: campaign.priority || 5,
+          scheduled_at: new Date()
+        },
+        update: {
+          status: 'queued',
+          priority: campaign.priority || 5,
+          scheduled_at: new Date(),
+          started_at: null,
+          completed_at: null,
+          error_message: null
+        }
+      }).catch((err) => console.error('[ExecutionQueue] Failed to upsert queue record:', err));
+
       console.log(`✅ Campaign queued for execution: ${campaign.name} (Job ID: ${job.id})`);
       return job;
 
     } catch (error) {
       console.error(`❌ Failed to queue campaign: ${campaign.name}`, error);
-      
+
       // Mark campaign as failed
       await prisma.campaign.update({
         where: { id: campaign.id },
         data: { status: 'failed' }
       });
-      
+
       throw error;
     }
   }

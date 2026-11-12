@@ -6,7 +6,7 @@ import { resolveManifestSteps, applyPipelineToPayload, isLeadSourceAction } from
 import { emptyPipelineContext, type ManifestStepLike } from '../ai/pipeline/pipeline-types';
 import type { ToolName } from '../types';
 import { mergePipelineContext } from '../ai/pipeline/pipeline-leads';
-import { findToolAccount } from '../ai/pipeline/ensure-tool-accounts';
+import { findToolAccount, ensureToolAccountsForPipeline } from '../ai/pipeline/ensure-tool-accounts';
 import { fireEventTrigger } from '../services/trigger-dispatch';
 
 const CREDIT_COST: Record<string, number> = {
@@ -71,19 +71,49 @@ export class CampaignWorker {
         data: { status: 'executing' },
       });
 
+      await prisma.executionQueue.upsert({
+        where: { campaign_id: campaignId },
+        create: { campaign_id: campaignId, status: 'running', started_at: new Date() },
+        update: { status: 'running', started_at: new Date(), completed_at: null, error_message: null },
+      }).catch((err) => console.error('[ExecutionQueue] Failed to mark running:', err));
+
       const campaignSteps = await prisma.campaignStep.findMany({
         where: { campaign_id: campaignId },
         orderBy: { step_order: 'asc' },
       });
 
-      let manifestSteps: ManifestStepLike[] = campaignSteps.map((s) => ({
-        id: s.id,
-        order: s.step_order,
-        tool: s.tool_name,
-        action: s.action,
-        params: (s.params as Record<string, unknown>) || {},
-        dependencies: (s.dependencies as string[]) || [],
-      }));
+      // Steps a prior (crashed/retried) attempt already finished successfully
+      // don't get re-run — otherwise a BullMQ retry after a transient failure
+      // would resend emails/enrollments that already went out.
+      const alreadyCompletedStepIds = new Set(
+        campaignSteps.filter((s) => s.status === 'completed').map((s) => s.id)
+      );
+
+      let manifestSteps: ManifestStepLike[] = campaignSteps
+        .filter((s) => !alreadyCompletedStepIds.has(s.id))
+        .map((s) => ({
+          id: s.id,
+          order: s.step_order,
+          tool: s.tool_name,
+          action: s.action,
+          params: (s.params as Record<string, unknown>) || {},
+          dependencies: (s.dependencies as string[]) || [],
+        }));
+
+      if (alreadyCompletedStepIds.size > 0) {
+        console.log(`⏭️ Skipping ${alreadyCompletedStepIds.size} already-completed step(s) from a prior attempt`);
+      }
+
+      // Placeholder ("mock-ready") accounts for any tool this manifest needs
+      // but the client never connected — without this, a missing account
+      // throws per-step, that error gets swallowed below, and the campaign
+      // still reports "completed".
+      const manifestTools = [...new Set(manifestSteps.map((s) => s.tool))];
+      if (manifestTools.length > 0) {
+        await ensureToolAccountsForPipeline(clientId, operatorId, manifestTools).catch((err) =>
+          console.error('[campaign-worker] ensureToolAccountsForPipeline failed:', err)
+        );
+      }
 
       // A campaign built from a CSV/manual lead list already has its exact
       // leads persisted (see POST /campaigns/plan). Use those as-is instead
@@ -126,6 +156,17 @@ export class CampaignWorker {
       }
       const results = [];
       let stepIndex = 0;
+      // One manifest (CampaignStep) can expand into several resolved actions
+      // (e.g. Smartlead's send flow). Track pass/fail per manifest step id so
+      // the DB status written after the loop reflects what actually happened
+      // instead of leaving CampaignStep.status untouched forever.
+      const stepOutcomes = new Map<string, 'completed' | 'failed'>();
+      const markOutcome = (manifestStepId: string | undefined, outcome: 'completed' | 'failed') => {
+        if (!manifestStepId) return;
+        if (outcome === 'failed' || stepOutcomes.get(manifestStepId) !== 'failed') {
+          stepOutcomes.set(manifestStepId, outcome);
+        }
+      };
 
       for (const resolved of resolvedSteps) {
         stepIndex += 1;
@@ -173,6 +214,7 @@ export class CampaignWorker {
                   campaignId
                 );
                 results.push(enrollResult);
+                markOutcome(resolved.manifestStepId, 'completed');
               } catch (leadErr) {
                 console.error(`❌ Failed to enroll ${lead.email}`, leadErr);
                 results.push({
@@ -183,6 +225,7 @@ export class CampaignWorker {
                   error: leadErr instanceof Error ? leadErr.message : String(leadErr),
                   response: null,
                 });
+                markOutcome(resolved.manifestStepId, 'failed');
               }
             }
             continue;
@@ -198,6 +241,7 @@ export class CampaignWorker {
             campaignId
           );
           results.push(result);
+          markOutcome(resolved.manifestStepId, 'completed');
 
           // The moment an email actually goes out — fires any workflow
           // whose trigger is configured for the "Email sent" event.
@@ -230,7 +274,18 @@ export class CampaignWorker {
             error: stepError instanceof Error ? stepError.message : String(stepError),
             response: null,
           });
+          markOutcome(resolved.manifestStepId, 'failed');
         }
+      }
+
+      if (stepOutcomes.size > 0) {
+        await Promise.all(
+          [...stepOutcomes.entries()].map(([id, status]) =>
+            prisma.campaignStep.update({ where: { id }, data: { status } }).catch((err) =>
+              console.error(`[campaign-worker] Failed to write status for step ${id}:`, err)
+            )
+          )
+        );
       }
 
       // Persist leads from pipeline to database (skip when they were
@@ -256,16 +311,33 @@ export class CampaignWorker {
         console.log(`📝 ${leadData.length} leads saved to DB`);
       }
 
+      const hasErrors = results.some((r) => r.status === 'error');
+      const hasSuccesses = results.some((r) => r.status !== 'error');
+      // Truthful final status: a campaign where every attempted step failed
+      // is 'failed', not 'completed' — it used to always land on 'completed'
+      // regardless of outcome.
+      const finalStatus = !hasErrors ? 'completed' : hasSuccesses ? 'completed_with_errors' : 'failed';
+
       await prisma.campaign.update({
         where: { id: campaignId },
         data: {
-          status: 'completed',
+          status: finalStatus,
           updated_at: new Date(),
         },
       });
 
-      const hasErrors = results.some((r) => r.status === 'error');
-      console.log(`${hasErrors ? '⚠️' : '✅'} Campaign finished: ${campaignId}`);
+      await prisma.executionQueue.update({
+        where: { campaign_id: campaignId },
+        data: {
+          status: finalStatus,
+          completed_at: new Date(),
+          error_message: hasErrors
+            ? results.filter((r) => r.status === 'error').map((r: any) => r.error).filter(Boolean).slice(0, 5).join('; ') || null
+            : null,
+        },
+      }).catch((err) => console.error('[ExecutionQueue] Failed to mark completion:', err));
+
+      console.log(`${hasErrors ? '⚠️' : '✅'} Campaign finished: ${campaignId} (${finalStatus})`);
 
       return {
         success: !hasErrors,
@@ -273,7 +345,7 @@ export class CampaignWorker {
         stepsExecuted: results.length,
         leadsProcessed: pipelineContext.leads.length,
         results,
-        message: hasErrors ? 'Campaign completed with errors' : 'Campaign executed successfully',
+        message: finalStatus === 'completed' ? 'Campaign executed successfully' : finalStatus === 'failed' ? 'Campaign failed' : 'Campaign completed with errors',
       };
     } catch (error) {
       console.error(`❌ Campaign execution failed: ${campaignId}`, error);
@@ -285,6 +357,15 @@ export class CampaignWorker {
           updated_at: new Date(),
         },
       });
+
+      await prisma.executionQueue.update({
+        where: { campaign_id: campaignId },
+        data: {
+          status: 'failed',
+          completed_at: new Date(),
+          error_message: error instanceof Error ? error.message : String(error),
+        },
+      }).catch((err) => console.error('[ExecutionQueue] Failed to mark failure:', err));
 
       throw error;
     }

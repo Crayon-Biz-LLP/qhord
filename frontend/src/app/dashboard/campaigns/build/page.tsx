@@ -294,7 +294,16 @@ export default function BuildCampaignPage() {
   const { clients, selectedClient } = useClient();
   const { user } = useAuth();
   const [step, setStep] = useState(0);
-  const [campaignId] = useState(() => typeof window !== 'undefined' && window.crypto?.randomUUID ? window.crypto.randomUUID() : 'c' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15));
+  // The one campaign id for this whole builder session — used for every lead
+  // import/enrich/dedup call AND passed to /plan so Build folds into this
+  // same row. Previously this was a client-generated random UUID that only
+  // the lead-import calls used, while Build created a SEPARATE campaign via
+  // the compiler — orphaning any imported leads on a campaign nothing else
+  // ever referenced. Now it's always a real, server-created id: either the
+  // campaign being edited (?id=...) or a draft created via POST
+  // /campaigns/draft once a client is selected.
+  const [campaignId, setCampaignId] = useState<string | null>(null);
+  const draftRequestedRef = useRef(false);
   // Set when this session is editing an existing campaign (?id=...) — tells
   // handleBuild to update that campaign instead of creating a duplicate.
   const [editCampaignId, setEditCampaignId] = useState<string | null>(null);
@@ -319,6 +328,7 @@ export default function BuildCampaignPage() {
     maxLeads: "25",
   });
   const [building, setBuilding] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [methodOpen, setMethodOpen] = useState(false);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -408,6 +418,28 @@ export default function BuildCampaignPage() {
     }
   }, [selectedClient, form.parentAccount]);
 
+  // A fresh (non-editing) session: create a real, persisted draft campaign
+  // as soon as a client is selected, so campaignId is a stable, real id
+  // before the user ever imports a lead — not a client-generated UUID the
+  // backend never actually created a campaign for.
+  useEffect(() => {
+    if (draftRequestedRef.current || !selectedClient) return;
+    draftRequestedRef.current = true;
+    (async () => {
+      try {
+        const res = await api.post("/campaigns/draft", { clientId: selectedClient.id });
+        if (res.data?.success) {
+          setCampaignId(res.data.campaignId);
+        } else {
+          draftRequestedRef.current = false;
+        }
+      } catch (err) {
+        console.error("Failed to create draft campaign", err);
+        draftRequestedRef.current = false;
+      }
+    })();
+  }, [selectedClient]);
+
   // Editing an existing campaign: /campaigns/build?id=... — prefill the
   // wizard from whatever builder state was saved when it was last built,
   // and remember the id so Build updates that campaign instead of creating
@@ -417,6 +449,8 @@ export default function BuildCampaignPage() {
     const editId = new URLSearchParams(window.location.search).get("id");
     if (!editId) return;
     setEditCampaignId(editId);
+    setCampaignId(editId);
+    draftRequestedRef.current = true; // editing an existing campaign — never create a draft
 
     (async () => {
       try {
@@ -792,6 +826,10 @@ export default function BuildCampaignPage() {
       toast.error("Please select an active client first.");
       return;
     }
+    if (!campaignId) {
+      toast.error("Still preparing your campaign — try again in a moment.");
+      return;
+    }
 
     setImportingLeads(true);
     try {
@@ -833,6 +871,10 @@ export default function BuildCampaignPage() {
       toast.error("Please select at least one lead to enrich.");
       return;
     }
+    if (!campaignId) {
+      toast.error("Still preparing your campaign — try again in a moment.");
+      return;
+    }
     try {
       const res = await api.post(`/campaigns/${campaignId}/leads/enrich`, {
         leadIds: selectedLeads,
@@ -856,6 +898,10 @@ export default function BuildCampaignPage() {
   };
 
   const handleDedupLeads = async () => {
+    if (!campaignId) {
+      toast.error("Still preparing your campaign — try again in a moment.");
+      return;
+    }
     try {
       const res = await api.post(`/campaigns/${campaignId}/leads/dedup`);
       const data = res.data;
@@ -883,6 +929,10 @@ export default function BuildCampaignPage() {
   const handleAddLinkedInProfiles = async () => {
     if (selectedLeads.length === 0) {
       toast.error("Please select at least one lead.");
+      return;
+    }
+    if (!campaignId) {
+      toast.error("Still preparing your campaign — try again in a moment.");
       return;
     }
     try {
@@ -1162,7 +1212,12 @@ export default function BuildCampaignPage() {
         prompt: buildPrompt(),
         builderConfig: { ...form, emailSteps, linkedinSteps },
         clientId: selectedClient.id,
-        ...(editCampaignId ? { campaignId: editCampaignId } : {}),
+        // Always fold into the session's own draft/edit campaign id — the
+        // one real id used for lead import/enrich/dedup throughout — rather
+        // than only on an explicit edit, which used to leave the compiler
+        // free to create a second, disconnected campaign on every "new"
+        // build and orphan whatever leads were already imported.
+        ...(campaignId ? { campaignId } : {}),
         ...(pushedLeads.length > 0
           ? { manualLeads: pushedLeads.map((l) => ({ email: l.email, name: l.name, company: l.company, title: l.title, location: l.location })) }
           : {}),
@@ -1186,6 +1241,31 @@ export default function BuildCampaignPage() {
       toast.error(errorMsg);
     } finally {
       setBuilding(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    if (!campaignId) {
+      // Draft creation hasn't resolved yet (no client selected, or still in
+      // flight) — nothing to save against.
+      router.push("/dashboard/campaigns");
+      return;
+    }
+    setSavingDraft(true);
+    try {
+      await api.patch(`/campaigns/${campaignId}/draft`, {
+        name: form.name || undefined,
+        builderConfig: { ...form, emailSteps, linkedinSteps },
+      });
+      toast.success("Draft saved.");
+      router.push("/dashboard/campaigns");
+    } catch (e: any) {
+      // A campaign already past draft (submitted/approved/etc.) can't be
+      // saved this way — just leave; Build is still what updates those.
+      console.error("Save draft failed:", e);
+      router.push("/dashboard/campaigns");
+    } finally {
+      setSavingDraft(false);
     }
   };
 
@@ -1237,10 +1317,11 @@ export default function BuildCampaignPage() {
             Build
           </button>
           <button
-            onClick={() => router.push("/dashboard/campaigns")}
-            className="h-10 px-5 rounded-full border border-[#1a1510]/15 text-[12px] font-semibold text-[#1a1510] flex items-center gap-2 hover:bg-[#f7f8f9] transition-colors"
+            onClick={handleSaveDraft}
+            disabled={savingDraft}
+            className="h-10 px-5 rounded-full border border-[#1a1510]/15 text-[12px] font-semibold text-[#1a1510] flex items-center gap-2 hover:bg-[#f7f8f9] transition-colors disabled:opacity-50"
           >
-            <Save size={15} className="text-[#1a1510]/50" /> <span className="hidden sm:inline">Save Draft</span>
+            <Save size={15} className="text-[#1a1510]/50" /> <span className="hidden sm:inline">{savingDraft ? "Saving…" : "Save Draft"}</span>
           </button>
         </div>
       </header>

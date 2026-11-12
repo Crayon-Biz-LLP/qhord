@@ -1,9 +1,16 @@
 import { Router, Request, Response } from 'express';
 import { ExecutionQueue } from '../services/execution.queue';
-import { requireAuth } from '../middleware/auth';
+import { requireAuth, requireRole } from '../middleware/auth';
 
 const router = Router();
 const executionQueue = new ExecutionQueue();
+
+// These act on the shared BullMQ queue platform-wide (pause/resume/clear
+// affect every tenant's campaigns), so despite the "(admin only)" comments
+// they previously carried no actual role check — any authenticated operator
+// could pause or wipe execution for everyone. Gate the whole router to admins
+// (requireAuth first, so req.user exists before the role check runs).
+router.use(requireAuth, requireRole(['admin']));
 
 // Get queue status
 router.get('/status', requireAuth, async (req: Request, res: Response) => {

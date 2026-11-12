@@ -1,6 +1,6 @@
 import express from 'express';
 import { prisma } from '../lib/prisma';
-import { requireAuth } from '../middleware/auth';
+import { requireAuth, requireRole } from '../middleware/auth';
 import { ExecutionQueue } from '../services/execution.queue';
 
 const router = express.Router();
@@ -10,19 +10,22 @@ router.use(requireAuth);
 
 /**
  * POST /api/execution/trigger
- * Manually trigger execution of approved campaigns
+ * Manually trigger execution of approved campaigns. Admin-only: this used
+ * to queue every approved campaign on the platform for any authenticated
+ * operator who called it — now scoped to the caller's own campaigns, and
+ * gated to admins since it's a bulk/operational action.
  */
-router.post('/trigger', async (req: express.Request, res: express.Response) => {
+router.post('/trigger', requireRole(['admin']), async (req: express.Request, res: express.Response) => {
   try {
     const operatorId = req.user!.id;
-    
+
     console.log('🚀 Manual execution trigger requested by operator:', operatorId);
-    
+
     // Import execution queue
     const executionQueue = new ExecutionQueue();
-    
-    // Trigger execution of approved campaigns
-    await executionQueue.triggerApprovedCampaigns();
+
+    // Trigger execution of this operator's own approved campaigns
+    await executionQueue.triggerApprovedCampaigns({ operatorId });
     
     res.json({ 
       success: true, 
